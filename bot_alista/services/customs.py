@@ -30,10 +30,10 @@ def get_cbr_eur_rate(retries=3, delay=2) -> float | None:
                 raise Exception(f"HTTP {r.status_code}")
             r.encoding = "windows-1251"
 
-            tree = ET.fromstring(r.text)␊
-            for valute in tree.findall("Valute"):␊
-                if valute.find("CharCode").text == "EUR":␊
-                    eur_rate = float(valute.find("Value").text.replace(",", "."))␊
+            tree = ET.fromstring(r.text)
+            for valute in tree.findall("Valute"):
+                if valute.find("CharCode").text == "EUR":
+                    eur_rate = float(valute.find("Value").text.replace(",", "."))
                     _cached_rate = eur_rate
                     _cached_date = datetime.today().date()
                     logging.info(f"Курс евро ЦБ РФ: {eur_rate}")
