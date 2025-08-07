@@ -1,8 +1,14 @@
-TOKEN = "8318772952:AAGGMwcRSbbd42YuR-rkUkA53Qf6DHTQJTs"
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 # Настройки для отправки email
-SMTP_SERVER = "smtp.yandex.ru"
-SMTP_PORT = 465
-EMAIL_LOGIN = "korol.artur.2002@yandex.ru"
-EMAIL_PASSWORD = "attqhdcqxfdkepcm"
-EMAIL_TO = "korol.artur.2002@yandex.ru"
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+EMAIL_LOGIN = os.getenv("EMAIL_LOGIN")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_TO = os.getenv("EMAIL_TO")
