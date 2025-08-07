@@ -30,14 +30,14 @@ def get_cbr_eur_rate(retries=3, delay=2) -> float | None:
                 raise Exception(f"HTTP {r.status_code}")
             r.encoding = "windows-1251"
 
-            tree = ET.fromstring(r.text)
-            for valute in tree.findall("Valute"):
-                if valute.find("CharCode").text == "EUR":
-                    eur_rate = float(valute.find("Value").text.replace(",", "."))
-                _cached_rate = eur_rate
-                _cached_date = datetime.today().date()
-                logging.info(f"Курс евро ЦБ РФ: {eur_rate}")
-                return eur_rate
+            tree = ET.fromstring(r.text)␊
+            for valute in tree.findall("Valute"):␊
+                if valute.find("CharCode").text == "EUR":␊
+                    eur_rate = float(valute.find("Value").text.replace(",", "."))␊
+                    _cached_rate = eur_rate
+                    _cached_date = datetime.today().date()
+                    logging.info(f"Курс евро ЦБ РФ: {eur_rate}")
+                    return eur_rate
 
         except Exception as e:
             logging.warning(f"Попытка {attempt} не удалась: {e}")
@@ -141,3 +141,4 @@ def calculate_customs(price_eur: float, engine_cc: int, year: int, car_type: str
         "total_eur": round(total_eur, 2),
         "total_rub": round(total_rub, 2)
     }
+
