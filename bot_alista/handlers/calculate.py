@@ -126,23 +126,20 @@ async def manual_rate(message: types.Message, state: FSMContext):
     await run_calculation(state, message)
 
 # 9️⃣ Расчёт и вывод результата
-async def run_calculation(state: FSMContext, message: types.Message):
-    data = await state.get_data()
-    engine = data.get("engine", 0)
-    eur_rate = data.get("eur_rate")
-
-result = calculate_customs(
-        price_eur=data["price"],
-        engine_cc=engine,
-        year=data["year"],
-        car_type=data["car_type"],
-        power_hp=data["power_hp"],
-        weight_kg=data["weight"]
+async def run_calculation(state: FSMContext, message: types.Message):␊
+    data = await state.get_data()␊
+    engine = data.get("engine", 0)␊
+    eur_rate = data.get("eur_rate")␊
+␊
+    result = calculate_customs(␊
+        price_eur=data["price"],␊
+        engine_cc=engine,␊
+        year=data["year"],␊
+        car_type=data["car_type"],␊
+        power_hp=data["power_hp"],␊
+        weight_kg=data["weight"],
+        eur_rate=eur_rate,
     )
-
-    if eur_rate:
-        result["eur_rate"] = eur_rate
-        result["total_rub"] = round(result["total_eur"] * eur_rate, 2)
 
     # Сохраняем результат в состояние, чтобы использовать его при отправке PDF
     await state.update_data(result=result)
@@ -201,4 +198,3 @@ async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
         os.remove(pdf_path)
 
     await reset_to_menu(message, state)
-
