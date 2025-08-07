@@ -12,6 +12,14 @@ from utils.reset import reset_to_menu
 
 router = Router()
 
+
+async def _check_exit(message: types.Message, state: FSMContext) -> bool:
+    """Return to main menu if user pressed a navigation button."""
+    if message.text in {"🏠 Главное меню", "⬅ Назад"}:
+        await reset_to_menu(message, state)
+        return True
+    return False
+
 # 1️⃣ Старт расчёта
 @router.message(F.text == "📊 Рассчитать растаможку")
 async def start_calculation(message: types.Message, state: FSMContext):
@@ -32,6 +40,8 @@ async def start_calculation(message: types.Message, state: FSMContext):
 # 2️⃣ Получение типа авто
 @router.message(CalculationStates.calc_type)
 async def get_car_type(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     if message.text not in ["Бензин", "Дизель", "Гибрид", "Электро"]:
         return await message.answer("Пожалуйста, выберите тип авто кнопкой.")
     await state.update_data(car_type=message.text)
@@ -41,6 +51,8 @@ async def get_car_type(message: types.Message, state: FSMContext):
 # 3️⃣ Получение цены
 @router.message(CalculationStates.calc_price)
 async def get_price(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         price = float(message.text.replace(",", "."))
     except:
@@ -57,6 +69,8 @@ async def get_price(message: types.Message, state: FSMContext):
 # 4️⃣ Получение объёма двигателя
 @router.message(CalculationStates.calc_engine)
 async def get_engine(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         engine = int(message.text)
     except:
@@ -68,6 +82,8 @@ async def get_engine(message: types.Message, state: FSMContext):
 # 5️⃣ Получение мощности
 @router.message(CalculationStates.calc_power)
 async def get_power(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         val = message.text.lower().replace(",", ".")
         if "квт" in val or "kw" in val:
@@ -84,6 +100,8 @@ async def get_power(message: types.Message, state: FSMContext):
 # 6️⃣ Получение года выпуска
 @router.message(CalculationStates.calc_year)
 async def get_year(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         year = int(message.text)
         if year < 1980 or year > 2100:
@@ -97,6 +115,8 @@ async def get_year(message: types.Message, state: FSMContext):
 # 7️⃣ Масса авто → пробуем курс ЦБ РФ
 @router.message(CalculationStates.calc_weight)
 async def get_weight(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         weight = int(message.text)
     except:
@@ -118,6 +138,8 @@ async def get_weight(message: types.Message, state: FSMContext):
 # 8️⃣ Ручной ввод курса
 @router.message(CalculationStates.manual_eur_rate)
 async def manual_rate(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         eur_rate = float(message.text.replace(",", "."))
     except:
@@ -164,6 +186,8 @@ async def run_calculation(state: FSMContext, message: types.Message):
 # 🔟 Получаем email и отправляем PDF
 @router.message(CalculationStates.email_request)
 async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     user_email = message.text.strip()
 
     # Минимальная проверка email
