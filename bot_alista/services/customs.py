@@ -4,6 +4,8 @@ from datetime import datetime
 import logging
 import time
 
+from .customs_rates import get_cached_rates
+
 # Логирование в файл
 logging.basicConfig(
     filename="bot.log", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
@@ -68,6 +70,14 @@ def calculate_customs(
 
     current_year = datetime.now().year
     age = current_year - year
+
+    tariff_info = get_cached_rates()
+    if tariff_info:
+        logging.info(
+            f"Используются данные тарифов из {tariff_info['source']} от {tariff_info['date']}"
+        )
+    else:
+        logging.warning("Данные тарифов не найдены, используются встроенные таблицы")
 
     # Таблицы ставок ТКС (€ за 1 см³)
     rates_3_5 = [
