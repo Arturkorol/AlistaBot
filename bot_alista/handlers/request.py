@@ -24,7 +24,7 @@ async def start_request(message: types.Message, state: FSMContext):
         resize_keyboard=True
     )
 
-    await message.answer("Введите ФИО владельца:", reply_markup=back_menu())
+    await message.answer("Введите ФИО владельца:", reply_markup=kb)
 
 # 2️⃣ ФИО
 @router.message(RequestStates.request_name)
