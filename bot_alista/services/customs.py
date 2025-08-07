@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import logging
 import time
+from .customs_rates import fetch_tariffs
 
 # Логирование в файл
 logging.basicConfig(
@@ -69,24 +70,20 @@ def calculate_customs(
     current_year = datetime.now().year
     age = current_year - year
 
-    # Таблицы ставок ТКС (€ за 1 см³)
-    rates_3_5 = [
-        (1000, 1.5), (1500, 1.7), (1800, 2.5),
-        (2300, 2.7), (3000, 3.0), (99999, 3.6)
-    ]
-    rates_5_plus = [
-        (1000, 3.0), (1500, 3.2), (1800, 3.5),
-        (2300, 4.8), (3000, 5.0), (99999, 5.7)
-    ]
+    tariffs = fetch_tariffs()
+    duty_tables = tariffs["duty"]
+    under_3 = duty_tables.get("under_3", {"per_cc": 2.5, "price_percent": 0.48})
+    rates_3_5 = duty_tables.get("3_5", [])
+    rates_5_plus = duty_tables.get("over_5", [])
 
     duty = 0
-    excise = 0
+    excise_rub = 0
     utilization_fee = 0
 
     # Логика для ДВС
     if car_type.lower() in ["бензин", "дизель"]:
         if age < 3:
-            duty = max(price_eur * 0.48, engine_cc * 2.5)
+            duty = max(price_eur * under_3.get("price_percent", 0.48), engine_cc * under_3.get("per_cc", 2.5))
         elif 3 <= age <= 5:
             rate = next(rate for limit, rate in rates_3_5 if engine_cc <= limit)
             duty = engine_cc * rate
@@ -96,12 +93,12 @@ def calculate_customs(
 
         # Акциз для >3000 см³
         if engine_cc > 3000:
-            excise = power_hp * 511.0 / 100  # 511 ₽ за 1 л.с., переведём в евро позже
+            excise_rub = power_hp * tariffs["excise"].get("over_3000_hp_rub", 0)
 
     # Логика для гибридов (скидка на пошлину 50%)
     elif car_type.lower() == "гибрид":
         if age < 3:
-            duty = max(price_eur * 0.48, engine_cc * 2.5) * 0.5
+            duty = max(price_eur * under_3.get("price_percent", 0.48), engine_cc * under_3.get("per_cc", 2.5)) * 0.5
         elif 3 <= age <= 5:
             rate = next(rate for limit, rate in rates_3_5 if engine_cc <= limit) * 0.5
             duty = engine_cc * rate
@@ -112,10 +109,11 @@ def calculate_customs(
     # Логика для электромобилей
     elif car_type.lower() == "электро":
         duty = 0
-        excise = 0
+        excise_rub = 0
 
-    # Утилизационный сбор (пример)
-    utilization_fee_rub = 3400 if age > 3 else 2000
+    # Утилизационный сбор
+    util_table = tariffs["utilization"]
+    utilization_fee_rub = util_table["age_over_3"] if age > 3 else util_table["age_under_3"]
 
     # Если курс не передан — пробуем получить автоматически
     if eur_rate is None:
@@ -124,13 +122,13 @@ def calculate_customs(
         eur_rate = 100.0  # по умолчанию, будет заменён вручную
 
     utilization_fee = utilization_fee_rub / eur_rate
-    excise = excise / eur_rate  # переводим акциз в евро
+    excise = excise_rub / eur_rate  # переводим акциз в евро
 
     # НДС (20%)
     vat = (price_eur + duty + excise + utilization_fee) * 0.20
 
-    # Сбор за оформление (фикс)
-    fee = 5
+    # Сбор за оформление
+    fee = tariffs.get("processing_fee", 5)
 
     total_eur = duty + excise + vat + utilization_fee + fee
     total_rub = total_eur * eur_rate
