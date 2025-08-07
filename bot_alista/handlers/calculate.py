@@ -6,7 +6,7 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from states import CalculationStates
 from keyboards.navigation import back_menu, yes_no_menu
-from services.customs import calculate_customs, get_cbr_eur_rate
+from services.customs import calculate_customs, get_cbr_eur_rate, fetch_tariffs
 from services.email import send_email
 from services.pdf_report import generate_calculation_pdf
 from aiogram.types import FSInputFile
@@ -154,6 +154,7 @@ async def run_calculation(state: FSMContext, message: types.Message):
     data = await state.get_data()
     engine = data.get("engine", 0)
     eur_rate = data.get("eur_rate")
+    tariffs = fetch_tariffs()
 
     result = calculate_customs(
         price_eur=data["price"],
@@ -163,6 +164,7 @@ async def run_calculation(state: FSMContext, message: types.Message):
         power_hp=data["power_hp"],
         weight_kg=data["weight"],
         eur_rate=eur_rate,
+        tariffs=tariffs,
     )
 
     # Сохраняем результат в состояние, чтобы использовать его при отправке PDF

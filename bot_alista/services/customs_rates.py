@@ -78,6 +78,27 @@ def _parse_xml(text: str) -> Dict[str, Any]:
         return DEFAULT_TARIFFS
 
 
+def _validate_tariffs(data: Dict[str, Any]) -> bool:
+    """Basic validation to ensure required fields exist."""
+    try:
+        duty = data["duty"]
+        under_3 = duty["under_3"]
+        if not all(k in under_3 for k in ("per_cc", "price_percent")):
+            return False
+        if not isinstance(duty.get("3_5"), list) or not isinstance(duty.get("over_5"), list):
+            return False
+        if "over_3000_hp_rub" not in data["excise"]:
+            return False
+        util = data["utilization"]
+        if not all(k in util for k in ("age_under_3", "age_over_3")):
+            return False
+        if "processing_fee" not in data:
+            return False
+    except Exception:
+        return False
+    return True
+
+
 def fetch_tariffs() -> Dict[str, Any]:
     """Fetches tariff rates from the Russian customs service with per-day caching."""
     global _cached_tariffs, _cached_date
@@ -93,6 +114,8 @@ def fetch_tariffs() -> Dict[str, Any]:
             tariffs = _parse_json(resp.json())
         else:
             tariffs = _parse_xml(resp.text)
+        if not _validate_tariffs(tariffs):
+            raise ValueError("invalid data structure")
     except Exception as e:
         logging.warning("Failed to fetch tariffs: %s", e)
         tariffs = DEFAULT_TARIFFS
