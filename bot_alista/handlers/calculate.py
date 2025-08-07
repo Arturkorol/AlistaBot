@@ -131,7 +131,7 @@ async def run_calculation(state: FSMContext, message: types.Message):
     engine = data.get("engine", 0)
     eur_rate = data.get("eur_rate")
 
-    result = calculate_customs(
+result = calculate_customs(
         price_eur=data["price"],
         engine_cc=engine,
         year=data["year"],
@@ -143,6 +143,9 @@ async def run_calculation(state: FSMContext, message: types.Message):
     if eur_rate:
         result["eur_rate"] = eur_rate
         result["total_rub"] = round(result["total_eur"] * eur_rate, 2)
+
+    # Сохраняем результат в состояние, чтобы использовать его при отправке PDF
+    await state.update_data(result=result)
 
     text = (
         f"💰 РАСЧЁТ ({data['car_type']})\n\n"
@@ -194,5 +197,6 @@ async def run_calculation(state: FSMContext, message: types.Message):
         # Чистим временный файл
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
+
 
         await reset_to_menu(message, state)
