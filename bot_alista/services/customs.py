@@ -47,8 +47,15 @@ def get_cbr_eur_rate(retries=3, delay=2) -> float | None:
     return None
 
 # Расчёт растаможки по ТКС
-def calculate_customs(price_eur: float, engine_cc: int, year: int, car_type: str,
-                      power_hp: float = 0, weight_kg: float = 0) -> dict:
+def calculate_customs(
+    price_eur: float,
+    engine_cc: int,
+    year: int,
+    car_type: str,
+    power_hp: float = 0,
+    weight_kg: float = 0,
+    eur_rate: float | None = None,
+) -> dict:
     """
     price_eur — цена авто в евро
     engine_cc — объём двигателя в см³
@@ -56,6 +63,7 @@ def calculate_customs(price_eur: float, engine_cc: int, year: int, car_type: str
     car_type — "Бензин", "Дизель", "Гибрид", "Электро"
     power_hp — мощность в л.с.
     weight_kg — масса авто в кг
+    eur_rate — курс евро (если None, будет попытка получить автоматически)
     """
 
     current_year = datetime.now().year
@@ -109,8 +117,9 @@ def calculate_customs(price_eur: float, engine_cc: int, year: int, car_type: str
     # Утилизационный сбор (пример)
     utilization_fee_rub = 3400 if age > 3 else 2000
 
-    # Если будет курс в дальнейшем — переведём в евро
-    eur_rate = get_cbr_eur_rate()
+    # Если курс не передан — пробуем получить автоматически
+    if eur_rate is None:
+        eur_rate = get_cbr_eur_rate()
     if eur_rate is None:
         eur_rate = 100.0  # по умолчанию, будет заменён вручную
 
