@@ -1,5 +1,6 @@
 import uuid
 import os
+import asyncio
 
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
@@ -8,6 +9,7 @@ from keyboards.navigation import back_menu
 from services.customs import calculate_customs, get_cbr_eur_rate
 from services.email import send_email
 from services.pdf_report import generate_calculation_pdf
+from aiogram.types import FSInputFile
 from utils.reset import reset_to_menu
 
 router = Router()
@@ -203,14 +205,24 @@ async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
     pdf_path = f"customs_report_{uuid.uuid4().hex}.pdf"
     generate_calculation_pdf(result, data, pdf_path)
 
-    # Отправка PDF
-    if send_email(
+    # Отправляем PDF пользователю в чат
+    await message.answer_document(
+        FSInputFile(pdf_path), caption="📄 Ваш расчёт в формате PDF"
+    )
+
+    # Отправка PDF на почту в отдельном потоке
+    email_sent = await asyncio.to_thread(
+        send_email,
         to_email=user_email,
         subject="Ваш расчёт растаможки",
         body="Добрый день! Во вложении PDF‑отчёт с результатами расчёта.",
         attachment_path=pdf_path,
-    ):
-        await message.answer("✅ PDF‑отчёт отправлен на вашу почту!", reply_markup=back_menu())
+    )
+
+    if email_sent:
+        await message.answer(
+            "✅ PDF‑отчёт отправлен на вашу почту!", reply_markup=back_menu()
+        )
     else:
         await message.answer(
             "❌ Не удалось отправить PDF‑отчёт. Попробуйте позже.",
