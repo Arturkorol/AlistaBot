@@ -163,40 +163,42 @@ result = calculate_customs(
     await message.answer("📧 Введите ваш e‑mail для получения PDF‑отчёта:", reply_markup=back_menu())
     await state.set_state(CalculationStates.email_request)
 
-    # 🔟 Получаем email и отправляем PDF
-    @router.message(CalculationStates.email_request)
-    async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
-        user_email = message.text.strip()
 
-        # Минимальная проверка email
-        if "@" not in user_email or "." not in user_email:
-            return await message.answer("❌ Пожалуйста, введите корректный email.", 
-                                        reply_markup=back_menu())
-        
-        data = await state.get_data()
-        result = data.get("result")
+# 🔟 Получаем email и отправляем PDF
+@router.message(CalculationStates.email_request)
+async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
+    user_email = message.text.strip()
 
-        # Генерация PDF
-        pdf_path = f"customs_report_{uuid.uuid4().hex}.pdf"
-        generate_calculation_pdf(result, data, pdf_path)
+    # Минимальная проверка email
+    if "@" not in user_email or "." not in user_email:
+        return await message.answer(
+            "❌ Пожалуйста, введите корректный email.", reply_markup=back_menu()
+        )
 
-        # Отправка PDF
-        if send_email(
-            to_email=user_email,
-            subject="Ваш расчёт растаможки",
-            body="Добрый день! Во вложении PDF‑отчёт с результатами расчёта.",
-            attachment_path=pdf_path
-        ):
-            await message.answer("✅ PDF‑отчёт отправлен на вашу почту!", 
-                                 reply_markup=back_menu())
-            
-        else:
-            await message.answer("❌ Не удалось отправить PDF‑отчёт. Попробуйте позже.",
-                                 reply_markup=back_menu())
-            
-        # Чистим временный файл
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
+    data = await state.get_data()
+    result = data.get("result")
 
+    # Генерация PDF
+    pdf_path = f"customs_report_{uuid.uuid4().hex}.pdf"
+    generate_calculation_pdf(result, data, pdf_path)
 
-        await reset_to_menu(message, state)
+    # Отправка PDF
+    if send_email(
+        to_email=user_email,
+        subject="Ваш расчёт растаможки",
+        body="Добрый день! Во вложении PDF‑отчёт с результатами расчёта.",
+        attachment_path=pdf_path,
+    ):
+        await message.answer("✅ PDF‑отчёт отправлен на вашу почту!", reply_markup=back_menu())
+    else:
+        await message.answer(
+            "❌ Не удалось отправить PDF‑отчёт. Попробуйте позже.",
+            reply_markup=back_menu(),
+        )
+
+    # Чистим временный файл
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
+
+    await reset_to_menu(message, state)
+
