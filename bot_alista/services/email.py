@@ -50,4 +50,3 @@ def send_email(
         print(f"❌ Ошибка отправки письма: {e}")
         return False
 
-        server.sendmail(EMAIL_LOGIN, EMAIL_TO, msg.as_string())
