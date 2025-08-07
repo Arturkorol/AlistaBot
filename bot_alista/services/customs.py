@@ -56,6 +56,7 @@ def calculate_customs(
     power_hp: float = 0,
     weight_kg: float = 0,
     eur_rate: float | None = None,
+    tariffs: dict | None = None,
 ) -> dict:
     """
     price_eur — цена авто в евро
@@ -65,12 +66,14 @@ def calculate_customs(
     power_hp — мощность в л.с.
     weight_kg — масса авто в кг
     eur_rate — курс евро (если None, будет попытка получить автоматически)
+    tariffs — словарь с тарифами (если None, будет получен автоматически)
     """
 
     current_year = datetime.now().year
     age = current_year - year
 
-    tariffs = fetch_tariffs()
+    if tariffs is None:
+        tariffs = fetch_tariffs()
     duty_tables = tariffs["duty"]
     under_3 = duty_tables.get("under_3", {"per_cc": 2.5, "price_percent": 0.48})
     rates_3_5 = duty_tables.get("3_5", [])
