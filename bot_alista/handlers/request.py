@@ -5,6 +5,7 @@ from keyboards.navigation import back_menu
 from services.email import send_email
 from services.pdf_report import generate_request_pdf
 from utils.reset import reset_to_menu
+from config import EMAIL_TO
 
 import os
 import uuid
@@ -82,7 +83,7 @@ async def get_comment(message: types.Message, state: FSMContext):
     generate_request_pdf(data, pdf_path)
 
     # Отправляем на e-mail менеджера
-    if send_email("korol.artur.2002@yandex.ru", "Заявка на растаможку", email_body, pdf_path):
+    if send_email(EMAIL_TO, "Заявка на растаможку", email_body, pdf_path):
         await message.answer("✅ Заявка отправлена! Наш специалист свяжется с вами.", 
                              reply_markup=back_menu())
     else:

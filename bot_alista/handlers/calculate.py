@@ -5,7 +5,7 @@ import asyncio
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from states import CalculationStates
-from keyboards.navigation import back_menu
+from keyboards.navigation import back_menu, yes_no_menu
 from services.customs import calculate_customs, get_cbr_eur_rate
 from services.email import send_email
 from services.pdf_report import generate_calculation_pdf
@@ -181,11 +181,35 @@ async def run_calculation(state: FSMContext, message: types.Message):
     )
 
     await message.answer(text)
-    await message.answer("📧 Введите ваш e‑mail для получения PDF‑отчёта:", reply_markup=back_menu())
-    await state.set_state(CalculationStates.email_request)
+    await message.answer(
+        "📧 Хотите получить PDF‑отчёт на e‑mail?",
+        reply_markup=yes_no_menu(),
+    )
+    await state.set_state(CalculationStates.email_confirm)
 
 
-# 🔟 Получаем email и отправляем PDF
+# 🔟 Подтверждаем отправку PDF
+@router.message(CalculationStates.email_confirm)
+async def confirm_pdf(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
+    if message.text == "Да":
+        await message.answer(
+            "Введите ваш e‑mail для получения PDF‑отчёта:",
+            reply_markup=back_menu(),
+        )
+        await state.set_state(CalculationStates.email_request)
+    elif message.text == "Нет":
+        await message.answer("Отчёт не будет отправлен.")
+        await reset_to_menu(message, state)
+    else:
+        await message.answer(
+            "Пожалуйста, выберите ответ: 'Да' или 'Нет'.",
+            reply_markup=yes_no_menu(),
+        )
+
+
+# 1️⃣1️⃣ Получаем email и отправляем PDF
 @router.message(CalculationStates.email_request)
 async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
     if await _check_exit(message, state):

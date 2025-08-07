@@ -9,6 +9,7 @@ class CalculationStates(StatesGroup):
     calc_year = State()
     calc_weight = State()
     manual_eur_rate = State()
+    email_confirm = State()
     email_request = State()
 
 # Состояния подачи заявки
