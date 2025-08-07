@@ -1,24 +1,22 @@
+"""PDF report generation utilities."""
+
 from fpdf import FPDF
+
 
 class PDFReport(FPDF):
     def header(self):
         self.set_font("Arial", "B", 14)
-        self.cell(
-            0, 10, self.title, ln=True, align="C"
-        )
+        self.cell(0, 10, self.title, ln=True, align="C")
         self.ln(5)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font(
-            "Arial", "I", 8
-        )
-        self.cell(
-            0, 10, f"Стр. {self.page_no()}", align="C"
-        )
+        self.set_font("Arial", "I", 8)
+        self.cell(0, 10, f"Стр. {self.page_no()}", align="C")
+
 
 def generate_request_pdf(data: dict, filename: str):
-    """Генерация PDF заявки на растаможку"""
+    """Генерация PDF заявки на растаможку."""
     pdf = PDFReport()
     pdf.title = "Заявка на растаможку"
     pdf.add_page()
@@ -32,8 +30,9 @@ def generate_request_pdf(data: dict, filename: str):
 
     pdf.output(filename)
 
+
 def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
-    """Генерация PDF отчёта по расчёту растаможки"""
+    """Генерация PDF отчёта по расчёту растаможки."""
     pdf = PDFReport()
     pdf.title = "Отчёт по расчёту растаможки"
     pdf.add_page()
@@ -55,7 +54,7 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     def add_row(name, value):
         pdf.cell(90, 8, name, border=1)
         pdf.cell(0, 8, str(value), border=1, ln=True)
-    
+
     add_row("Курс EUR/RUB", f"{result.get('eur_rate', '')} ₽")
     add_row("Пошлина", f"{result.get('duty_eur', '')} €")
     add_row("Акциз", f"{result.get('excise_eur', '')} €")
@@ -66,3 +65,4 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     add_row("ИТОГО (RUB)", f"{result.get('total_rub', '')} ₽")
 
     pdf.output(filename)
+
