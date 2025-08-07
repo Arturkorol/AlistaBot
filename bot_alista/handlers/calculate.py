@@ -126,17 +126,17 @@ async def manual_rate(message: types.Message, state: FSMContext):
     await run_calculation(state, message)
 
 # 9️⃣ Расчёт и вывод результата
-async def run_calculation(state: FSMContext, message: types.Message):␊
-    data = await state.get_data()␊
-    engine = data.get("engine", 0)␊
-    eur_rate = data.get("eur_rate")␊
-␊
-    result = calculate_customs(␊
-        price_eur=data["price"],␊
-        engine_cc=engine,␊
-        year=data["year"],␊
-        car_type=data["car_type"],␊
-        power_hp=data["power_hp"],␊
+async def run_calculation(state: FSMContext, message: types.Message):
+    data = await state.get_data()
+    engine = data.get("engine", 0)
+    eur_rate = data.get("eur_rate")
+
+    result = calculate_customs(
+        price_eur=data["price"],
+        engine_cc=engine,
+        year=data["year"],
+        car_type=data["car_type"],
+        power_hp=data["power_hp"],
         weight_kg=data["weight"],
         eur_rate=eur_rate,
     )
