@@ -23,7 +23,7 @@ async def _check_exit(message: types.Message, state: FSMContext) -> bool:
     return False
 
 # 1️⃣ Старт расчёта
-@router.message(F.text == "📊 Рассчитать стоимость")
+@router.message(F.text == "📊 Рассчитать стоимость таможенной очистки")
 async def start_calculation(message: types.Message, state: FSMContext):
     await state.set_state(CalculationStates.calc_type)
 
