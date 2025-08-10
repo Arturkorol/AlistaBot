@@ -12,6 +12,15 @@ import uuid
 
 router = Router()
 
+
+async def _check_exit(message: types.Message, state: FSMContext) -> bool:
+    """Return to main menu if user pressed a navigation button or typed 'back'."""
+    text = (message.text or "").lower()
+    if text in {"🏠 главное меню", "главное меню", "⬅ назад", "назад", "back"}:
+        await reset_to_menu(message, state)
+        return True
+    return False
+
 # 1️⃣ Старт заявки
 @router.message(F.text == "📝 Оставить заявку")
 async def start_request(message: types.Message, state: FSMContext):
@@ -30,6 +39,8 @@ async def start_request(message: types.Message, state: FSMContext):
 # 2️⃣ ФИО
 @router.message(RequestStates.request_name)
 async def get_name(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     await state.update_data(name=message.text.strip())
     await state.set_state(RequestStates.request_car)
     await message.answer("Введите марку и модель авто:", reply_markup=back_menu())
@@ -37,6 +48,8 @@ async def get_name(message: types.Message, state: FSMContext):
 # 3️⃣ Марка и модель
 @router.message(RequestStates.request_car)
 async def get_car(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     await state.update_data(car=message.text.strip())
     await state.set_state(RequestStates.request_contact)
     await message.answer("Введите контактные данные (телефон, e‑mail):", reply_markup=back_menu())
@@ -44,6 +57,8 @@ async def get_car(message: types.Message, state: FSMContext):
 # 4️⃣ Контакты
 @router.message(RequestStates.request_contact)
 async def get_contact(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     await state.update_data(contact=message.text.strip())
     await state.set_state(RequestStates.request_price)
     await message.answer("Введите ориентировочную стоимость авто (€):", reply_markup=back_menu())
@@ -51,6 +66,8 @@ async def get_contact(message: types.Message, state: FSMContext):
 # 5️⃣ Стоимость
 @router.message(RequestStates.request_price)
 async def get_price(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     try:
         price = float(message.text.replace(",", "."))
     except:
@@ -62,6 +79,8 @@ async def get_price(message: types.Message, state: FSMContext):
 # 6️⃣ Комментарий и отправка заявки
 @router.message(RequestStates.request_comment)
 async def get_comment(message: types.Message, state: FSMContext):
+    if await _check_exit(message, state):
+        return
     comment = message.text.strip()
     if comment.lower() == "нет":
         comment = ""

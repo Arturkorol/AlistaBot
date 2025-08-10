@@ -16,8 +16,9 @@ router = Router()
 
 
 async def _check_exit(message: types.Message, state: FSMContext) -> bool:
-    """Return to main menu if user pressed a navigation button."""
-    if message.text in {"🏠 Главное меню", "⬅ Назад"}:
+    """Return to main menu if user pressed a navigation button or typed 'back'."""
+    text = (message.text or "").lower()
+    if text in {"🏠 главное меню", "главное меню", "⬅ назад", "назад", "back"}:
         await reset_to_menu(message, state)
         return True
     return False
