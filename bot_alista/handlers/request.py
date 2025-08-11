@@ -7,6 +7,7 @@ from services.pdf_report import generate_request_pdf
 from utils.reset import reset_to_menu
 from config import EMAIL_TO
 
+import asyncio
 import os
 import uuid
 
@@ -102,12 +103,23 @@ async def get_comment(message: types.Message, state: FSMContext):
     generate_request_pdf(data, pdf_path)
 
     # Отправляем на e-mail менеджера
-    if send_email(EMAIL_TO, "Заявка на растаможку", email_body, pdf_path):
-        await message.answer("✅ Заявка отправлена! Наш специалист свяжется с вами.", 
-                             reply_markup=back_menu())
+    email_sent = await asyncio.to_thread(
+        send_email,
+        EMAIL_TO,
+        "Заявка на растаможку",
+        email_body,
+        pdf_path,
+    )
+    if email_sent:
+        await message.answer(
+            "✅ Заявка отправлена! Наш специалист свяжется с вами.",
+            reply_markup=back_menu(),
+        )
     else:
-        await message.answer("❌ Не удалось отправить заявку. Попробуйте позже.", 
-                             reply_markup=back_menu())
+        await message.answer(
+            "❌ Не удалось отправить заявку. Попробуйте позже.",
+            reply_markup=back_menu(),
+        )
         
     #Чистим PDF
     if os.path.exists(pdf_path):
