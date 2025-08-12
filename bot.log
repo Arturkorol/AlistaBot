@@ -1,0 +1,634 @@
+2025-08-07 21:21:53,979 [INFO] Start polling
+2025-08-07 21:21:55,409 [INFO] Run polling for bot @vlalistabot id=8318772952 - 'ALISTA Customs'
+2025-08-07 21:21:56,306 [INFO] Update id=505441916 is handled. Duration 639 ms by bot id=8318772952
+2025-08-07 21:21:56,323 [INFO] Update id=505441917 is handled. Duration 655 ms by bot id=8318772952
+2025-08-07 21:21:56,357 [INFO] Update id=505441920 is handled. Duration 686 ms by bot id=8318772952
+2025-08-07 21:21:56,380 [INFO] Update id=505441919 is handled. Duration 710 ms by bot id=8318772952
+2025-08-07 21:21:56,404 [INFO] Update id=505441918 is handled. Duration 735 ms by bot id=8318772952
+2025-08-07 21:21:56,423 [INFO] Update id=505441915 is handled. Duration 757 ms by bot id=8318772952
+2025-08-07 21:22:00,388 [INFO] Update id=505441921 is handled. Duration 226 ms by bot id=8318772952
+2025-08-07 21:22:02,396 [INFO] Update id=505441922 is handled. Duration 227 ms by bot id=8318772952
+2025-08-07 21:22:05,077 [INFO] Update id=505441923 is handled. Duration 832 ms by bot id=8318772952
+2025-08-07 21:22:07,081 [INFO] Update id=505441924 is handled. Duration 1001 ms by bot id=8318772952
+2025-08-07 21:22:11,078 [INFO] Update id=505441925 is handled. Duration 654 ms by bot id=8318772952
+2025-08-07 21:22:16,078 [INFO] Update id=505441926 is handled. Duration 780 ms by bot id=8318772952
+2025-08-07 21:22:19,307 [INFO] Update id=505441927 is handled. Duration 214 ms by bot id=8318772952
+2025-08-07 21:22:22,296 [INFO] Update id=505441928 is handled. Duration 215 ms by bot id=8318772952
+2025-08-07 21:22:28,079 [INFO] Êóðñ åâðî ÖÁ ÐÔ: 93.0072
+2025-08-07 21:22:31,077 [INFO] Update id=505441929 is handled. Duration 4998 ms by bot id=8318772952
+2025-08-07 21:23:49,091 [INFO] Start polling
+2025-08-07 21:23:51,080 [INFO] Run polling for bot @vlalistabot id=8318772952 - 'ALISTA Customs'
+2025-08-07 21:23:52,085 [INFO] Update id=505441930 is not handled. Duration 4 ms by bot id=8318772952
+2025-08-07 21:23:52,085 [INFO] Update id=505441931 is not handled. Duration 4 ms by bot id=8318772952
+2025-08-07 21:24:00,082 [INFO] Update id=505441932 is not handled. Duration 2 ms by bot id=8318772952
+2025-08-07 21:24:21,101 [INFO] Update id=505441933 is handled. Duration 1019 ms by bot id=8318772952
+2025-08-07 21:24:23,079 [INFO] Update id=505441934 is handled. Duration 747 ms by bot id=8318772952
+2025-08-07 21:24:26,085 [INFO] Update id=505441935 is handled. Duration 1004 ms by bot id=8318772952
+2025-08-07 21:24:30,078 [INFO] Update id=505441936 is handled. Duration 393 ms by bot id=8318772952
+2025-08-07 21:24:33,299 [INFO] Update id=505441937 is handled. Duration 219 ms by bot id=8318772952
+2025-08-07 21:24:38,079 [INFO] Update id=505441938 is handled. Duration 999 ms by bot id=8318772952
+2025-08-07 21:24:40,769 [INFO] Update id=505441939 is handled. Duration 333 ms by bot id=8318772952
+2025-08-07 21:24:44,360 [INFO] Êóðñ åâðî ÖÁ ÐÔ: 93.0072
+2025-08-07 21:24:47,079 [INFO] Update id=505441940 is handled. Duration 3823 ms by bot id=8318772952
+2025-08-07 21:24:51,060 [INFO] Update id=505441941 is handled. Duration 979 ms by bot id=8318772952
+2025-08-07 21:25:03,047 [INFO] Update id=505441942 is not handled. Duration 3 ms by bot id=8318772952
+2025-08-07 21:25:03,047 [ERROR] Cause exception while process update id=505441942 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-55: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\calculate.py", line 232, in send_pdf_report_to_user
+    generate_calculation_pdf(result, data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 67, in generate_calculation_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-55: ordinal not in range(256)
+2025-08-07 21:26:01,079 [INFO] Update id=505441943 is handled. Duration 941 ms by bot id=8318772952
+2025-08-07 21:26:02,820 [INFO] Update id=505441944 is handled. Duration 284 ms by bot id=8318772952
+2025-08-07 21:26:07,079 [INFO] Update id=505441945 is handled. Duration 558 ms by bot id=8318772952
+2025-08-07 21:26:11,079 [INFO] Update id=505441946 is handled. Duration 999 ms by bot id=8318772952
+2025-08-07 21:26:14,376 [INFO] Update id=505441947 is handled. Duration 372 ms by bot id=8318772952
+2025-08-07 21:26:18,511 [INFO] Update id=505441948 is handled. Duration 217 ms by bot id=8318772952
+2025-08-07 21:26:25,084 [INFO] Update id=505441949 is not handled. Duration 3 ms by bot id=8318772952
+2025-08-07 21:26:25,084 [ERROR] Cause exception while process update id=505441949 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\request.py", line 83, in get_comment
+    generate_request_pdf(data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 31, in generate_request_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+2025-08-07 21:27:37,362 [INFO] Update id=505441950 is not handled. Duration 2 ms by bot id=8318772952
+2025-08-07 21:27:37,362 [ERROR] Cause exception while process update id=505441950 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\request.py", line 83, in get_comment
+    generate_request_pdf(data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 31, in generate_request_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+2025-08-07 21:27:50,337 [INFO] Update id=505441951 is not handled. Duration 3 ms by bot id=8318772952
+2025-08-07 21:27:50,337 [ERROR] Cause exception while process update id=505441951 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\request.py", line 83, in get_comment
+    generate_request_pdf(data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 31, in generate_request_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+2025-08-07 21:27:52,084 [INFO] Update id=505441952 is not handled. Duration 3 ms by bot id=8318772952
+2025-08-07 21:27:52,085 [ERROR] Cause exception while process update id=505441952 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\request.py", line 83, in get_comment
+    generate_request_pdf(data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 31, in generate_request_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+2025-08-07 21:29:53,363 [INFO] Start polling
+2025-08-07 21:29:56,085 [INFO] Run polling for bot @vlalistabot id=8318772952 - 'ALISTA Customs'
+2025-08-07 21:29:57,678 [INFO] Update id=505441953 is handled. Duration 637 ms by bot id=8318772952
+2025-08-07 21:30:00,421 [INFO] Update id=505441954 is handled. Duration 261 ms by bot id=8318772952
+2025-08-07 21:30:02,347 [INFO] Update id=505441955 is handled. Duration 265 ms by bot id=8318772952
+2025-08-07 21:30:06,081 [INFO] Update id=505441956 is handled. Duration 899 ms by bot id=8318772952
+2025-08-07 21:30:09,267 [INFO] Update id=505441957 is handled. Duration 252 ms by bot id=8318772952
+2025-08-07 21:30:13,324 [INFO] Update id=505441958 is handled. Duration 234 ms by bot id=8318772952
+2025-08-07 21:30:16,320 [INFO] Update id=505441959 is handled. Duration 236 ms by bot id=8318772952
+2025-08-07 21:30:20,853 [INFO] Êóðñ åâðî ÖÁ ÐÔ: 93.0072
+2025-08-07 21:30:22,507 [INFO] Update id=505441960 is handled. Duration 2433 ms by bot id=8318772952
+2025-08-07 21:30:25,460 [INFO] Update id=505441961 is handled. Duration 214 ms by bot id=8318772952
+2025-08-07 21:30:36,667 [INFO] Update id=505441962 is not handled. Duration 2 ms by bot id=8318772952
+2025-08-07 21:30:36,668 [ERROR] Cause exception while process update id=505441962 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-55: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\calculate.py", line 232, in send_pdf_report_to_user
+    generate_calculation_pdf(result, data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 67, in generate_calculation_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-55: ordinal not in range(256)
+2025-08-07 21:31:14,358 [INFO] Update id=505441963 is handled. Duration 273 ms by bot id=8318772952
+2025-08-07 21:31:16,294 [INFO] Update id=505441964 is handled. Duration 209 ms by bot id=8318772952
+2025-08-07 21:31:19,949 [INFO] Update id=505441965 is handled. Duration 241 ms by bot id=8318772952
+2025-08-07 21:31:22,322 [INFO] Update id=505441966 is handled. Duration 239 ms by bot id=8318772952
+2025-08-07 21:31:25,343 [INFO] Update id=505441967 is handled. Duration 259 ms by bot id=8318772952
+2025-08-07 21:31:30,082 [INFO] Update id=505441968 is handled. Duration 997 ms by bot id=8318772952
+2025-08-07 21:31:35,397 [INFO] Update id=505441969 is not handled. Duration 3 ms by bot id=8318772952
+2025-08-07 21:31:35,397 [ERROR] Cause exception while process update id=505441969 by bot id=8318772952
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+Traceback (most recent call last):
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 309, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 158, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\error.py", line 25, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 56, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\fsm\middleware.py", line 42, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\dispatcher.py", line 276, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 174, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 146, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 141, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        observer=observer, update_type=update_type, event=telegram_event, **data
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\router.py", line 166, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\telegram.py", line 121, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\handlers\request.py", line 83, in get_comment
+    generate_request_pdf(data, pdf_path)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "c:\Users\Artur\Desktop\AlistaBot-main\bot_alista\services\pdf_report.py", line 31, in generate_request_pdf
+    pdf.output(filename)
+    ~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1065, in output
+    self.close()
+    ~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 246, in close
+    self._enddoc()
+    ~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1636, in _enddoc
+    self._putpages()
+    ~~~~~~~~~~~~~~^^
+  File "C:\Users\Artur\AppData\Roaming\Python\Python313\site-packages\fpdf\fpdf.py", line 1170, in _putpages
+    p = self.pages[n].encode("latin1") if PY3K else self.pages[n]
+        ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+UnicodeEncodeError: 'latin-1' codec can't encode characters in position 51-56: ordinal not in range(256)
+2025-08-07 22:25:00,922 [ERROR] Failed to fetch updates - TelegramNetworkError: HTTP Client says - Request timeout error
+2025-08-07 22:25:00,922 [WARNING] Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8318772952)
+2025-08-07 22:25:12,528 [INFO] Connection established (tryings = 1, bot id = 8318772952)
