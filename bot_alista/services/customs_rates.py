@@ -1,8 +1,17 @@
-import requests
-import xml.etree.ElementTree as ET
+"""Tariff rate retrieval with per-day caching.
+
+This module fetches tariff data from a remote endpoint and caches it for the
+current day.  The original implementation pulled in a couple of unused typing
+imports and did not group the imports in a clear manner.  Cleaning this up
+reduces noise and clarifies the external dependency on ``requests``.
+"""
+
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+import xml.etree.ElementTree as ET
+from typing import Any, Dict
+
+import requests
 
 # Default fallback tariffs in case fetching fails
 DEFAULT_TARIFFS: Dict[str, Any] = {

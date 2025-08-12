@@ -81,7 +81,6 @@ def calculate_customs(
 
     duty = 0
     excise_rub = 0
-    utilization_fee = 0
 
     # Логика для ДВС
     if car_type.lower() in ["бензин", "дизель"]:
@@ -125,15 +124,15 @@ def calculate_customs(
         eur_rate = 100.0  # по умолчанию, будет заменён вручную
 
     utilization_fee = utilization_fee_rub / eur_rate
-    excise = excise_rub / eur_rate  # переводим акциз в евро
+    excise_eur = excise_rub / eur_rate  # переводим акциз в евро
 
     # НДС (20%)
-    vat = (price_eur + duty + excise + utilization_fee) * 0.20
+    vat = (price_eur + duty + excise_eur + utilization_fee) * 0.20
 
     # Сбор за оформление
     fee = tariffs.get("processing_fee", 5)
 
-    total_eur = duty + excise + vat + utilization_fee + fee
+    total_eur = duty + excise_eur + vat + utilization_fee + fee
     total_rub = total_eur * eur_rate
 
     return {
@@ -144,7 +143,7 @@ def calculate_customs(
         "age": age,
         "eur_rate": round(eur_rate, 2),
         "duty_eur": round(duty, 2),
-        "excise_eur": round(excise, 2),
+        "excise_eur": round(excise_eur, 2),
         "vat_eur": round(vat, 2),
         "util_eur": round(utilization_fee, 2),
         "fee_eur": fee,
