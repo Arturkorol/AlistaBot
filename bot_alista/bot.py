@@ -11,7 +11,7 @@ async def main():
     dp.include_router(calculate.router)
     dp.include_router(request.router)
     dp.include_router(cancel.router)
-    dp.include_router(menu_navigation.router)
+    dp.include_router(menu_navigation.router)  # navigation fallback last
 
     await dp.start_polling(bot)
 

@@ -4,7 +4,7 @@ import asyncio
 
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from states import CalculationStates
+from ..states import CalculationStates
 from keyboards.navigation import back_menu, yes_no_menu
 from services.customs import calculate_customs, get_cbr_eur_rate, fetch_tariffs
 from services.email import send_email
@@ -128,12 +128,13 @@ async def get_weight(message: types.Message, state: FSMContext):
 
     eur_rate = get_cbr_eur_rate()
     if eur_rate is None:
+        await state.set_state(CalculationStates.manual_eur_rate)
         await message.answer(
             "❌ Не удалось получить курс евро ЦБ РФ.\n"
             "📥 Введите курс евро вручную (₽ за €):",
             reply_markup=back_menu()
         )
-        return await state.set_state(CalculationStates.manual_eur_rate)
+        return
 
     await state.update_data(eur_rate=eur_rate)
     await run_calculation(state, message)
@@ -184,11 +185,11 @@ async def run_calculation(state: FSMContext, message: types.Message):
     )
 
     await message.answer(text)
+    await state.set_state(CalculationStates.email_confirm)
     await message.answer(
         "📧 Хотите получить PDF‑отчёт на e‑mail?",
         reply_markup=yes_no_menu(),
     )
-    await state.set_state(CalculationStates.email_confirm)
 
 
 # 🔟 Подтверждаем отправку PDF
@@ -197,11 +198,11 @@ async def confirm_pdf(message: types.Message, state: FSMContext):
     if await _check_exit(message, state):
         return
     if message.text == "Да":
+        await state.set_state(CalculationStates.email_request)
         await message.answer(
             "Введите ваш e‑mail для получения PDF‑отчёта:",
             reply_markup=back_menu(),
         )
-        await state.set_state(CalculationStates.email_request)
     elif message.text == "Нет":
         await message.answer("Отчёт не будет отправлен.")
         await reset_to_menu(message, state)
