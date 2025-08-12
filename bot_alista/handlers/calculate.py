@@ -6,11 +6,12 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from states import CalculationStates
 from keyboards.navigation import back_menu, yes_no_menu
+from aiogram.types import FSInputFile
+from utils.reset import reset_to_menu
 from services.customs import calculate_customs, get_cbr_eur_rate, fetch_tariffs
 from services.email import send_email
 from services.pdf_report import generate_calculation_pdf
-from aiogram.types import FSInputFile
-from utils.reset import reset_to_menu
+from bot_alista.services.rates import validate_or_prompt_rate
 
 router = Router()
 
@@ -131,8 +132,9 @@ async def get_weight(message: types.Message, state: FSMContext):
         await message.answer(
             "❌ Не удалось получить курс евро ЦБ РФ.\n"
             "📥 Введите курс евро вручную (₽ за €):",
-            reply_markup=back_menu()
+            reply_markup=back_menu(),
         )
+        await state.update_data(pending_currency="EUR")
         return await state.set_state(CalculationStates.manual_eur_rate)
 
     await state.update_data(eur_rate=eur_rate)
@@ -143,11 +145,20 @@ async def get_weight(message: types.Message, state: FSMContext):
 async def manual_rate(message: types.Message, state: FSMContext):
     if await _check_exit(message, state):
         return
-    try:
-        eur_rate = float(message.text.replace(",", "."))
-    except:
+    eur_rate = validate_or_prompt_rate(message.text)
+    if eur_rate is None:
         return await message.answer("Введите корректный курс в формате: 97.25")
-    await state.update_data(eur_rate=eur_rate)
+
+    data = await state.get_data()
+    manual_rates = data.get("manual_rates", {})
+    currency = data.get("pending_currency", "EUR")
+    manual_rates[currency] = eur_rate
+
+    await state.update_data(
+        eur_rate=eur_rate,
+        manual_rates=manual_rates,
+        pending_currency=None,
+    )
     await run_calculation(state, message)
 
 # 9️⃣ Расчёт и вывод результата
