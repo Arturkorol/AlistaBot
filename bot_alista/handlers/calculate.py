@@ -1,65 +1,116 @@
-import uuid
-import os
-import asyncio
+"""Handlers for customs cost calculation."""
 
-from aiogram import Router, types, F
+from __future__ import annotations
+
+import logging
+from datetime import date
+from typing import List
+
+from aiogram import F, Router, types
+from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
+
 from states import CalculationStates
-from keyboards.navigation import back_menu, yes_no_menu
-from services.customs import calculate_customs, get_cbr_eur_rate, fetch_tariffs
-from services.email import send_email
-from services.pdf_report import generate_calculation_pdf
-from aiogram.types import FSInputFile
+from keyboards.navigation import back_menu
 from utils.reset import reset_to_menu
+from bot_alista.services.rates import get_cached_rates, currency_to_rub
+from tariff_engine import calc_import_breakdown
+from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 router = Router()
 
+# Navigation text constants
+BACK_TEXT = "⬅ Назад"
+MENU_TEXT = "🏠 Главное меню"
 
-async def _check_exit(message: types.Message, state: FSMContext) -> bool:
-    """Return to main menu if user pressed a navigation button or typed 'back'."""
-    text = (message.text or "").lower()
-    if text in {"🏠 главное меню", "главное меню", "⬅ назад", "назад", "back"}:
+# Currency constants
+CURRENCY_EUR = "EUR"
+CURRENCY_USD = "USD"
+CURRENCY_JPY = "JPY"
+CURRENCY_CNY = "CNY"
+CURRENCIES: List[str] = [CURRENCY_EUR, CURRENCY_USD, CURRENCY_JPY, CURRENCY_CNY]
+
+
+def car_type_kb() -> types.ReplyKeyboardMarkup:
+    return types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
+            [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
+            [types.KeyboardButton(text=MENU_TEXT)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def currency_kb() -> types.ReplyKeyboardMarkup:
+    return types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text=CURRENCY_EUR), types.KeyboardButton(text=CURRENCY_USD)],
+            [types.KeyboardButton(text=CURRENCY_JPY), types.KeyboardButton(text=CURRENCY_CNY)],
+            [types.KeyboardButton(text=BACK_TEXT), types.KeyboardButton(text=MENU_TEXT)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def _is_menu(text: str | None) -> bool:
+    return (text or "").lower() in {MENU_TEXT.lower(), "главное меню"}
+
+
+async def _check_menu(message: types.Message, state: FSMContext) -> bool:
+    if _is_menu(message.text):
         await reset_to_menu(message, state)
         return True
     return False
 
-# 1️⃣ Старт расчёта
+
 @router.message(F.text == "📊 Рассчитать стоимость таможенной очистки")
-async def start_calculation(message: types.Message, state: FSMContext):
+async def start_calculation(message: types.Message, state: FSMContext) -> None:
     await state.set_state(CalculationStates.calc_type)
+    await message.answer("Выберите тип авто:", reply_markup=car_type_kb())
 
-    # Клавиатура с типами авто + главное меню
-    kb = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
-            [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
-            [types.KeyboardButton(text="🏠 Главное меню")]
-        ],
-        resize_keyboard=True
-    )
 
-    await message.answer("Выберите тип авто:", reply_markup=kb)
-
-# 2️⃣ Получение типа авто
 @router.message(CalculationStates.calc_type)
-async def get_car_type(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+async def get_car_type(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
         return
     if message.text not in ["Бензин", "Дизель", "Гибрид", "Электро"]:
-        return await message.answer("Пожалуйста, выберите тип авто кнопкой.")
+        await message.answer("Пожалуйста, выберите тип авто кнопкой.")
+        return
     await state.update_data(car_type=message.text)
-    await state.set_state(CalculationStates.calc_price)
-    await message.answer("Введите цену авто (€):", reply_markup=back_menu())
+    await state.set_state(CalculationStates.calc_currency)
+    await message.answer("Выберите валюту цены:", reply_markup=currency_kb())
 
-# 3️⃣ Получение цены
+
+@router.message(CalculationStates.calc_currency)
+async def get_currency(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
+        return
+    if message.text == BACK_TEXT:
+        await state.set_state(CalculationStates.calc_type)
+        await message.answer("Выберите тип авто:", reply_markup=car_type_kb())
+        return
+    if message.text not in CURRENCIES:
+        await message.answer("Пожалуйста, выберите валюту кнопкой.")
+        return
+    await state.update_data(currency_code=message.text)
+    await state.set_state(CalculationStates.calc_price)
+    await message.answer("Введите стоимость авто:", reply_markup=back_menu())
+
+
 @router.message(CalculationStates.calc_price)
-async def get_price(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+async def get_price(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
+        return
+    if message.text == BACK_TEXT:
+        await state.set_state(CalculationStates.calc_currency)
+        await message.answer("Выберите валюту цены:", reply_markup=currency_kb())
         return
     try:
         price = float(message.text.replace(",", "."))
-    except:
-        return await message.answer("Введите корректную цену в евро.")
+    except ValueError:
+        await message.answer("Введите корректную стоимость.")
+        return
     await state.update_data(price=price)
     data = await state.get_data()
     if data["car_type"] != "Электро":
@@ -69,195 +120,139 @@ async def get_price(message: types.Message, state: FSMContext):
         await state.set_state(CalculationStates.calc_power)
         await message.answer("Введите мощность двигателя (л.с. или кВт):", reply_markup=back_menu())
 
-# 4️⃣ Получение объёма двигателя
+
 @router.message(CalculationStates.calc_engine)
-async def get_engine(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+async def get_engine(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
+        return
+    if message.text == BACK_TEXT:
+        await state.set_state(CalculationStates.calc_price)
+        await message.answer("Введите стоимость авто:", reply_markup=back_menu())
         return
     try:
         engine = int(message.text)
-    except:
-        return await message.answer("Введите корректный объём двигателя в см³.")
+    except ValueError:
+        await message.answer("Введите корректный объём двигателя в см³.")
+        return
     await state.update_data(engine=engine)
     await state.set_state(CalculationStates.calc_power)
     await message.answer("Введите мощность двигателя (л.с. или кВт):", reply_markup=back_menu())
 
-# 5️⃣ Получение мощности
+
 @router.message(CalculationStates.calc_power)
-async def get_power(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+async def get_power(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
+        return
+    data = await state.get_data()
+    if message.text == BACK_TEXT:
+        if data["car_type"] != "Электро":
+            await state.set_state(CalculationStates.calc_engine)
+            await message.answer("Введите объём двигателя (см³):", reply_markup=back_menu())
+        else:
+            await state.set_state(CalculationStates.calc_price)
+            await message.answer("Введите стоимость авто:", reply_markup=back_menu())
         return
     try:
         val = message.text.lower().replace(",", ".")
         if "квт" in val or "kw" in val:
-            power_kw = float(''.join(c for c in val if c.isdigit() or c == "."))
+            power_kw = float("".join(c for c in val if c.isdigit() or c == "."))
             power_hp = power_kw * 1.35962
         else:
-            power_hp = float(''.join(c for c in val if c.isdigit() or c == "."))
-    except:
-        return await message.answer("Введите корректную мощность (пример: 150 или 110 кВт).")
+            power_hp = float("".join(c for c in val if c.isdigit() or c == "."))
+    except Exception:
+        await message.answer("Введите корректную мощность (пример: 150 или 110 кВт).")
+        return
     await state.update_data(power_hp=round(power_hp, 1))
     await state.set_state(CalculationStates.calc_year)
     await message.answer("Введите год выпуска авто:", reply_markup=back_menu())
 
-# 6️⃣ Получение года выпуска
+
 @router.message(CalculationStates.calc_year)
-async def get_year(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+async def get_year(message: types.Message, state: FSMContext) -> None:
+    if await _check_menu(message, state):
+        return
+    if message.text == BACK_TEXT:
+        await state.set_state(CalculationStates.calc_power)
+        await message.answer("Введите мощность двигателя (л.с. или кВт):", reply_markup=back_menu())
         return
     try:
         year = int(message.text)
-        if year < 1980 or year > 2100:
+        if year < 1980 or year > date.today().year + 1:
             raise ValueError
-    except:
-        return await message.answer("Введите корректный год выпуска.")
+    except ValueError:
+        await message.answer("Введите корректный год выпуска.")
+        return
     await state.update_data(year=year)
-    await state.set_state(CalculationStates.calc_weight)
-    await message.answer("Введите массу авто (кг):", reply_markup=back_menu())
-
-# 7️⃣ Масса авто → пробуем курс ЦБ РФ
-@router.message(CalculationStates.calc_weight)
-async def get_weight(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
-        return
-    try:
-        weight = int(message.text)
-    except:
-        return await message.answer("Введите корректную массу в кг.")
-    await state.update_data(weight=weight)
-
-    eur_rate = get_cbr_eur_rate()
-    if eur_rate is None:
-        await message.answer(
-            "❌ Не удалось получить курс евро ЦБ РФ.\n"
-            "📥 Введите курс евро вручную (₽ за €):",
-            reply_markup=back_menu()
-        )
-        return await state.set_state(CalculationStates.manual_eur_rate)
-
-    await state.update_data(eur_rate=eur_rate)
     await run_calculation(state, message)
 
-# 8️⃣ Ручной ввод курса
-@router.message(CalculationStates.manual_eur_rate)
-async def manual_rate(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
-        return
-    try:
-        eur_rate = float(message.text.replace(",", "."))
-    except:
-        return await message.answer("Введите корректный курс в формате: 97.25")
-    await state.update_data(eur_rate=eur_rate)
-    await run_calculation(state, message)
 
-# 9️⃣ Расчёт и вывод результата
-async def run_calculation(state: FSMContext, message: types.Message):
+async def run_calculation(state: FSMContext, message: types.Message) -> None:
     data = await state.get_data()
-    engine = data.get("engine", 0)
-    eur_rate = data.get("eur_rate")
-    tariffs = fetch_tariffs()
+    try:
+        decl_date = date.today()
+        amount = data["price"]
+        currency_code = data["currency_code"]
 
-    result = calculate_customs(
-        price_eur=data["price"],
-        engine_cc=engine,
-        year=data["year"],
-        car_type=data["car_type"],
-        power_hp=data["power_hp"],
-        weight_kg=data["weight"],
-        eur_rate=eur_rate,
-        tariffs=tariffs,
-    )
+        rates = get_cached_rates(decl_date, codes=CURRENCIES)
+        customs_value_rub = currency_to_rub(amount, currency_code, decl_date)
+        eur_rate = rates[CURRENCY_EUR]
+        customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
-    # Сохраняем результат в состояние, чтобы использовать его при отправке PDF
-    await state.update_data(result=result)
+        engine_cc = int(data.get("engine", 0))
+        engine_hp = int(data.get("power_hp", 0))
+        year = data.get("year")
+        age_years = decl_date.year - year if year else 0
 
-    text = (
-        f"💰 РАСЧЁТ ({data['car_type']})\n\n"
-        f"Цена авто: {result['price_eur']} €\n"
-        f"Курс: {result['eur_rate']} ₽\n"
-        f"Пошлина: {result['duty_eur']} €\n"
-        f"Акциз: {result['excise_eur']} €\n"
-        f"НДС: {result['vat_eur']} €\n"
-        f"Утильсбор: {result['util_eur']} €\n"
-        f"Сбор: {result['fee_eur']} €\n\n"
-        f"ИТОГО: {result['total_eur']} € ({result['total_rub']} ₽)"
-    )
+        car_type = data.get("car_type", "Бензин")
+        fuel_type = "ice"
+        if car_type == "Электро":
+            fuel_type = "ev"
+            engine_cc = 0
+        elif car_type == "Гибрид":
+            fuel_type = "hybrid"
 
-    await message.answer(text)
-    await message.answer(
-        "📧 Хотите получить PDF‑отчёт на e‑mail?",
-        reply_markup=yes_no_menu(),
-    )
-    await state.set_state(CalculationStates.email_confirm)
-
-
-# 🔟 Подтверждаем отправку PDF
-@router.message(CalculationStates.email_confirm)
-async def confirm_pdf(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
-        return
-    if message.text == "Да":
-        await message.answer(
-            "Введите ваш e‑mail для получения PDF‑отчёта:",
-            reply_markup=back_menu(),
+        core = calc_import_breakdown(
+            customs_value_eur=customs_value_eur,
+            eur_rub_rate=eur_rate,
+            engine_cc=engine_cc,
+            engine_hp=engine_hp,
+            is_disabled_vehicle=False,
+            is_export=False,
+            person_type="individual",
         )
-        await state.set_state(CalculationStates.email_request)
-    elif message.text == "Нет":
-        await message.answer("Отчёт не будет отправлен.")
+
+        util = calc_util_rub(
+            person_type="individual",
+            usage="personal",
+            engine_cc=engine_cc,
+            fuel=fuel_type,
+            vehicle_kind="passenger",
+            age_years=age_years,
+            date_decl=decl_date,
+            avg_vehicle_cost_rub=None,
+            actual_costs_rub=None,
+            config=UTIL_CONFIG,
+        )
+
+        total = round(core["breakdown"]["total_rub"] + util, 2)
+        notes = " | ".join(core.get("notes", []))
+
+        text = (
+            "```\n"
+            f"Цена: {amount} {currency_code}\n"
+            f"Курсы: {currency_code}={rates[currency_code]} | EUR={eur_rate}\n"
+            f"Таможенная стоимость: {customs_value_rub} ₽\n"
+            f"Пошлина: {core['breakdown']['duty_eur']} € / {core['breakdown']['duty_rub']} ₽\n"
+            f"Акциз: {core['breakdown']['excise_rub']} ₽\n"
+            f"НДС: {core['breakdown']['vat_rub']} ₽\n"
+            f"Утиль: {util} ₽\n"
+            f"ИТОГО: {total} ₽\n"
+            f"Примечания: {notes}\n"
+            "```"
+        )
+        await message.answer(text, parse_mode=ParseMode.MARKDOWN)
+    except Exception as exc:  # pragma: no cover - runtime errors
+        logging.exception("Calculation failed: %s", exc)
+        await message.answer("❌ Произошла ошибка при расчёте. Попробуйте позже.")
+    finally:
         await reset_to_menu(message, state)
-    else:
-        await message.answer(
-            "Пожалуйста, выберите ответ: 'Да' или 'Нет'.",
-            reply_markup=yes_no_menu(),
-        )
-
-
-# 1️⃣1️⃣ Получаем email и отправляем PDF
-@router.message(CalculationStates.email_request)
-async def send_pdf_report_to_user(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
-        return
-    user_email = message.text.strip()
-
-    # Минимальная проверка email
-    if "@" not in user_email or "." not in user_email:
-        return await message.answer(
-            "❌ Пожалуйста, введите корректный email.", reply_markup=back_menu()
-        )
-
-    data = await state.get_data()
-    result = data.get("result")
-
-    # Генерация PDF
-    pdf_path = f"customs_report_{uuid.uuid4().hex}.pdf"
-    generate_calculation_pdf(result, data, pdf_path)
-
-    # Отправляем PDF пользователю в чат
-    await message.answer_document(
-        FSInputFile(pdf_path), caption="📄 Ваш расчёт в формате PDF"
-    )
-
-    # Отправка PDF на почту в отдельном потоке
-    email_sent = await asyncio.to_thread(
-        send_email,
-        to_email=user_email,
-        subject="Ваш расчёт растаможки",
-        body="Добрый день! Во вложении PDF‑отчёт с результатами расчёта.",
-        attachment_path=pdf_path,
-    )
-
-    if email_sent:
-        await message.answer(
-            "✅ PDF‑отчёт отправлен на вашу почту!", reply_markup=back_menu()
-        )
-    else:
-        await message.answer(
-            "❌ Не удалось отправить PDF‑отчёт. Попробуйте позже.",
-            reply_markup=back_menu(),
-        )
-
-    # Чистим временный файл
-    if os.path.exists(pdf_path):
-        os.remove(pdf_path)
-
-    await reset_to_menu(message, state)
