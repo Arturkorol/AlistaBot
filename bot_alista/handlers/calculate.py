@@ -14,6 +14,10 @@ from keyboards.navigation import back_menu
 from utils.reset import reset_to_menu
 from constants import (
     CURRENCY_CODES,
+    PROMPT_PERSON,
+    ERROR_PERSON,
+    PROMPT_USAGE,
+    ERROR_USAGE,
     PROMPT_TYPE,
     ERROR_TYPE,
     PROMPT_CURRENCY,
@@ -31,7 +35,7 @@ from constants import (
     ERROR_RATE,
 )
 from bot_alista.services.rates import get_cached_rates, validate_or_prompt_rate
-from tariff_engine import calc_import_breakdown
+from tariff_engine import calc_breakdown_with_mode
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 
@@ -43,11 +47,30 @@ router = Router()
 # ---------------------------------------------------------------------------
 
 
+def _person_type_kb() -> types.ReplyKeyboardMarkup:
+    kb = [
+        [
+            types.KeyboardButton(text="Физическое лицо"),
+            types.KeyboardButton(text="Юридическое лицо"),
+        ],
+        [types.KeyboardButton(text="🏠 Главное меню")],
+    ]
+    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
+def _usage_type_kb() -> types.ReplyKeyboardMarkup:
+    kb = [
+        [types.KeyboardButton(text="Личное"), types.KeyboardButton(text="Коммерческое")],
+        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+    ]
+    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
 def _car_type_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
         [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
-        [types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -87,13 +110,45 @@ async def _check_nav(
 
 @router.message(F.text == "📊 Рассчитать стоимость таможенной очистки")
 async def start_calculation(message: types.Message, state: FSMContext) -> None:
+    await state.set_state(CalculationStates.person_type)
+    await message.answer(PROMPT_PERSON, reply_markup=_person_type_kb())
+
+
+@router.message(CalculationStates.person_type)
+async def get_person_type(message: types.Message, state: FSMContext) -> None:
+    if await _check_nav(message, state, None, None, None):
+        return
+    if message.text not in {"Физическое лицо", "Юридическое лицо"}:
+        await message.answer(ERROR_PERSON)
+        return
+    await state.update_data(person_type=message.text)
+    await state.set_state(CalculationStates.usage_type)
+    await message.answer(PROMPT_USAGE, reply_markup=_usage_type_kb())
+
+
+@router.message(CalculationStates.usage_type)
+async def get_usage_type(message: types.Message, state: FSMContext) -> None:
+    if await _check_nav(
+        message, state, CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()
+    ):
+        return
+    if message.text not in {"Личное", "Коммерческое"}:
+        await message.answer(ERROR_USAGE)
+        return
+    await state.update_data(usage_type=message.text)
     await state.set_state(CalculationStates.calc_type)
     await message.answer(PROMPT_TYPE, reply_markup=_car_type_kb())
 
 
 @router.message(CalculationStates.calc_type)
 async def get_car_type(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(message, state, None, None, None):
+    if await _check_nav(
+        message,
+        state,
+        CalculationStates.usage_type,
+        PROMPT_USAGE,
+        _usage_type_kb(),
+    ):
         return
     if message.text not in {"Бензин", "Дизель", "Гибрид", "Электро"}:
         await message.answer(ERROR_TYPE)
@@ -257,6 +312,11 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         engine_cc: int = data.get("engine", 0)
         engine_hp: int = int(data.get("power_hp", 0))
         year: int = data["year"]
+        person_ru: str = data.get("person_type", "Физическое лицо")
+        usage_ru: str = data.get("usage_type", "Личное")
+
+        person_type = "individual" if person_ru == "Физическое лицо" else "company"
+        usage_type = "personal" if usage_ru == "Личное" else "commercial"
 
         decl_date = date.today()
         manual_rates = data.get("manual_rates", {})
@@ -287,19 +347,21 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         fuel_type = fuel_map.get(car_type, "ice")
         age_years = decl_date.year - year
 
-        core = calc_import_breakdown(
+        core = calc_breakdown_with_mode(
+            person_type=person_type,
+            usage_type=usage_type,
             customs_value_eur=customs_value_eur,
             eur_rub_rate=eur_rate,
             engine_cc=engine_cc,
             engine_hp=engine_hp,
+            age_years=age_years,
             is_disabled_vehicle=False,
             is_export=False,
-            person_type="individual",
         )
 
         util = calc_util_rub(
-            person_type="individual",
-            usage="personal",
+            person_type=person_type,
+            usage=usage_type,
             engine_cc=engine_cc,
             fuel=fuel_type,
             vehicle_kind="passenger",
@@ -322,6 +384,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             f"Пошлина: {core['breakdown']['duty_eur']} € ({core['breakdown']['duty_rub']} ₽)\n"
             f"Акциз: {core['breakdown']['excise_rub']} ₽\n"
             f"НДС: {core['breakdown']['vat_rub']} ₽\n"
+            f"Сбор за таможенное оформление: {core['breakdown']['clearance_fee_rub']} ₽\n"
             f"Утильсбор: {util} ₽\n"
             f"ИТОГО: {total} ₽\n"
             f"Примечания: {notes}\n"
