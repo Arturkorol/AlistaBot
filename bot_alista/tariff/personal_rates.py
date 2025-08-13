@@ -34,7 +34,7 @@ PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
         PersonalDutyRate(1001, 1500, 1.7),
         PersonalDutyRate(1501, 1800, 2.5),
         PersonalDutyRate(1801, 2300, 3.0),
-        PersonalDutyRate(2301, 3000, 3.5),   # ← key line for 2500 cc
+        PersonalDutyRate(2301, 3000, 3.0),   # ← key line for 2500 cc
         PersonalDutyRate(3001, 10000, 5.5),
     ),
     # 5–7 years
