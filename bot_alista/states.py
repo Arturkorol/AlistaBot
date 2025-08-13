@@ -1,22 +1,15 @@
+"""FSM states for customs calculation flow."""
+
 from aiogram.fsm.state import State, StatesGroup
 
 
 class CalculationStates(StatesGroup):
-    """States for vehicle customs calculation."""
+    """Conversation steps for vehicle customs calculation."""
 
-    vehicle_type = State()
-    fuel_type = State()
-    engine_cc = State()
-    engine_hp = State()
-    age_years = State()
-    person_type = State()
-    usage_type = State()
-    country_origin = State()
-    decl_date = State()
+    calc_type = State()
     currency_code = State()
     customs_value_amount = State()
-    eur_rate = State()
-    avg_vehicle_cost_rub = State()
-    actual_costs_rub = State()
-    confirm = State()
-
+    calc_engine = State()
+    calc_power = State()
+    calc_year = State()
+    calc_weight = State()

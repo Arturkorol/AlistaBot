@@ -23,13 +23,15 @@ HP_MAX = 1200
 AGE_MAX = 30
 
 # Currency codes
-CODES = ("EUR", "USD", "JPY", "CNY")
+CURRENCY_CODES = ("EUR", "USD", "JPY", "CNY")
 
 # Prompts and error messages
 PROMPT_TYPE = "Выберите тип авто:"
 ERROR_TYPE = "Пожалуйста, выберите тип авто кнопкой."
-PROMPT_PRICE = "Введите цену авто (€):"
-ERROR_PRICE = "Введите корректную цену в евро."
+PROMPT_CURRENCY = "Выберите валюту стоимости:"
+ERROR_CURRENCY = "Пожалуйста, выберите валюту кнопкой."
+PROMPT_AMOUNT = "Введите стоимость авто в выбранной валюте:"
+ERROR_AMOUNT = "Введите корректную стоимость."
 PROMPT_ENGINE = "Введите объём двигателя (см³):"
 ERROR_ENGINE = "Введите корректный объём двигателя в см³."
 PROMPT_POWER = "Введите мощность двигателя (л.с. или кВт):"
