@@ -9,10 +9,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict
+from datetime import date
 
 from bot_alista.tariff.personal_rates import (
     calc_individual_personal_duty_eur,
 )
+from bot_alista.rules.engine import calc_fl_stp, calc_ul
+from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 
 @dataclass(frozen=True)
@@ -42,28 +45,27 @@ def _validate_positive_float(value: float, name: str) -> None:
         raise ValueError(f"{name} должно быть положительным числом")
 
 
+def compute_actual_age_years(production_year: int, decl_date: date) -> float:
+    """Return factual vehicle age in years based on production year."""
+    prod = date(production_year, 12, 31)
+    delta = decl_date - prod
+    return max(0.0, delta.days / 365.2425)
+
+
 def calc_clearance_fee_rub(customs_value_rub: float) -> float:
     """
-    Tiered customs clearance fee (RUB) by customs value (RUB).
-    Bands chosen to reproduce your vl.broker samples:
-      ~2.40M RUB -> 11,746 RUB
-      ~3.99M RUB -> 16,524 RUB
-    You can refine bands later if you obtain the official ladder.
+    Customs clearance fee ladder (RUB), tuned to hit known 2025 bands:
+      ~1.2M → 4,269 ; ~2.4M → 11,746 ; ~4.0M → 16,524
+    Extend as needed for higher tiers.
     """
-    v = customs_value_rub
-    if v <= 200_000:
-        return 500.0
-    if v <= 500_000:
-        return 1_000.0
-    if v <= 1_000_000:
-        return 2_000.0
-    if v <= 1_500_000:
-        return 5_500.0
-    if v <= 3_000_000:
-        return 11_746.0   # covers ~2.396M
-    if v <= 5_000_000:
-        return 16_524.0   # covers ~3.993M
-    return 20_000.0
+    v = float(customs_value_rub)
+    if v <= 200_000:    return 1_067.0
+    if v <= 450_000:    return 2_134.0
+    if v <= 1_200_000:  return 4_269.0
+    if v <= 3_000_000:  return 11_746.0
+    if v <= 5_000_000:  return 16_524.0
+    if v <= 7_000_000:  return 20_000.0
+    return 30_000.0
 
 
 # Public API ---------------------------------------------------------------
@@ -357,6 +359,142 @@ def calc_breakdown_with_mode(
         "Company/commercial mode: Alta rules (20% vs ≥0.44 EUR/cc) + excise + VAT."
     )
     return corp
+
+
+def calc_breakdown_rules(
+    *,
+    person_type: str,          # "individual" | "company"
+    usage_type: str,           # "personal"  | "commercial"
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    engine_hp: int,
+    production_year: int,
+    age_choice_over3: bool,    # user choice for FL duty bucket (≤3 vs >3)
+    fuel_type: str,            # "Бензин"|"Дизель"|"Гибрид"|"Электро"
+    decl_date: date,
+    segment: str = "Легковой",
+    category: str = "M1",
+) -> dict:
+    customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+
+    # Map age bucket labels used in CSV
+    if person_type == "individual" and usage_type == "personal":
+        age_bucket = ">3" if age_choice_over3 else "≤3"
+        core = calc_fl_stp(
+            customs_value_eur=customs_value_eur,
+            eur_rub_rate=eur_rub_rate,
+            engine_cc=engine_cc,
+            segment=segment, category=category, fuel=fuel_type, age_bucket=age_bucket
+        )
+        fee_rub = calc_clearance_fee_rub(customs_value_rub)
+        total_no_util = round(core["duty_rub"] + fee_rub, 2)
+        # UTIL age is by factual age (not the choice)
+        factual_age = compute_actual_age_years(production_year, decl_date)
+        util_age_years = 4.0 if factual_age > 3.0 else 2.0
+        util_rub = calc_util_rub(
+            person_type="individual",
+            usage="personal",
+            engine_cc=engine_cc,
+            fuel=("ev" if fuel_type.lower().startswith("элект") else "ice"),
+            vehicle_kind="passenger",
+            age_years=util_age_years,
+            date_decl=decl_date,
+            avg_vehicle_cost_rub=None,
+            actual_costs_rub=None,
+            config=UTIL_CONFIG,
+        )
+        total_with_util = round(total_no_util + util_rub, 2)
+        return {
+            "inputs": {
+                "person_type": person_type, "usage_type": usage_type,
+                "engine_cc": engine_cc, "engine_hp": engine_hp,
+                "production_year": production_year,
+                "age_choice_over3": age_choice_over3,
+                "fuel_type": fuel_type,
+                "decl_date": decl_date.isoformat(),
+                "eur_rub_rate": eur_rub_rate,
+                "customs_value_eur": customs_value_eur,
+            },
+            "breakdown": {
+                "customs_value_rub": customs_value_rub,
+                "duty_eur": core["duty_eur"],
+                "duty_rub": core["duty_rub"],
+                "excise_rub": core["excise_rub"],
+                "vat_rub": core["vat_rub"],
+                "clearance_fee_rub": fee_rub,
+                "total_rub": total_no_util,
+                "util_rub": util_rub,
+                "total_with_util_rub": total_with_util,
+            },
+            "notes": [
+                f"FL STP by CSV: age={age_bucket}, fuel={fuel_type}",
+                "VAT/excise are embedded in STP (no separate calc).",
+                "Util fee uses factual age by production year.",
+            ],
+        }
+
+    # UL / commercial branch
+    # Decide age bucket label for UL according to your CSV (e.g., '3–7', '>7', '≤3')
+    factual_age = compute_actual_age_years(production_year, decl_date)
+    if factual_age <= 3.0:
+        age_bucket = "≤3"
+    elif factual_age <= 7.0:
+        age_bucket = "3–7"
+    else:
+        age_bucket = ">7"
+
+    core = calc_ul(
+        customs_value_eur=customs_value_eur,
+        eur_rub_rate=eur_rub_rate,
+        engine_cc=engine_cc, engine_hp=engine_hp,
+        segment=segment, category=category, fuel=fuel_type, age_bucket=age_bucket,
+        vat_override_pct=None
+    )
+    fee_rub = calc_clearance_fee_rub(customs_value_rub)
+    total_no_util = round(core["duty_rub"] + core["excise_rub"] + core["vat_rub"] + fee_rub, 2)
+
+    util_rub = calc_util_rub(
+        person_type="company",
+        usage="commercial",
+        engine_cc=engine_cc,
+        fuel=("ev" if fuel_type.lower().startswith("элект") else "ice"),
+        vehicle_kind="passenger",
+        age_years=factual_age,
+        date_decl=decl_date,
+        avg_vehicle_cost_rub=None,
+        actual_costs_rub=None,
+        config=UTIL_CONFIG,
+    )
+    total_with_util = round(total_no_util + util_rub, 2)
+
+    return {
+        "inputs": {
+            "person_type": person_type, "usage_type": usage_type,
+            "engine_cc": engine_cc, "engine_hp": engine_hp,
+            "production_year": production_year,
+            "fuel_type": fuel_type,
+            "decl_date": decl_date.isoformat(),
+            "eur_rub_rate": eur_rub_rate,
+            "customs_value_eur": customs_value_eur,
+        },
+        "breakdown": {
+            "customs_value_rub": customs_value_rub,
+            "duty_eur": core["duty_eur"],
+            "duty_rub": core["duty_rub"],
+            "excise_rub": core["excise_rub"],
+            "vat_rub": core["vat_rub"],
+            "clearance_fee_rub": fee_rub,
+            "total_rub": total_no_util,
+            "util_rub": util_rub,
+            "total_with_util_rub": total_with_util,
+        },
+        "notes": [
+            f"UL by CSV: age={age_bucket}, fuel={fuel_type}",
+            "VAT = 20% unless overridden by rule; excise from rules (rub/hp).",
+            "Util fee per 2025 formula module (configurable).",
+        ],
+    }
 
 
 if __name__ == "__main__":
