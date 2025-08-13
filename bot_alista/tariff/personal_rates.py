@@ -21,12 +21,12 @@ class PersonalDutyRate:
 PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
     # 1–3 years
     "1_3y": (
-        PersonalDutyRate(0, 1000, 1.5),
-        PersonalDutyRate(1001, 1500, 1.7),
-        PersonalDutyRate(1501, 1800, 2.5),
-        PersonalDutyRate(1801, 2300, 2.7),
-        PersonalDutyRate(2301, 3000, 3.5),
-        PersonalDutyRate(3001, 10000, 5.5),
+        PersonalDutyRate(0, 1000, 3.5),
+        PersonalDutyRate(1001, 1500, 5.5),   # matches vl.broker for 1500 cc
+        PersonalDutyRate(1501, 1800, 5.5),
+        PersonalDutyRate(1801, 2300, 6.2),   # matches vl.broker for 2000 cc
+        PersonalDutyRate(2301, 3000, 7.5),
+        PersonalDutyRate(3001, 10000, 7.5),
     ),
     # 3–5 years (your 2500 cc example lands here: 3.5 €/cc)
     "3_5y": (
@@ -53,7 +53,7 @@ PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
         PersonalDutyRate(1501, 1800, 3.5),
         PersonalDutyRate(1801, 2300, 5.0),
         PersonalDutyRate(2301, 3000, 5.7),
-        PersonalDutyRate(3001, 10000, 7.5),
+        PersonalDutyRate(3001, 10000, 5.7),  # was 7.5; must be 5.7
     ),
 }
 

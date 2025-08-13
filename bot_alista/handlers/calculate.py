@@ -37,6 +37,7 @@ from constants import (
 from bot_alista.services.rates import get_cached_rates, validate_or_prompt_rate
 from tariff_engine import calc_breakdown_with_mode
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.formatting import format_result_message
 
 
 router = Router()
@@ -372,25 +373,24 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             config=UTIL_CONFIG,
         )
 
-        total = round(core["breakdown"]["total_rub"] + util, 2)
-        notes = " | ".join(core.get("notes", []))
+        meta = {
+            "person_usage": "Тип лица: Физическое, личное использование"
+            if person_type == "individual" and usage_type == "personal"
+            else "Тип лица: Юридическое / коммерческое использование",
+            "duty_rate_info": "",
+            "age_info": "",
+            "extra_notes": core.get("notes", []),
+        }
 
-        text = (
-            "```\n"
-            f"Стоимость: {amount} {currency_code}\n"
-            f"Курс {currency_code}: {rates[currency_code]:.2f}\n"
-            f"Курс EUR: {eur_rate:.2f}\n"
-            f"Тамож. стоимость: {customs_value_rub:.2f} ₽\n"
-            f"Пошлина: {core['breakdown']['duty_eur']} € ({core['breakdown']['duty_rub']} ₽)\n"
-            f"Акциз: {core['breakdown']['excise_rub']} ₽\n"
-            f"НДС: {core['breakdown']['vat_rub']} ₽\n"
-            f"Сбор за таможенное оформление: {core['breakdown']['clearance_fee_rub']} ₽\n"
-            f"Утильсбор: {util} ₽\n"
-            f"ИТОГО: {total} ₽\n"
-            f"Примечания: {notes}\n"
-            "```"
+        msg = format_result_message(
+            currency_code=currency_code,
+            price_amount=amount,
+            rates=rates,
+            meta=meta,
+            core=core,
+            util_fee_rub=util,
         )
-        await message.answer(text)
+        await message.answer(msg, disable_web_page_preview=True)
         await state.clear()
     except Exception as exc:  # pragma: no cover - defensive
         logging.exception("Calculation failed: %s", exc)
