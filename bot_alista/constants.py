@@ -26,6 +26,10 @@ AGE_MAX = 30
 CURRENCY_CODES = ("EUR", "USD", "JPY", "CNY")
 
 # Prompts and error messages
+PROMPT_PERSON = "Выберите тип лица:"
+ERROR_PERSON = "Пожалуйста, выберите тип лица кнопкой."
+PROMPT_USAGE = "Выберите тип использования:"
+ERROR_USAGE = "Пожалуйста, выберите тип использования кнопкой."
 PROMPT_TYPE = "Выберите тип авто:"
 ERROR_TYPE = "Пожалуйста, выберите тип авто кнопкой."
 PROMPT_CURRENCY = "Выберите валюту стоимости:"

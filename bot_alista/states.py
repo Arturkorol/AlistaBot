@@ -6,6 +6,8 @@ from aiogram.fsm.state import State, StatesGroup
 class CalculationStates(StatesGroup):
     """Conversation steps for vehicle customs calculation."""
 
+    person_type = State()
+    usage_type = State()
     calc_type = State()
     currency_code = State()
     customs_value_amount = State()

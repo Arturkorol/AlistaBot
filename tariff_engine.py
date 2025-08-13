@@ -10,6 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
 
+from bot_alista.tariff.personal_rates import (
+    calc_individual_personal_duty_eur,
+    CUSTOMS_CLEARANCE_FEE_RUB,
+)
+
 
 @dataclass(frozen=True)
 class ExciseBracket:
@@ -234,6 +239,114 @@ def calc_import_breakdown(
     }
 
     return result
+
+
+def calc_individual_personal_breakdown(*, engine_cc: int, age_years: float, eur_rub_rate: float) -> dict:
+    """
+    Individuals (personal use):
+      - duty by EUR/cc table (no VAT, no excise)
+      - + customs clearance fee (RUB)
+    Returns a dict with duty_eur/duty_rub, excise_rub=0, vat_rub=0, clearance_fee_rub.
+    """
+    duty_eur = calc_individual_personal_duty_eur(engine_cc, age_years)
+    duty_rub = round(duty_eur * eur_rub_rate, 2)
+    return {
+        "duty_eur": duty_eur,
+        "duty_rub": duty_rub,
+        "excise_rub": 0.0,
+        "vat_rub": 0.0,
+        "clearance_fee_rub": float(CUSTOMS_CLEARANCE_FEE_RUB),
+    }
+
+
+def calc_breakdown_with_mode(
+    *,
+    person_type: str,
+    usage_type: str,
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    engine_hp: int,
+    age_years: float,
+    is_disabled_vehicle: bool,
+    is_export: bool,
+) -> dict:
+    """
+    Unified entry:
+    - Individuals + personal use -> per-cc table (no VAT, no excise) + clearance fee.
+    - Else (companies/commercial) -> Alta: duty = max(20% of EUR value, 0.44 EUR/cc) + excise + VAT.
+    Returns a dict like calc_import_breakdown, with total_rub (NO util fee).
+    """
+    if is_export:
+        core = calc_import_breakdown(
+            customs_value_eur=customs_value_eur,
+            eur_rub_rate=eur_rub_rate,
+            engine_cc=engine_cc,
+            engine_hp=engine_hp,
+            is_disabled_vehicle=is_disabled_vehicle,
+            is_export=True,
+            person_type=person_type,
+        )
+        core["breakdown"]["clearance_fee_rub"] = 0.0
+        return core
+
+    if person_type == "individual" and usage_type == "personal":
+        core = calc_individual_personal_breakdown(
+            engine_cc=engine_cc,
+            age_years=age_years,
+            eur_rub_rate=eur_rub_rate,
+        )
+        customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+        total_rub = round(
+            core["duty_rub"]
+            + core["excise_rub"]
+            + core["vat_rub"]
+            + core["clearance_fee_rub"],
+            2,
+        )
+        return {
+            "inputs": {
+                "person_type": person_type,
+                "usage_type": usage_type,
+                "engine_cc": engine_cc,
+                "engine_hp": engine_hp,
+                "age_years": age_years,
+                "eur_rub_rate": eur_rub_rate,
+                "customs_value_eur": customs_value_eur,
+                "is_disabled_vehicle": is_disabled_vehicle,
+                "is_export": False,
+            },
+            "breakdown": {
+                "customs_value_rub": customs_value_rub,
+                **core,
+                "total_rub": total_rub,
+            },
+            "rates_used": {
+                "mode": "individual_personal_rate_table",
+                "clearance_fee_rub": core["clearance_fee_rub"],
+                "note": "No VAT/excise for the individual personal table.",
+            },
+            "notes": [
+                "Individual (personal use): duty by per-cc age×cc table (EUR/cc).",
+                "No VAT, no excise; customs clearance fee added.",
+            ],
+        }
+
+    corp = calc_import_breakdown(
+        customs_value_eur=customs_value_eur,
+        eur_rub_rate=eur_rub_rate,
+        engine_cc=engine_cc,
+        engine_hp=engine_hp,
+        is_disabled_vehicle=is_disabled_vehicle,
+        is_export=False,
+        person_type=person_type,
+    )
+    corp["breakdown"].setdefault("clearance_fee_rub", 0.0)
+    corp.setdefault("rates_used", {}).update({"mode": "corporate_alta"})
+    corp.setdefault("notes", []).append(
+        "Company/commercial mode: Alta rules (20% vs ≥0.44 EUR/cc) + excise + VAT."
+    )
+    return corp
 
 
 if __name__ == "__main__":
