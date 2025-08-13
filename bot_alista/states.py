@@ -14,5 +14,5 @@ class CalculationStates(StatesGroup):
     calc_engine = State()
     calc_power = State()
     calc_year = State()
-    calc_weight = State()
+    age_over_3 = State()
     manual_rate = State()

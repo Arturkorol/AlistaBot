@@ -30,8 +30,10 @@ from constants import (
     ERROR_POWER,
     PROMPT_YEAR,
     ERROR_YEAR,
-    PROMPT_WEIGHT,
-    ERROR_WEIGHT,
+    PROMPT_AGE_OVER3,
+    BTN_AGE_OVER3_YES,
+    BTN_AGE_OVER3_NO,
+    BTN_BACK,
     ERROR_RATE,
 )
 from bot_alista.services.rates import get_cached_rates, validate_or_prompt_rate
@@ -81,6 +83,14 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
         [types.KeyboardButton(text=CURRENCY_CODES[0]), types.KeyboardButton(text=CURRENCY_CODES[1])],
         [types.KeyboardButton(text=CURRENCY_CODES[2]), types.KeyboardButton(text=CURRENCY_CODES[3])],
         [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+    ]
+    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+
+def _age_over3_kb() -> types.ReplyKeyboardMarkup:
+    kb = [
+        [types.KeyboardButton(text=BTN_AGE_OVER3_YES), types.KeyboardButton(text=BTN_AGE_OVER3_NO)],
+        [types.KeyboardButton(text=BTN_BACK)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -252,29 +262,28 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_YEAR)
         return
     await state.update_data(year=year)
-    await state.set_state(CalculationStates.calc_weight)
-    await message.answer(PROMPT_WEIGHT, reply_markup=back_menu())
+    await state.set_state(CalculationStates.age_over_3)
+    await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
 
 
-@router.message(CalculationStates.calc_weight)
-async def get_weight(message: types.Message, state: FSMContext) -> None:
+@router.message(CalculationStates.age_over_3)
+async def get_age_bucket(message: types.Message, state: FSMContext) -> None:
     if await _check_nav(
         message, state, CalculationStates.calc_year, PROMPT_YEAR, back_menu()
     ):
         return
-    try:
-        weight = int(message.text)
-    except Exception:
-        await message.answer(ERROR_WEIGHT)
+    if message.text not in {BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO}:
+        await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
         return
-    await state.update_data(weight=weight)
+    age_years = 4.0 if message.text == BTN_AGE_OVER3_YES else 2.0
+    await state.update_data(age_years=age_years, age_over_3=(message.text == BTN_AGE_OVER3_YES))
     await _run_calculation(state, message)
 
 
 @router.message(CalculationStates.manual_rate)
 async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
     if await _check_nav(
-        message, state, CalculationStates.calc_weight, PROMPT_WEIGHT, back_menu()
+        message, state, CalculationStates.age_over_3, PROMPT_AGE_OVER3, _age_over3_kb()
     ):
         return
     data = await state.get_data()
@@ -346,7 +355,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             "Электро": "ev",
         }
         fuel_type = fuel_map.get(car_type, "ice")
-        age_years = decl_date.year - year
+        age_years = float(data.get("age_years", decl_date.year - year))
 
         core = calc_breakdown_with_mode(
             person_type=person_type,
@@ -378,7 +387,8 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             if person_type == "individual" and usage_type == "personal"
             else "Тип лица: Юридическое / коммерческое использование",
             "duty_rate_info": "",
-            "age_info": "",
+            "age_info": "Выбор пользователя: "
+            + ("старше 3 лет" if data.get("age_over_3") else "не старше 3 лет"),
             "extra_notes": core.get("notes", []),
         }
 
