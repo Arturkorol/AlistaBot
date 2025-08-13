@@ -36,9 +36,12 @@ from constants import (
     BTN_BACK,
     ERROR_RATE,
 )
-from bot_alista.services.rates import get_cached_rates, validate_or_prompt_rate
-from tariff_engine import calc_breakdown_with_mode
-from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.services.rates import (
+    get_cached_rates,
+    validate_or_prompt_rate,
+    currency_to_rub,
+)
+from tariff_engine import calc_breakdown_rules
 from bot_alista.formatting import format_result_message
 
 
@@ -359,42 +362,38 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
                 )
                 return
             rates = manual_rates
-        customs_value_rub = amount * rates[currency_code]
+        try:
+            rates = get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
+            customs_value_rub = currency_to_rub(amount, currency_code, decl_date)
+        except Exception:
+            missing = [c for c in {currency_code, "EUR"} if c not in manual_rates]
+            if missing:
+                await state.update_data(pending_rate_code=missing[0])
+                await state.set_state(CalculationStates.manual_rate)
+                await message.answer(
+                    f"📥 Введите курс {missing[0]} вручную (₽ за {missing[0]}):",
+                    reply_markup=back_menu(),
+                )
+                return
+            rates = manual_rates
+            customs_value_rub = amount * rates[currency_code]
         eur_rate = rates["EUR"]
         customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
-        fuel_map = {
-            "Бензин": "ice",
-            "Дизель": "ice",
-            "Гибрид": "hybrid",
-            "Электро": "ev",
-        }
-        fuel_type = fuel_map.get(car_type, "ice")
-        age_years = float(data.get("age_years", decl_date.year - year))
+        fuel_type = car_type
+        age_over_3 = data.get("age_over_3", False)
 
-        core = calc_breakdown_with_mode(
+        core = calc_breakdown_rules(
             person_type=person_type,
             usage_type=usage_type,
             customs_value_eur=customs_value_eur,
             eur_rub_rate=eur_rate,
             engine_cc=engine_cc,
             engine_hp=engine_hp,
-            age_years=age_years,
-            is_disabled_vehicle=False,
-            is_export=False,
-        )
-
-        util = calc_util_rub(
-            person_type=person_type,
-            usage=usage_type,
-            engine_cc=engine_cc,
-            fuel=fuel_type,
-            vehicle_kind="passenger",
-            age_years=age_years,
-            date_decl=decl_date,
-            avg_vehicle_cost_rub=None,
-            actual_costs_rub=None,
-            config=UTIL_CONFIG,
+            production_year=year,
+            age_choice_over3=age_over_3,
+            fuel_type=fuel_type,
+            decl_date=decl_date,
         )
 
         duty_eur = core["breakdown"].get("duty_eur")
@@ -402,7 +401,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         if duty_eur and engine_cc:
             try:
                 rate_eur_per_cc = round(float(duty_eur) / float(engine_cc), 2)
-                rate_line = f"{rate_eur_per_cc} €/cc × {engine_cc} cc"
+                rate_line = f"{rate_eur_per_cc} €/см³ × {engine_cc} см³"
             except Exception:
                 rate_line = ""
 
@@ -412,8 +411,11 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
                 if person_type == "individual" and usage_type == "personal"
                 else "Тип лица: Юридическое / коммерческое использование"
             ),
-            "age_info": "Выбор пользователя: "
-            + ("старше 3 лет" if data.get("age_over_3") else "не старше 3 лет"),
+            "age_info": "Выбор для пошлины (ФЛ): "
+            + ("старше 3 лет" if age_over_3 else "не старше 3 лет")
+            if person_type == "individual" and usage_type == "personal"
+            else "",
+            "util_age_info": "",
             "duty_rate_info": rate_line,
             "extra_notes": core.get("notes", []),
         }
@@ -424,7 +426,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             rates=rates,
             meta=meta,
             core=core,
-            util_fee_rub=util,
+            util_fee_rub=core["breakdown"].get("util_rub", 0.0),
         )
         await message.answer(msg, disable_web_page_preview=True)
         await state.clear()
