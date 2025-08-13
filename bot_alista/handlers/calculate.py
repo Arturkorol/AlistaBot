@@ -266,18 +266,33 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
     await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
 
 
+@router.message(
+    CalculationStates.age_over_3, F.text.in_({BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO})
+)
+async def on_age_over_3_choice(message: types.Message, state: FSMContext) -> None:
+    over3 = message.text == BTN_AGE_OVER3_YES
+    age_years = 4.0 if over3 else 2.0
+    await state.update_data(age_years=age_years, age_over_3=over3)
+
+    # Hide the age keyboard immediately
+    await message.answer("Принято ✅", reply_markup=types.ReplyKeyboardRemove())
+
+    await _run_calculation(state, message)
+
+
+@router.message(CalculationStates.age_over_3, F.text == BTN_BACK)
+async def on_age_over_3_back(message: types.Message, state: FSMContext) -> None:
+    await message.answer(PROMPT_YEAR, reply_markup=types.ReplyKeyboardRemove())
+    await state.set_state(CalculationStates.calc_year)
+
+
 @router.message(CalculationStates.age_over_3)
-async def get_age_bucket(message: types.Message, state: FSMContext) -> None:
+async def on_age_over_3_invalid(message: types.Message, state: FSMContext) -> None:
     if await _check_nav(
         message, state, CalculationStates.calc_year, PROMPT_YEAR, back_menu()
     ):
         return
-    if message.text not in {BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO}:
-        await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
-        return
-    age_years = 4.0 if message.text == BTN_AGE_OVER3_YES else 2.0
-    await state.update_data(age_years=age_years, age_over_3=(message.text == BTN_AGE_OVER3_YES))
-    await _run_calculation(state, message)
+    await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
 
 
 @router.message(CalculationStates.manual_rate)
@@ -382,13 +397,21 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             config=UTIL_CONFIG,
         )
 
+        duty_eur = core["breakdown"].get("duty_eur")
+        rate_line = ""
+        if duty_eur and engine_cc:
+            rate_eur_per_cc = round(float(duty_eur) / float(engine_cc), 2)
+            rate_line = f"{rate_eur_per_cc} €/см³ × {engine_cc} см³"
+
         meta = {
-            "person_usage": "Тип лица: Физическое, личное использование"
-            if person_type == "individual" and usage_type == "personal"
-            else "Тип лица: Юридическое / коммерческое использование",
-            "duty_rate_info": "",
+            "person_usage": (
+                "Тип лица: Физическое, личное использование"
+                if person_type == "individual" and usage_type == "personal"
+                else "Тип лица: Юридическое / коммерческое использование"
+            ),
             "age_info": "Выбор пользователя: "
             + ("старше 3 лет" if data.get("age_over_3") else "не старше 3 лет"),
+            "duty_rate_info": rate_line,
             "extra_notes": core.get("notes", []),
         }
 
