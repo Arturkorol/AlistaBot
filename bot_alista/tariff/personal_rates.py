@@ -22,19 +22,19 @@ PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
     # 1–3 years
     "1_3y": (
         PersonalDutyRate(0, 1000, 3.5),
-        PersonalDutyRate(1001, 1500, 5.5),   # matches vl.broker for 1500 cc
+        PersonalDutyRate(1001, 1500, 5.5),
         PersonalDutyRate(1501, 1800, 5.5),
-        PersonalDutyRate(1801, 2300, 6.2),   # matches vl.broker for 2000 cc
-        PersonalDutyRate(2301, 3000, 8.4),   # updated per-cc rate for 2301–3000 cc
-        PersonalDutyRate(3001, 10000, 8.4),
+        PersonalDutyRate(1801, 2300, 6.2),
+        PersonalDutyRate(2301, 3000, 5.5),   # was 8.4 → must be 5.5 €/cc
+        PersonalDutyRate(3001, 10000, 7.5),
     ),
-    # --- PATCH: 3–5 years bucket so 2301–3000 cc = 3.0 €/cc ---
+    # 3–5 years
     "3_5y": (
         PersonalDutyRate(0, 1000, 1.5),
         PersonalDutyRate(1001, 1500, 1.7),
         PersonalDutyRate(1501, 1800, 2.5),
         PersonalDutyRate(1801, 2300, 3.0),
-        PersonalDutyRate(2301, 3000, 3.0),  # was 3.5 -> must be 3.0 €/cc
+        PersonalDutyRate(2301, 3000, 3.0),   # was 3.5 → must be 3.0 €/cc
         PersonalDutyRate(3001, 10000, 5.5),
     ),
     # 5–7 years

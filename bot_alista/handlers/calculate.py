@@ -400,8 +400,11 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         duty_eur = core["breakdown"].get("duty_eur")
         rate_line = ""
         if duty_eur and engine_cc:
-            rate_eur_per_cc = round(float(duty_eur) / float(engine_cc), 2)
-            rate_line = f"{rate_eur_per_cc} €/см³ × {engine_cc} см³"
+            try:
+                rate_eur_per_cc = round(float(duty_eur) / float(engine_cc), 2)
+                rate_line = f"{rate_eur_per_cc} €/cc × {engine_cc} cc"
+            except Exception:
+                rate_line = ""
 
         meta = {
             "person_usage": (
