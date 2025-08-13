@@ -28,8 +28,9 @@ from constants import (
     ERROR_YEAR,
     PROMPT_WEIGHT,
     ERROR_WEIGHT,
+    ERROR_RATE,
 )
-from bot_alista.services.rates import get_cached_rates, currency_to_rub
+from bot_alista.services.rates import get_cached_rates, validate_or_prompt_rate
 from tariff_engine import calc_import_breakdown
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
@@ -212,8 +213,35 @@ async def get_weight(message: types.Message, state: FSMContext) -> None:
         return
     await state.update_data(weight=weight)
     await _run_calculation(state, message)
-    await state.clear()
 
+
+@router.message(CalculationStates.manual_rate)
+async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
+    if await _check_nav(
+        message, state, CalculationStates.calc_weight, PROMPT_WEIGHT, back_menu()
+    ):
+        return
+    data = await state.get_data()
+    code = data.get("pending_rate_code")
+    try:
+        rate = validate_or_prompt_rate(message.text)
+    except ValueError:
+        await message.answer(ERROR_RATE)
+        return
+    manual_rates = data.get("manual_rates", {})
+    manual_rates[code] = rate
+    await state.update_data(manual_rates=manual_rates)
+    needed = {data.get("currency_code"), "EUR"}
+    missing = [c for c in needed if c not in manual_rates]
+    if missing:
+        next_code = missing[0]
+        await state.update_data(pending_rate_code=next_code)
+        await message.answer(
+            f"📥 Введите курс {next_code} вручную (₽ за {next_code}):",
+            reply_markup=back_menu(),
+        )
+        return
+    await _run_calculation(state, message)
 
 # ---------------------------------------------------------------------------
 # Calculation
@@ -231,8 +259,22 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         year: int = data["year"]
 
         decl_date = date.today()
-        rates = get_cached_rates(decl_date, codes=CURRENCY_CODES)
-        customs_value_rub = currency_to_rub(amount, currency_code, decl_date)
+        manual_rates = data.get("manual_rates", {})
+        needed = {currency_code, "EUR"}
+        try:
+            rates = get_cached_rates(decl_date, codes=needed)
+        except Exception:
+            missing = [c for c in needed if c not in manual_rates]
+            if missing:
+                await state.update_data(pending_rate_code=missing[0])
+                await state.set_state(CalculationStates.manual_rate)
+                await message.answer(
+                    f"📥 Введите курс {missing[0]} вручную (₽ за {missing[0]}):",
+                    reply_markup=back_menu(),
+                )
+                return
+            rates = manual_rates
+        customs_value_rub = amount * rates[currency_code]
         eur_rate = rates["EUR"]
         customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
@@ -286,7 +328,9 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             "```"
         )
         await message.answer(text)
+        await state.clear()
     except Exception as exc:  # pragma: no cover - defensive
         logging.exception("Calculation failed: %s", exc)
         await message.answer("❌ Ошибка расчёта. Проверьте введённые данные.")
+        await state.clear()
 

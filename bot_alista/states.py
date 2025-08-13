@@ -13,3 +13,4 @@ class CalculationStates(StatesGroup):
     calc_power = State()
     calc_year = State()
     calc_weight = State()
+    manual_rate = State()
