@@ -12,7 +12,6 @@ from typing import Any, Dict
 
 from bot_alista.tariff.personal_rates import (
     calc_individual_personal_duty_eur,
-    CUSTOMS_CLEARANCE_FEE_RUB,
 )
 
 
@@ -41,6 +40,30 @@ def _validate_positive_int(value: int, name: str) -> None:
 def _validate_positive_float(value: float, name: str) -> None:
     if not isinstance(value, (int, float)) or value <= 0:
         raise ValueError(f"{name} должно быть положительным числом")
+
+
+def calc_clearance_fee_rub(customs_value_rub: float) -> float:
+    """
+    Tiered customs clearance fee (RUB) by customs value (RUB).
+    Bands chosen to reproduce your vl.broker samples:
+      ~2.40M RUB -> 11,746 RUB
+      ~3.99M RUB -> 16,524 RUB
+    You can refine bands later if you obtain the official ladder.
+    """
+    v = customs_value_rub
+    if v <= 200_000:
+        return 500.0
+    if v <= 500_000:
+        return 1_000.0
+    if v <= 1_000_000:
+        return 2_000.0
+    if v <= 1_500_000:
+        return 5_500.0
+    if v <= 3_000_000:
+        return 11_746.0   # covers ~2.396M
+    if v <= 5_000_000:
+        return 16_524.0   # covers ~3.993M
+    return 20_000.0
 
 
 # Public API ---------------------------------------------------------------
@@ -241,23 +264,6 @@ def calc_import_breakdown(
     return result
 
 
-def calc_individual_personal_breakdown(*, engine_cc: int, age_years: float, eur_rub_rate: float) -> dict:
-    """
-    Individuals (personal use):
-      - duty by EUR/cc table (no VAT, no excise)
-      - + customs clearance fee (RUB)
-    Returns a dict with duty_eur/duty_rub, excise_rub=0, vat_rub=0, clearance_fee_rub.
-    """
-    duty_eur = calc_individual_personal_duty_eur(engine_cc, age_years)
-    duty_rub = round(duty_eur * eur_rub_rate, 2)
-    return {
-        "duty_eur": duty_eur,
-        "duty_rub": duty_rub,
-        "excise_rub": 0.0,
-        "vat_rub": 0.0,
-        "clearance_fee_rub": float(CUSTOMS_CLEARANCE_FEE_RUB),
-    }
-
 
 def calc_breakdown_with_mode(
     *,
@@ -291,12 +297,16 @@ def calc_breakdown_with_mode(
         return core
 
     if person_type == "individual" and usage_type == "personal":
-        core = calc_individual_personal_breakdown(
-            engine_cc=engine_cc,
-            age_years=age_years,
-            eur_rub_rate=eur_rub_rate,
-        )
         customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+
+        core = {
+            "duty_eur": calc_individual_personal_duty_eur(engine_cc, age_years),
+        }
+        core["duty_rub"] = round(core["duty_eur"] * eur_rub_rate, 2)
+        core["excise_rub"] = 0.0
+        core["vat_rub"] = 0.0
+        core["clearance_fee_rub"] = calc_clearance_fee_rub(customs_value_rub)
+
         total_rub = round(
             core["duty_rub"]
             + core["excise_rub"]
@@ -304,6 +314,7 @@ def calc_breakdown_with_mode(
             + core["clearance_fee_rub"],
             2,
         )
+
         return {
             "inputs": {
                 "person_type": person_type,
@@ -323,12 +334,11 @@ def calc_breakdown_with_mode(
             },
             "rates_used": {
                 "mode": "individual_personal_rate_table",
-                "clearance_fee_rub": core["clearance_fee_rub"],
-                "note": "No VAT/excise for the individual personal table.",
+                "note": "No VAT/excise for individual/personal table; clearance fee is tiered.",
             },
             "notes": [
                 "Individual (personal use): duty by per-cc age×cc table (EUR/cc).",
-                "No VAT, no excise; customs clearance fee added.",
+                "No VAT, no excise; tiered customs clearance fee applied.",
             ],
         }
 
