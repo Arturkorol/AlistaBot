@@ -25,8 +25,8 @@ PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
         PersonalDutyRate(1001, 1500, 5.5),   # matches vl.broker for 1500 cc
         PersonalDutyRate(1501, 1800, 5.5),
         PersonalDutyRate(1801, 2300, 6.2),   # matches vl.broker for 2000 cc
-        PersonalDutyRate(2301, 3000, 7.5),
-        PersonalDutyRate(3001, 10000, 7.5),
+        PersonalDutyRate(2301, 3000, 8.4),   # updated per-cc rate for 2301–3000 cc
+        PersonalDutyRate(3001, 10000, 8.4),
     ),
     # 3–5 years (your 2500 cc example lands here: 3.5 €/cc)
     "3_5y": (
