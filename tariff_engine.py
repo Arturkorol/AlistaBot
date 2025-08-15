@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, Dict
+from typing import Any
 from datetime import date
 
 from bot_alista.tariff.personal_rates import (
@@ -29,6 +29,11 @@ from bot_alista.rules.age import (
 )
 from bot_alista.rules.engine import calc_fl_stp, calc_ul
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+
+ENGINE_CC_MIN = 2300
+ENGINE_CC_MAX = 3000
+AD_VALOREM_RATE = 0.20
+VAT_RATE = 0.20
 
 
 @dataclass(frozen=True)
@@ -73,6 +78,7 @@ def calc_clearance_fee_rub(customs_value_rub: float) -> float:
       ~1.2M → 4,269 ; ~2.4M → 11,746 ; ~4.0M → 16,524
     Extend as needed for higher tiers.
     """
+    _validate_positive_float(customs_value_rub, "Таможенная стоимость")
     v = float(customs_value_rub)
     if v <= 200_000:    return 1_067.0
     if v <= 450_000:    return 2_134.0
@@ -118,7 +124,7 @@ def calc_import_duty_eur(
     engine_cc: int,
     *,
     min_eur_per_cc: float = 0.44,
-    ad_valorem: float = 0.20,
+    ad_valorem: float = AD_VALOREM_RATE,
 ) -> float:
     """Рассчитывает ввозную пошлину в евро.
 
@@ -144,8 +150,10 @@ def calc_import_duty_eur(
 
     _validate_positive_float(customs_value_eur, "Таможенная стоимость")
     _validate_positive_int(engine_cc, "Объем двигателя")
-    if not 2300 <= engine_cc <= 3000:
-        raise ValueError("Объем двигателя должен быть в диапазоне 2300–3000 см³")
+    if not ENGINE_CC_MIN <= engine_cc <= ENGINE_CC_MAX:
+        raise ValueError(
+            f"Объем двигателя должен быть в диапазоне {ENGINE_CC_MIN}–{ENGINE_CC_MAX} см³"
+        )
     _validate_positive_float(min_eur_per_cc, "Ставка EUR/см³")
     _validate_positive_float(ad_valorem, "Адвалорная ставка")
 
@@ -164,12 +172,12 @@ def eur_to_rub(amount_eur: float, eur_rub_rate: float) -> float:
     return round(amount_eur * eur_rub_rate, 2)
 
 
-def calc_excise_rub(engine_hp: int) -> float:
+def calc_excise_rub(engine_hp: int, rate: int | None = None) -> float:
     """Рассчитывает сумму акциза в рублях."""
 
-    rate = get_excise_rate_rub_per_hp(engine_hp)
-    excise = rate * engine_hp
-    return round(float(excise), 2)
+    _validate_positive_int(engine_hp, "Мощность двигателя")
+    rate = rate if rate is not None else get_excise_rate_rub_per_hp(engine_hp)
+    return round(rate * engine_hp, 2)
 
 
 def calc_vat_rub(
@@ -192,7 +200,7 @@ def calc_vat_rub(
         return 0.0
 
     vat_base = customs_value_rub + duty_rub + excise_rub
-    vat = vat_base * 0.20
+    vat = vat_base * VAT_RATE
     return round(vat, 2)
 
 
@@ -206,7 +214,7 @@ def calc_import_breakdown(
     is_export: bool,
     person_type: str = "individual",
     country_origin: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Полный расчет таможенных платежей при импорте.
 
     Returns словарь со структурой:
@@ -221,8 +229,10 @@ def calc_import_breakdown(
     _validate_positive_float(customs_value_eur, "Таможенная стоимость")
     _validate_positive_float(eur_rub_rate, "Курс EUR/RUB")
     _validate_positive_int(engine_cc, "Объем двигателя")
-    if not 2300 <= engine_cc <= 3000:
-        raise ValueError("Объем двигателя должен быть в диапазоне 2300–3000 см³")
+    if not ENGINE_CC_MIN <= engine_cc <= ENGINE_CC_MAX:
+        raise ValueError(
+            f"Объем двигателя должен быть в диапазоне {ENGINE_CC_MIN}–{ENGINE_CC_MAX} см³"
+        )
     _validate_positive_int(engine_hp, "Мощность двигателя")
 
     customs_value_rub = eur_to_rub(customs_value_eur, eur_rub_rate)
@@ -238,13 +248,15 @@ def calc_import_breakdown(
         duty_eur = calc_import_duty_eur(customs_value_eur, engine_cc)
         duty_rub = eur_to_rub(duty_eur, eur_rub_rate)
         excise_rate = get_excise_rate_rub_per_hp(engine_hp)
-        excise_rub = calc_excise_rub(engine_hp)
-        vat_rate = 0.0 if is_disabled_vehicle else 0.20
-        vat_rub = calc_vat_rub(customs_value_rub, duty_rub, excise_rub, is_disabled_vehicle)
+        excise_rub = calc_excise_rub(engine_hp, excise_rate)
+        vat_rate = 0.0 if is_disabled_vehicle else VAT_RATE
+        vat_rub = calc_vat_rub(
+            customs_value_rub, duty_rub, excise_rub, is_disabled_vehicle
+        )
 
     total_rub = round(duty_rub + excise_rub + vat_rub, 2)
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "inputs": {
             "customs_value_eur": round(customs_value_eur, 2),
             "eur_rub_rate": eur_rub_rate,
@@ -265,7 +277,7 @@ def calc_import_breakdown(
         },
         "rates_used": {
             "duty_min_eur_per_cc": 0.44,
-            "duty_ad_valorem": 0.20,
+            "duty_ad_valorem": AD_VALOREM_RATE,
             "excise_rate_rub_per_hp": excise_rate,
             "vat_rate": vat_rate,
         },
@@ -296,9 +308,9 @@ def calc_breakdown_with_mode(
 ) -> dict:
     """
     Unified entry:
-    - Individuals + personal use -> per-cc table (no VAT, no excise) + clearance fee.
-    - Else (companies/commercial) -> Alta: duty = max(20% of EUR value, 0.44 EUR/cc) + excise + VAT.
-    Returns a dict like calc_import_breakdown, with total_rub (NO util fee).
+    - Individuals + personal use -> per-cc table (no VAT, no excise) + clearance fee + util fee.
+    - Else (companies/commercial) -> Alta: duty = max(20% of EUR value, 0.44 EUR/cc) + excise + VAT + util fee.
+    Returns a dict like calc_import_breakdown with totals both with and without util fee.
     """
     if is_export:
         core = calc_import_breakdown(
@@ -314,12 +326,12 @@ def calc_breakdown_with_mode(
         return core
 
     if person_type == "individual" and usage_type == "personal":
-        customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+        customs_value_rub = eur_to_rub(customs_value_eur, eur_rub_rate)
 
         core = {
             "duty_eur": calc_individual_personal_duty_eur(engine_cc, age_years),
         }
-        core["duty_rub"] = round(core["duty_eur"] * eur_rub_rate, 2)
+        core["duty_rub"] = eur_to_rub(core["duty_eur"], eur_rub_rate)
         core["excise_rub"] = 0.0
         core["vat_rub"] = 0.0
         core["clearance_fee_rub"] = calc_clearance_fee_rub(customs_value_rub)
