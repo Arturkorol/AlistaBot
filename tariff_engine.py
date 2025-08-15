@@ -18,8 +18,8 @@ from bot_alista.rules.loader import load_rules, get_available_age_labels, normal
 from bot_alista.rules.age import (
     compute_actual_age_years,
     detect_buckets,
-    pick_ul_age_label,
-    pick_fl_age_label,
+    candidate_ul_labels,
+    candidate_fl_labels,
 )
 from bot_alista.rules.engine import calc_fl_stp, calc_ul
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
@@ -388,7 +388,8 @@ def calc_breakdown_rules(
 
     if person_type == "individual" and usage_type == "personal":
         # Resolve FL age label robustly:
-        fl_age_label = pick_fl_age_label(age_choice_over3, actual_age, buckets)
+        fl_age_candidates = candidate_fl_labels(age_choice_over3, actual_age, buckets)
+        fl_age_label = fl_age_candidates[0]
 
         core = calc_fl_stp(
             customs_value_eur=customs_value_eur,
@@ -447,7 +448,8 @@ def calc_breakdown_rules(
         }
 
     # UL / commercial — always factual age mapping:
-    ul_age_label = pick_ul_age_label(actual_age, buckets)
+    ul_age_candidates = candidate_ul_labels(actual_age, buckets)
+    ul_age_label = ul_age_candidates[0]
 
     core = calc_ul(
         customs_value_eur=customs_value_eur,
