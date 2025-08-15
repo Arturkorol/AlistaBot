@@ -265,6 +265,17 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_YEAR)
         return
     await state.update_data(year=year)
+    diff = date.today().year - year
+    if diff > 3:
+        await state.update_data(age_years=4.0, age_over_3=True)
+        await message.answer("Принято ✅", reply_markup=types.ReplyKeyboardRemove())
+        await _run_calculation(state, message)
+        return
+    if diff < 3:
+        await state.update_data(age_years=2.0, age_over_3=False)
+        await message.answer("Принято ✅", reply_markup=types.ReplyKeyboardRemove())
+        await _run_calculation(state, message)
+        return
     await state.set_state(CalculationStates.age_over_3)
     await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
 
@@ -346,7 +357,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         person_type = "individual" if person_ru == "Физическое лицо" else "company"
         usage_type = "personal" if usage_ru == "Личное" else "commercial"
 
-        decl_date = date.today()
+        decl_date = data.get("decl_date") or date.today()
         manual_rates = data.get("manual_rates", {})
         needed = {currency_code, "EUR"}
         try:
@@ -381,7 +392,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
         fuel_type = car_type
-        age_over_3 = data.get("age_over_3", False)
+        age_over_3 = bool(data.get("age_over_3", False))
 
         core = calc_breakdown_rules(
             person_type=person_type,
