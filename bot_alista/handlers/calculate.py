@@ -11,6 +11,7 @@ from aiogram.fsm.state import State
 
 from states import CalculationStates
 from keyboards.navigation import back_menu
+from keyboards.main_menu import main_menu
 from utils.reset import reset_to_menu
 from constants import (
     CURRENCY_CODES,
@@ -92,7 +93,7 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
 def _age_over3_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text=BTN_AGE_OVER3_YES), types.KeyboardButton(text=BTN_AGE_OVER3_NO)],
-        [types.KeyboardButton(text=BTN_BACK)],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text="🏠 Главное меню")],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -284,7 +285,7 @@ async def on_age_over_3_choice(message: types.Message, state: FSMContext) -> Non
 
 @router.message(CalculationStates.age_over_3, F.text == BTN_BACK)
 async def on_age_over_3_back(message: types.Message, state: FSMContext) -> None:
-    await message.answer(PROMPT_YEAR, reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(PROMPT_YEAR, reply_markup=back_menu())
     await state.set_state(CalculationStates.calc_year)
 
 
@@ -414,7 +415,9 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             core=core,
             util_fee_rub=core["breakdown"].get("util_rub", 0.0),
         )
-        await message.answer(msg, disable_web_page_preview=True)
+        await message.answer(
+            msg, disable_web_page_preview=True, reply_markup=main_menu()
+        )
         await state.clear()
     except Exception as exc:  # pragma: no cover - defensive
         logging.exception("Calculation failed: %s", exc)
