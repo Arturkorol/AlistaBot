@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, Set
+from typing import Iterable, Set, List
 
 @dataclass(frozen=True)
 class AgeBuckets:
@@ -30,54 +30,87 @@ def compute_actual_age_years(production_year: int, decl_date: date) -> float:
     delta = decl_date - prod
     return max(0.0, delta.days / 365.2425)
 
-def pick_ul_age_label(actual_age: float, buckets: AgeBuckets) -> str:
-    """
-    For UL we always use factual age.
-    Priority: ≤3 → 3–5 → 5–7 → >7 (or >5).
-    """
+
+def _available_labels(buckets: AgeBuckets) -> List[str]:
+    labels: List[str] = []
+    if buckets.has_le3:
+        labels.append("≤3")
+    if buckets.has_3_5:
+        labels.append("3–5")
+    if buckets.has_5_7:
+        labels.append("5–7")
+    if buckets.has_gt7:
+        labels.append(">7")
+    if buckets.has_gt5:
+        labels.append(">5")
+    return labels
+
+
+def candidate_ul_labels(actual_age: float, buckets: AgeBuckets) -> List[str]:
+    """Return preferred age labels for UL/commercial usage."""
+
     if actual_age <= 3.0 and buckets.has_le3:
-        return "≤3"
-    if actual_age <= 5.0 and buckets.has_3_5:
-        return "3–5"
-    if actual_age <= 7.0 and buckets.has_5_7:
-        return "5–7"
-    if buckets.has_gt7:
-        return ">7"
-    if buckets.has_gt5:
-        return ">5"
-    # last resort: choose the youngest available in order
-    if buckets.has_3_5: return "3–5"
-    if buckets.has_5_7: return "5–7"
-    if buckets.has_le3: return "≤3"
-    return ">7"
+        best = "≤3"
+    elif actual_age <= 5.0 and buckets.has_3_5:
+        best = "3–5"
+    elif actual_age <= 7.0 and buckets.has_5_7:
+        best = "5–7"
+    elif buckets.has_gt7:
+        best = ">7"
+    elif buckets.has_gt5:
+        best = ">5"
+    elif buckets.has_3_5:
+        best = "3–5"
+    elif buckets.has_5_7:
+        best = "5–7"
+    elif buckets.has_le3:
+        best = "≤3"
+    else:
+        best = ">7"
 
-def pick_fl_age_label(user_over3: bool, actual_age: float, buckets: AgeBuckets) -> str:
-    """
-    For FL:
-      - If user chose "not older than 3": force ≤3 (or nearest younger).
-      - If user chose "older than 3": choose among 3–5 / 5–7 / >7 (or >5) by actual age.
-    """
+    candidates = [best]
+    for label in ["≤3", "3–5", "5–7", ">7", ">5"]:
+        if label in _available_labels(buckets) and label not in candidates:
+            candidates.append(label)
+    return candidates
+
+
+def candidate_fl_labels(user_over3: bool, actual_age: float, buckets: AgeBuckets) -> List[str]:
+    """Return preferred age labels for FL (individual) usage."""
+
     if not user_over3:
-        # Prefer ≤3; if absent, pick the youngest available
-        if buckets.has_le3: return "≤3"
-        if buckets.has_3_5: return "3–5"
-        if buckets.has_5_7: return "5–7"
-        if buckets.has_gt7: return ">7"
-        if buckets.has_gt5: return ">5"
-        return "≤3"
+        if buckets.has_le3:
+            best = "≤3"
+        elif buckets.has_3_5:
+            best = "3–5"
+        elif buckets.has_5_7:
+            best = "5–7"
+        elif buckets.has_gt7:
+            best = ">7"
+        elif buckets.has_gt5:
+            best = ">5"
+        else:
+            best = "≤3"
+    else:
+        if actual_age <= 5.0 and buckets.has_3_5:
+            best = "3–5"
+        elif actual_age <= 7.0 and buckets.has_5_7:
+            best = "5–7"
+        elif buckets.has_gt7:
+            best = ">7"
+        elif buckets.has_gt5:
+            best = ">5"
+        elif buckets.has_3_5:
+            best = "3–5"
+        elif buckets.has_5_7:
+            best = "5–7"
+        elif buckets.has_le3:
+            best = "≤3"
+        else:
+            best = ">7"
 
-    # user_over3 = True
-    if actual_age <= 5.0 and buckets.has_3_5:
-        return "3–5"
-    if actual_age <= 7.0 and buckets.has_5_7:
-        return "5–7"
-    if buckets.has_gt7:
-        return ">7"
-    if buckets.has_gt5:
-        return ">5"
-    # fallback if 3–5/5–7 missing:
-    if buckets.has_3_5: return "3–5"
-    if buckets.has_5_7: return "5–7"
-    # worst-case: can't distinguish; push to >7 or ≤3 if only that exists
-    if buckets.has_le3: return "≤3"
-    return ">7"
+    candidates = [best]
+    for label in ["≤3", "3–5", "5–7", ">7", ">5"]:
+        if label in _available_labels(buckets) and label not in candidates:
+            candidates.append(label)
+    return candidates
