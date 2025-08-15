@@ -7,8 +7,15 @@ PersonType = Literal["individual", "company"]
 UsageType = Literal["personal", "commercial"]
 
 def calc_fl_stp(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int,
-    segment: str, category: str, fuel: str, age_bucket: str
+    *,
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    factual_age_years: float | None = None,
 ) -> Dict[str, Any]:
     """
     Individuals (personal use) — STP unified payment from rules:
@@ -43,11 +50,21 @@ def calc_fl_stp(
         "duty_rub": duty_rub,
         "vat_rub": 0.0,
         "excise_rub": 0.0,
+        "factual_age_years": factual_age_years,
     }
 
 def calc_ul(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int, engine_hp: int,
-    segment: str, category: str, fuel: str, age_bucket: str, vat_override_pct: float | None = None
+    *,
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    engine_hp: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    factual_age_years: float | None = None,
+    vat_override_pct: float | None = None,
 ) -> Dict[str, Any]:
     """
     Companies/commercial — ad valorem vs min €/cc vs specific €/cc + excise + VAT.
@@ -88,4 +105,5 @@ def calc_ul(
         "duty_rub": duty_rub,
         "excise_rub": excise_rub,
         "vat_rub": vat_rub,
+        "factual_age_years": factual_age_years,
     }
