@@ -380,7 +380,7 @@ def calc_breakdown_rules(
     decl_date = decl_date or date.today()
     fuel_norm = normalize_fuel_label(fuel_type)
     rules = load_rules()
-    labels = get_available_age_labels()
+    labels = get_available_age_labels(rules)
     buckets = detect_buckets(labels)
 
     customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
@@ -391,11 +391,14 @@ def calc_breakdown_rules(
         fl_age_label = pick_fl_age_label(age_choice_over3, actual_age, buckets)
 
         core = calc_fl_stp(
+            rules=rules,
             customs_value_eur=customs_value_eur,
             eur_rub_rate=eur_rub_rate,
             engine_cc=int(engine_cc or 0),
-            segment=segment, category=category,
-            fuel=fuel_norm, age_bucket=fl_age_label,
+            segment=segment,
+            category=category,
+            fuel=fuel_norm,
+            age_bucket=fl_age_label,
             factual_age_years=actual_age,
         )
         fee_rub = calc_clearance_fee_rub(customs_value_rub)
@@ -450,12 +453,15 @@ def calc_breakdown_rules(
     ul_age_label = pick_ul_age_label(actual_age, buckets)
 
     core = calc_ul(
+        rules=rules,
         customs_value_eur=customs_value_eur,
         eur_rub_rate=eur_rub_rate,
         engine_cc=int(engine_cc or 0),
         engine_hp=int(engine_hp or 0),
-        segment=segment, category=category,
-        fuel=fuel_norm, age_bucket=ul_age_label,
+        segment=segment,
+        category=category,
+        fuel=fuel_norm,
+        age_bucket=ul_age_label,
         factual_age_years=actual_age,
     )
 

@@ -138,9 +138,16 @@ def pick_rule(rows: List[RuleRow], *, segment: str, category: str, fuel: str,
             and _match(engine_cc, r.cc_from, r.cc_to)]
     return cand[0] if cand else None
 
-def get_available_age_labels() -> set[str]:
-    rows = load_rules()
-    return { r.age_bucket for r in rows if r.age_bucket }
+def get_available_age_labels(rows: List[RuleRow] | None = None) -> set[str]:
+    """Return a set of age bucket labels available in provided rules.
+
+    If *rows* is ``None`` the CSV will be loaded internally. This allows
+    callers to either reuse a cached list of rules or fetch lazily when
+    only the labels are needed.
+    """
+    if rows is None:
+        rows = load_rules()
+    return {r.age_bucket for r in rows if r.age_bucket}
 
 def normalize_fuel_label(user_fuel: str) -> str:
     s = (user_fuel or "").strip().lower()

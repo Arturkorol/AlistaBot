@@ -1,14 +1,22 @@
 # bot_alista/rules/engine.py
 from __future__ import annotations
-from typing import Literal, Dict, Any
-from .loader import load_rules, pick_rule
+from typing import Literal, Dict, Any, List
+from .loader import pick_rule, RuleRow
 
 PersonType = Literal["individual", "company"]
 UsageType = Literal["personal", "commercial"]
 
 def calc_fl_stp(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int,
-    segment: str, category: str, fuel: str, age_bucket: str
+    *,
+    rules: List[RuleRow],
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    factual_age_years: float | None = None,
 ) -> Dict[str, Any]:
     """
     Individuals (personal use) — STP unified payment from rules:
@@ -17,7 +25,6 @@ def calc_fl_stp(
       - Some datasets contain both (use max(ad valorem, min €/cc)).
     Returns duty_eur and duty_rub as the 'STP' (no separate VAT/excise).
     """
-    rules = load_rules()
     rule = pick_rule(rules, segment=segment, category=category, fuel=fuel,
                      age_bucket=age_bucket, engine_cc=engine_cc, engine_hp=None)
     if not rule:
@@ -43,16 +50,26 @@ def calc_fl_stp(
         "duty_rub": duty_rub,
         "vat_rub": 0.0,
         "excise_rub": 0.0,
+        "factual_age_years": factual_age_years,
     }
 
 def calc_ul(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int, engine_hp: int,
-    segment: str, category: str, fuel: str, age_bucket: str, vat_override_pct: float | None = None
+    *,
+    rules: List[RuleRow],
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    engine_hp: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    factual_age_years: float | None = None,
+    vat_override_pct: float | None = None,
 ) -> Dict[str, Any]:
     """
     Companies/commercial — ad valorem vs min €/cc vs specific €/cc + excise + VAT.
     """
-    rules = load_rules()
     rule = pick_rule(rules, segment=segment, category=category, fuel=fuel,
                      age_bucket=age_bucket, engine_cc=engine_cc, engine_hp=engine_hp)
     if not rule:
@@ -88,4 +105,5 @@ def calc_ul(
         "duty_rub": duty_rub,
         "excise_rub": excise_rub,
         "vat_rub": vat_rub,
+        "factual_age_years": factual_age_years,
     }
