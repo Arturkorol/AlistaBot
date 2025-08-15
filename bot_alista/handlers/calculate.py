@@ -346,7 +346,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         person_type = "individual" if person_ru == "Физическое лицо" else "company"
         usage_type = "personal" if usage_ru == "Личное" else "commercial"
 
-        decl_date = date.today()
+        decl_date = data.get("decl_date") or date.today()
         manual_rates = data.get("manual_rates", {})
         needed = {currency_code, "EUR"}
         try:
@@ -381,7 +381,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
         fuel_type = car_type
-        age_over_3 = data.get("age_over_3", False)
+        age_over_3 = bool(data.get("age_over_3", False))
 
         core = calc_breakdown_rules(
             person_type=person_type,

@@ -137,3 +137,18 @@ def pick_rule(rows: List[RuleRow], *, segment: str, category: str, fuel: str,
             if r.segment == segment and r.category == category and r.fuel == fuel and r.age_bucket == age_bucket
             and _match(engine_cc, r.cc_from, r.cc_to)]
     return cand[0] if cand else None
+
+def get_available_age_labels() -> set[str]:
+    rows = load_rules()
+    return { r.age_bucket for r in rows if r.age_bucket }
+
+def normalize_fuel_label(user_fuel: str) -> str:
+    s = (user_fuel or "").strip().lower()
+    if any(x in s for x in ("элект", "bev", "electric")):
+        return "Электро"
+    if any(x in s for x in ("гибрид", "hev", "phev", "hybrid")):
+        return "Гибрид"
+    if "диз" in s or "diesel" in s:
+        return "Дизель"
+    # default
+    return "Бензин"
