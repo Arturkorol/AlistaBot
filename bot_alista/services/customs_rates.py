@@ -2,10 +2,10 @@ import requests
 import xml.etree.ElementTree as ET
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 # Default fallback tariffs in case fetching fails
-DEFAULT_TARIFFS: Dict[str, Any] = {
+DEFAULT_TARIFFS: dict[str, Any] = {
     "duty": {
         "under_3": {"per_cc": 2.5, "price_percent": 0.48},
         "3_5": [
@@ -23,13 +23,13 @@ DEFAULT_TARIFFS: Dict[str, Any] = {
 }
 
 # Simple in-memory cache per day
-_cached_tariffs: Dict[str, Any] | None = None
+_cached_tariffs: dict[str, Any] | None = None
 _cached_date: datetime | None = None
 
 TARIFF_URL = "https://customs.gov.ru/api/tariffs"  # Placeholder URL
 
 
-def _parse_json(data: Dict[str, Any]) -> Dict[str, Any]:
+def _parse_json(data: dict[str, Any]) -> dict[str, Any]:
     """Extracts needed fields from JSON structure."""
     try:
         duty = data["duty"]
@@ -46,11 +46,11 @@ def _parse_json(data: Dict[str, Any]) -> Dict[str, Any]:
         return DEFAULT_TARIFFS
 
 
-def _parse_xml(text: str) -> Dict[str, Any]:
+def _parse_xml(text: str) -> dict[str, Any]:
     """Parses XML tariff data into the standard structure."""
     try:
         root = ET.fromstring(text)
-        duty: Dict[str, Any] = {
+        duty: dict[str, Any] = {
             "under_3": {"per_cc": float(root.findtext("duty/under_3/per_cc", 2.5)),
                          "price_percent": float(root.findtext("duty/under_3/price_percent", 0.48))},
             "3_5": [],
@@ -78,7 +78,7 @@ def _parse_xml(text: str) -> Dict[str, Any]:
         return DEFAULT_TARIFFS
 
 
-def _validate_tariffs(data: Dict[str, Any]) -> bool:
+def _validate_tariffs(data: dict[str, Any]) -> bool:
     """Basic validation to ensure required fields exist."""
     try:
         duty = data["duty"]
@@ -99,7 +99,7 @@ def _validate_tariffs(data: Dict[str, Any]) -> bool:
     return True
 
 
-def fetch_tariffs() -> Dict[str, Any]:
+def fetch_tariffs() -> dict[str, Any]:
     """Fetches tariff rates from the Russian customs service with per-day caching."""
     global _cached_tariffs, _cached_date
     today = datetime.today().date()
