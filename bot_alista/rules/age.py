@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, Set, List
+from typing import Iterable, Set
 
 @dataclass(frozen=True)
 class AgeBuckets:
@@ -31,86 +31,119 @@ def compute_actual_age_years(production_year: int, decl_date: date) -> float:
     return max(0.0, delta.days / 365.2425)
 
 
-def _available_labels(buckets: AgeBuckets) -> List[str]:
-    labels: List[str] = []
-    if buckets.has_le3:
-        labels.append("≤3")
-    if buckets.has_3_5:
-        labels.append("3–5")
-    if buckets.has_5_7:
-        labels.append("5–7")
-    if buckets.has_gt7:
-        labels.append(">7")
-    if buckets.has_gt5:
-        labels.append(">5")
-    return labels
-
-
-def candidate_ul_labels(actual_age: float, buckets: AgeBuckets) -> List[str]:
-    """Return preferred age labels for UL/commercial usage."""
+def pick_ul_age_label(actual_age: float, buckets: AgeBuckets) -> str:
+    """Pick a single age label for UL using factual age with graceful fallback."""
 
     if actual_age <= 3.0 and buckets.has_le3:
-        best = "≤3"
-    elif actual_age <= 5.0 and buckets.has_3_5:
-        best = "3–5"
-    elif actual_age <= 7.0 and buckets.has_5_7:
-        best = "5–7"
-    elif buckets.has_gt7:
-        best = ">7"
-    elif buckets.has_gt5:
-        best = ">5"
-    elif buckets.has_3_5:
-        best = "3–5"
-    elif buckets.has_5_7:
-        best = "5–7"
-    elif buckets.has_le3:
-        best = "≤3"
-    else:
-        best = ">7"
-
-    candidates = [best]
-    for label in ["≤3", "3–5", "5–7", ">7", ">5"]:
-        if label in _available_labels(buckets) and label not in candidates:
-            candidates.append(label)
-    return candidates
+        return "≤3"
+    if actual_age <= 5.0 and buckets.has_3_5:
+        return "3–5"
+    if actual_age <= 7.0 and buckets.has_5_7:
+        return "5–7"
+    if buckets.has_gt7:
+        return ">7"
+    if buckets.has_gt5:
+        return ">5"
+    if buckets.has_3_5:
+        return "3–5"
+    if buckets.has_5_7:
+        return "5–7"
+    if buckets.has_le3:
+        return "≤3"
+    return ">7"
 
 
-def candidate_fl_labels(user_over3: bool, actual_age: float, buckets: AgeBuckets) -> List[str]:
-    """Return preferred age labels for FL (individual) usage."""
+def pick_fl_age_label(user_over3: bool, actual_age: float, buckets: AgeBuckets) -> str:
+    """Pick a single age label for FL based on user choice and factual age."""
 
     if not user_over3:
         if buckets.has_le3:
-            best = "≤3"
-        elif buckets.has_3_5:
-            best = "3–5"
-        elif buckets.has_5_7:
-            best = "5–7"
-        elif buckets.has_gt7:
-            best = ">7"
-        elif buckets.has_gt5:
-            best = ">5"
-        else:
-            best = "≤3"
-    else:
-        if actual_age <= 5.0 and buckets.has_3_5:
-            best = "3–5"
-        elif actual_age <= 7.0 and buckets.has_5_7:
-            best = "5–7"
-        elif buckets.has_gt7:
-            best = ">7"
-        elif buckets.has_gt5:
-            best = ">5"
-        elif buckets.has_3_5:
-            best = "3–5"
-        elif buckets.has_5_7:
-            best = "5–7"
-        elif buckets.has_le3:
-            best = "≤3"
-        else:
-            best = ">7"
+            return "≤3"
+        if buckets.has_3_5:
+            return "3–5"
+        if buckets.has_5_7:
+            return "5–7"
+        if buckets.has_gt7:
+            return ">7"
+        if buckets.has_gt5:
+            return ">5"
+        return "≤3"
 
-    candidates = [best]
-    for label in ["≤3", "3–5", "5–7", ">7", ">5"]:
-        if label in _available_labels(buckets) and label not in candidates:
-            candidates.append(label)
-    return candidates
+    if actual_age <= 5.0 and buckets.has_3_5:
+        return "3–5"
+    if actual_age <= 7.0 and buckets.has_5_7:
+        return "5–7"
+    if buckets.has_gt7:
+        return ">7"
+    if buckets.has_gt5:
+        return ">5"
+    if buckets.has_3_5:
+        return "3–5"
+    if buckets.has_5_7:
+        return "5–7"
+    if buckets.has_le3:
+        return "≤3"
+    return ">7"
+
+
+def candidate_fl_labels(user_over3: bool, actual_age: float, buckets: AgeBuckets) -> list[str]:
+    """Ordered list of possible age labels for FL with graceful fallback."""
+
+    order: list[str] = []
+    if not user_over3:
+        if buckets.has_le3:
+            order.append("≤3")
+        if buckets.has_3_5:
+            order.append("3–5")
+        if buckets.has_5_7:
+            order.append("5–7")
+        if buckets.has_gt7:
+            order.append(">7")
+        if buckets.has_gt5:
+            order.append(">5")
+        if not order:
+            order.append("≤3")
+        return order
+
+    if actual_age <= 5.0 and buckets.has_3_5:
+        order.append("3–5")
+    if actual_age <= 7.0 and buckets.has_5_7:
+        order.append("5–7")
+    if buckets.has_gt7:
+        order.append(">7")
+    if buckets.has_gt5:
+        order.append(">5")
+    if buckets.has_3_5 and "3–5" not in order:
+        order.append("3–5")
+    if buckets.has_5_7 and "5–7" not in order:
+        order.append("5–7")
+    if buckets.has_le3:
+        order.append("≤3")
+    if not order:
+        order.append(">7")
+    return order
+
+
+def candidate_ul_labels(actual_age: float, buckets: AgeBuckets) -> list[str]:
+    """Ordered list of possible age labels for UL with graceful fallback."""
+
+    order: list[str] = []
+    if actual_age <= 3.0 and buckets.has_le3:
+        order.append("≤3")
+    if actual_age <= 5.0 and buckets.has_3_5 and "3–5" not in order:
+        order.append("3–5")
+    if actual_age <= 7.0 and buckets.has_5_7 and "5–7" not in order:
+        order.append("5–7")
+    if buckets.has_gt7:
+        order.append(">7")
+    if buckets.has_gt5 and ">5" not in order:
+        order.append(">5")
+    if buckets.has_3_5 and "3–5" not in order:
+        order.append("3–5")
+    if buckets.has_5_7 and "5–7" not in order:
+        order.append("5–7")
+    if buckets.has_le3 and "≤3" not in order:
+        order.append("≤3")
+    if not order:
+        order.append(">7")
+    return order

@@ -387,18 +387,27 @@ def calc_breakdown_rules(
     actual_age = compute_actual_age_years(production_year, decl_date)
 
     if person_type == "individual" and usage_type == "personal":
-        # Resolve FL age label robustly:
+        # Resolve FL age label with graceful fallback
         fl_age_candidates = candidate_fl_labels(age_choice_over3, actual_age, buckets)
+        last_exc: Exception | None = None
+        core = None
         fl_age_label = fl_age_candidates[0]
-
-        core = calc_fl_stp(
-            rules=rules,
-            customs_value_eur=customs_value_eur,
-            eur_rub_rate=eur_rub_rate,
-            engine_cc=int(engine_cc or 0),
-            segment=segment, category=category,
-            fuel=fuel_norm, age_bucket=fl_age_label,
-        )
+        for label in fl_age_candidates:
+            try:
+                core = calc_fl_stp(
+                    rules=rules,
+                    customs_value_eur=customs_value_eur,
+                    eur_rub_rate=eur_rub_rate,
+                    engine_cc=int(engine_cc or 0),
+                    segment=segment, category=category,
+                    fuel=fuel_norm, age_bucket=label,
+                )
+                fl_age_label = label
+                break
+            except Exception as exc:
+                last_exc = exc
+        if core is None:
+            raise last_exc or ValueError("No applicable FL rule found")
         fee_rub = calc_clearance_fee_rub(customs_value_rub)
         total_no_util = round(core["duty_rub"] + fee_rub, 2)
 
@@ -447,19 +456,28 @@ def calc_breakdown_rules(
             ],
         }
 
-    # UL / commercial — always factual age mapping:
+    # UL / commercial — always factual age mapping with fallback
     ul_age_candidates = candidate_ul_labels(actual_age, buckets)
+    last_exc = None
+    core = None
     ul_age_label = ul_age_candidates[0]
-
-    core = calc_ul(
-        rules=rules,
-        customs_value_eur=customs_value_eur,
-        eur_rub_rate=eur_rub_rate,
-        engine_cc=int(engine_cc or 0),
-        engine_hp=int(engine_hp or 0),
-        segment=segment, category=category,
-        fuel=fuel_norm, age_bucket=ul_age_label,
-    )
+    for label in ul_age_candidates:
+        try:
+            core = calc_ul(
+                rules=rules,
+                customs_value_eur=customs_value_eur,
+                eur_rub_rate=eur_rub_rate,
+                engine_cc=int(engine_cc or 0),
+                engine_hp=int(engine_hp or 0),
+                segment=segment, category=category,
+                fuel=fuel_norm, age_bucket=label,
+            )
+            ul_age_label = label
+            break
+        except Exception as exc:
+            last_exc = exc
+    if core is None:
+        raise last_exc or ValueError("No applicable UL rule found")
 
     fee_rub = calc_clearance_fee_rub(customs_value_rub)
     total_no_util = round(core["duty_rub"] + core["excise_rub"] + core["vat_rub"] + fee_rub, 2)
