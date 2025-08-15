@@ -8,13 +8,19 @@ customs payments for used passenger cars with engine volume between
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Dict
 from datetime import date
 
 from bot_alista.tariff.personal_rates import (
     calc_individual_personal_duty_eur,
 )
-from bot_alista.rules.loader import load_rules, get_available_age_labels, normalize_fuel_label
+from bot_alista.rules.loader import (
+    load_rules,
+    get_available_age_labels,
+    normalize_fuel_label,
+    RuleRow,
+)
 from bot_alista.rules.age import (
     compute_actual_age_years,
     detect_buckets,
@@ -40,6 +46,15 @@ EXCISE_BRACKETS: tuple[ExciseBracket, ...] = (
     ExciseBracket(max_hp=500, rate=1685),
     ExciseBracket(max_hp=None, rate=1740),
 )
+
+
+@lru_cache(maxsize=1)
+def _get_rule_env() -> tuple[list[RuleRow], set[str], tuple[str, ...]]:
+    """Return cached rules along with age labels and detected buckets."""
+    rules = load_rules()
+    labels = get_available_age_labels(rules)
+    buckets = detect_buckets(labels)
+    return rules, labels, buckets
 
 
 def _validate_positive_int(value: int, name: str) -> None:
@@ -379,9 +394,7 @@ def calc_breakdown_rules(
 
     decl_date = decl_date or date.today()
     fuel_norm = normalize_fuel_label(fuel_type)
-    rules = load_rules()
-    labels = get_available_age_labels(rules)
-    buckets = detect_buckets(labels)
+    rules, labels, buckets = _get_rule_env()
 
     customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
     actual_age = compute_actual_age_years(production_year, decl_date)

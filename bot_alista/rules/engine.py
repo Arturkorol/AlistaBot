@@ -1,6 +1,10 @@
 # bot_alista/rules/engine.py
 from __future__ import annotations
+
 from typing import Literal, Dict, Any, List
+
+# Caller should provide a preloaded (and ideally cached) list of RuleRow
+# entries to avoid repeated CSV parsing in performance-sensitive paths.
 from .loader import pick_rule, RuleRow
 
 PersonType = Literal["individual", "company"]

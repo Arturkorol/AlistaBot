@@ -2,6 +2,7 @@
 from __future__ import annotations
 import csv
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -71,32 +72,40 @@ def _to_float(v: str) -> Optional[float]:
     except:
         return None
 
-def load_rules(path: Path = DATA_PATH) -> List[RuleRow]:
+@lru_cache(maxsize=1)
+def load_rules(path: str = str(DATA_PATH)) -> List[RuleRow]:
+    """Load rule rows from CSV or return a minimal fallback set.
+
+    The result is cached to avoid repeated disk reads during tariff calculations.
+    """
+    data_path = Path(path)
     rows: List[RuleRow] = []
-    if path.exists():
-        with path.open("r", encoding="utf-8-sig", newline="") as fh:
+    if data_path.exists():
+        with data_path.open("r", encoding="utf-8-sig", newline="") as fh:
             reader = csv.DictReader(fh)
             for r in reader:
                 cc_from, cc_to = _parse_range(r.get(COL["range_cc"], ""))
                 hp_from, hp_to = _parse_range(r.get(COL["range_hp"], ""))
-                rows.append(RuleRow(
-                    segment=(r.get(COL["segment"]) or "").strip(),
-                    category=(r.get(COL["category"]) or "").strip(),
-                    fuel=(r.get(COL["fuel"]) or "").strip(),
-                    age_bucket=(r.get(COL["age_bucket"]) or "").strip(),
-                    cc_from=int(cc_from) if cc_from is not None else None,
-                    cc_to=int(cc_to) if cc_to is not None else None,
-                    hp_from=int(hp_from) if hp_from is not None else None,
-                    hp_to=int(hp_to) if hp_to is not None else None,
-                    duty_type=(r.get(COL["duty_type"]) or "").strip() or None,
-                    duty_pct=_to_float(r.get(COL["duty_pct"])),
-                    min_eur_cc=_to_float(r.get(COL["min_eur_cc"])),
-                    spec_eur_cc=_to_float(r.get(COL["spec_eur_cc"])),
-                    stp_pct=_to_float(r.get(COL["stp_pct"])),
-                    stp_min_eur_cc=_to_float(r.get(COL["stp_min_eur_cc"])),
-                    vat_pct=_to_float(r.get(COL["vat_pct"])),
-                    excise_rub_hp=_to_float(r.get(COL["excise_rub_hp"])),
-                ))
+                rows.append(
+                    RuleRow(
+                        segment=(r.get(COL["segment"]) or "").strip(),
+                        category=(r.get(COL["category"]) or "").strip(),
+                        fuel=(r.get(COL["fuel"]) or "").strip(),
+                        age_bucket=(r.get(COL["age_bucket"]) or "").strip(),
+                        cc_from=int(cc_from) if cc_from is not None else None,
+                        cc_to=int(cc_to) if cc_to is not None else None,
+                        hp_from=int(hp_from) if hp_from is not None else None,
+                        hp_to=int(hp_to) if hp_to is not None else None,
+                        duty_type=(r.get(COL["duty_type"]) or "").strip() or None,
+                        duty_pct=_to_float(r.get(COL["duty_pct"])),
+                        min_eur_cc=_to_float(r.get(COL["min_eur_cc"])),
+                        spec_eur_cc=_to_float(r.get(COL["spec_eur_cc"])),
+                        stp_pct=_to_float(r.get(COL["stp_pct"])),
+                        stp_min_eur_cc=_to_float(r.get(COL["stp_min_eur_cc"])),
+                        vat_pct=_to_float(r.get(COL["vat_pct"])),
+                        excise_rub_hp=_to_float(r.get(COL["excise_rub_hp"])),
+                    )
+                )
     else:
         # Fallback minimal rules (to keep bot operable if CSV is absent).
         rows = [
