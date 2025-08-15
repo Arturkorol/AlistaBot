@@ -39,7 +39,6 @@ from constants import (
 from bot_alista.services.rates import (
     get_cached_rates,
     validate_or_prompt_rate,
-    currency_to_rub,
 )
 from tariff_engine import calc_breakdown_rules
 from bot_alista.formatting import format_result_message
@@ -350,23 +349,10 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         manual_rates = data.get("manual_rates", {})
         needed = {currency_code, "EUR"}
         try:
-            rates = get_cached_rates(decl_date, codes=needed)
+            rates = get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
+            customs_value_rub = amount * rates[currency_code]
         except Exception:
             missing = [c for c in needed if c not in manual_rates]
-            if missing:
-                await state.update_data(pending_rate_code=missing[0])
-                await state.set_state(CalculationStates.manual_rate)
-                await message.answer(
-                    f"📥 Введите курс {missing[0]} вручную (₽ за {missing[0]}):",
-                    reply_markup=back_menu(),
-                )
-                return
-            rates = manual_rates
-        try:
-            rates = get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
-            customs_value_rub = currency_to_rub(amount, currency_code, decl_date)
-        except Exception:
-            missing = [c for c in {currency_code, "EUR"} if c not in manual_rates]
             if missing:
                 await state.update_data(pending_rate_code=missing[0])
                 await state.set_state(CalculationStates.manual_rate)
