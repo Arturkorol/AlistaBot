@@ -12,7 +12,7 @@ from typing import Dict
 
 import math
 
-from bot_alista.services.rates import get_cbr_rate
+from bot_alista.services.rates import get_cached_rate
 
 # ---------------------------------------------------------------------------
 # Вспомогательные структуры и таблицы тарифов
@@ -114,11 +114,12 @@ def _format_money(value: float) -> str:
 
 def _get_rate(code: Currency) -> float:
     """Получить курс валюты к рублю на сегодня."""
-    if code == "RUB":
+    if code.upper() == "RUB":
         return 1.0
     today = date.today()
     try:
-        return get_cbr_rate(today, code)
+        # Используем файловый кэш, чтобы расчёт работал без сети
+        return get_cached_rate(today, code.upper())
     except Exception:
         # Не искажаем расчёт фиктивными курсами
         raise RuntimeError("Курс ЦБ недоступен — попробуйте позже")
