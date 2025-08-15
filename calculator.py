@@ -86,6 +86,23 @@ CLEARANCE_FEE_TABLE = [
     (math.inf, 30000),
 ]
 
+# ФЛ ≤3 лет — таблица по ТАМОЖЕННОЙ СТОИМОСТИ (EUR), не по объёму!
+FL_STP_UNDER3_BY_VALUE_EUR = [
+    (8500,    {"pct": 0.54, "min": 2.5}),
+    (16700,   {"pct": 0.48, "min": 3.5}),
+    (42300,   {"pct": 0.48, "min": 5.5}),
+    (84500,   {"pct": 0.48, "min": 7.5}),
+    (169000,  {"pct": 0.48, "min": 15.0}),
+    (math.inf,{"pct": 0.48, "min": 20.0}),
+]
+
+
+def pick_fl_under3_rule_by_value_eur(value_eur: float) -> dict:
+    for lim, rule in FL_STP_UNDER3_BY_VALUE_EUR:
+        if value_eur <= lim:
+            return rule
+    return FL_STP_UNDER3_BY_VALUE_EUR[-1][1]
+
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
@@ -103,8 +120,8 @@ def _get_rate(code: Currency) -> float:
     try:
         return get_cbr_rate(today, code)
     except Exception:
-        # В случае недоступности сервиса ЦБ возвращаем 1 для EUR и 100 для прочих
-        return 1.0 if code == "EUR" else 100.0
+        # Не искажаем расчёт фиктивными курсами
+        raise RuntimeError("Курс ЦБ недоступен — попробуйте позже")
 
 
 def _age_category(year: int, person_type: str) -> str:
@@ -143,30 +160,52 @@ def _excise_hp_rate(hp: int) -> int:
 def calculate_individual(*, customs_value: float, currency: Currency, engine_cc: int,
                          production_year: int, fuel: str, hp: int | None = None) -> Dict[str, float]:
     """Возвращает расчёт СТП для физического лица."""
+    trace: list[str] = []
     rate = _get_rate(currency)
     value_rub = customs_value * rate
+    eur_rate = _get_rate("EUR")
+    value_eur = value_rub / eur_rate
     age_cat = _age_category(production_year, "fl")
 
     if fuel.lower() == "электро":
-        duty_eur = customs_value * 0.15
-    else:
+        # ФЛ: электромобиль считаем по СТП как ДВС (а не 15%)
         if age_cat == "under_3":
-            pct = _pick_rate(FL_STP_UNDER3, engine_cc)
-            duty_eur = max(customs_value * pct["pct"], engine_cc * pct["min"])
+            rule = pick_fl_under3_rule_by_value_eur(value_eur)
+            trace.append(
+                f"СТП ≤3 стоимость {value_eur:.2f} EUR → pct {rule['pct']} min {rule['min']} €/см³"
+            )
+            duty_eur = max(value_eur * rule["pct"], engine_cc * rule["min"])
         elif age_cat == "3_5":
             per_cc = _pick_rate(FL_STP_3_5, engine_cc)
+            trace.append(f"СТП 3-5 лет ставка {per_cc} €/см³")
             duty_eur = engine_cc * per_cc
         else:
             per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
+            trace.append(f"СТП >5 лет ставка {per_cc} €/см³")
+            duty_eur = engine_cc * per_cc
+    else:
+        if age_cat == "under_3":
+            rule = pick_fl_under3_rule_by_value_eur(value_eur)
+            trace.append(
+                f"СТП ≤3 стоимость {value_eur:.2f} EUR → pct {rule['pct']} min {rule['min']} €/см³"
+            )
+            duty_eur = max(value_eur * rule["pct"], engine_cc * rule["min"])
+        elif age_cat == "3_5":
+            per_cc = _pick_rate(FL_STP_3_5, engine_cc)
+            trace.append(f"СТП 3-5 лет ставка {per_cc} €/см³")
+            duty_eur = engine_cc * per_cc
+        else:
+            per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
+            trace.append(f"СТП >5 лет ставка {per_cc} €/см³")
             duty_eur = engine_cc * per_cc
 
-    eur_rate = _get_rate("EUR")
     duty_rub = duty_eur * eur_rate
 
     util_coeff = UTIL_COEFF_FL["under_3" if age_cat == "under_3" else "over_3"]
     util_rub = UTIL_BASE_UL * util_coeff
-
-    total_rub = duty_rub + util_rub
+    fee_rub = _pick_rate(CLEARANCE_FEE_TABLE, value_rub)
+    trace.append(f"Сбор за оформление: {fee_rub} руб")
+    total_rub = duty_rub + util_rub + fee_rub
 
     return {
         "customs_value_rub": value_rub,
@@ -174,9 +213,11 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
         "eur_rate": eur_rate,
         "duty_rub": duty_rub,
         "util_rub": util_rub,
+        "clearance_fee_rub": fee_rub,
         "total_rub": total_rub,
         "age_category": age_cat,
         "currency_rate": rate,
+        "trace": trace,
     }
 
 
@@ -186,6 +227,7 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
 
 def calculate_company(*, customs_value: float, currency: Currency, engine_cc: int,
                        production_year: int, fuel: str, hp: int) -> Dict[str, float]:
+    trace: list[str] = []
     rate = _get_rate(currency)
     value_rub = customs_value * rate
     age_cat = _age_category(production_year, "ul")
@@ -193,19 +235,26 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     # Пошлина
     if fuel.lower() == "электро":
         duty_eur = customs_value * 0.15
+        trace.append("Электро: 15% адвалор")
     else:
         if age_cat == "under_3":
-            duty_rule = _pick_rate(UL_DUTY_UNDER3, engine_cc)
-            duty_eur = max(customs_value * duty_rule["pct"], engine_cc * duty_rule["min"])
+            # ЮЛ ≤3 лет: 15% адвалор (если CSV не даёт иное для конкретного кода)
+            eur_rate = _get_rate("EUR")
+            value_eur = value_rub / eur_rate
+            duty_eur = value_eur * 0.15
+            trace.append(f"ЮЛ ≤3 лет: 15% от {value_eur:.2f} EUR")
         elif age_cat == "3_5":
             per_cc = _pick_rate(UL_DUTY_3_5, engine_cc)
             duty_eur = engine_cc * per_cc
+            trace.append(f"ЮЛ 3-5 лет ставка {per_cc} €/см³")
         elif age_cat == "5_7":
             per_cc = _pick_rate(UL_DUTY_5_7, engine_cc)
             duty_eur = engine_cc * per_cc
+            trace.append(f"ЮЛ 5-7 лет ставка {per_cc} €/см³")
         else:
             per_cc = _pick_rate(UL_DUTY_OVER7, engine_cc)
             duty_eur = engine_cc * per_cc
+            trace.append(f"ЮЛ >7 лет ставка {per_cc} €/см³")
 
     eur_rate = _get_rate("EUR")
     duty_rub = duty_eur * eur_rate
@@ -223,6 +272,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
 
     # Сбор за оформление
     fee_rub = _pick_rate(CLEARANCE_FEE_TABLE, value_rub)
+    trace.append(f"Сбор за оформление: {fee_rub} руб")
 
     total_rub = duty_rub + excise_rub + vat_rub + util_rub + fee_rub
 
@@ -238,6 +288,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
         "eur_rate": eur_rate,
         "currency_rate": rate,
         "age_category": age_cat,
+        "trace": trace,
     }
 
 
@@ -247,16 +298,20 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
 
 
 def format_individual_result(data: Dict[str, float]) -> str:
-    return (
+    base = (
         "📦 Таможенная стоимость: " + _format_money(data["customs_value_rub"]) + " ₽\n"
         "🛃 СТП: " + _format_money(data["duty_rub"]) + " ₽\n"
         "♻️ Утильсбор: " + _format_money(data["util_rub"]) + " ₽\n"
+        "📄 Сбор за оформление: " + _format_money(data.get("clearance_fee_rub", 0)) + " ₽\n"
         "✅ Итоговая сумма: " + _format_money(data["total_rub"]) + " ₽"
     )
+    if trace := data.get("trace"):
+        base += "\n" + "\n".join(trace[:10])
+    return base
 
 
 def format_company_result(data: Dict[str, float]) -> str:
-    return (
+    base = (
         "📦 Таможенная стоимость: " + _format_money(data["customs_value_rub"]) + " ₽\n"
         "🛃 Пошлина: " + _format_money(data["duty_rub"]) + " ₽\n"
         "🚗 Акциз: " + _format_money(data["excise_rub"]) + " ₽\n"
@@ -265,6 +320,9 @@ def format_company_result(data: Dict[str, float]) -> str:
         "📄 Сбор за оформление: " + _format_money(data["clearance_fee_rub"]) + " ₽\n"
         "✅ Итоговая сумма: " + _format_money(data["total_rub"]) + " ₽"
     )
+    if trace := data.get("trace"):
+        base += "\n" + "\n".join(trace[:10])
+    return base
 
 
 __all__ = [
