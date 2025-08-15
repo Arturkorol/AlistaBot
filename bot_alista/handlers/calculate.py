@@ -11,7 +11,6 @@ from aiogram.fsm.state import State
 
 from states import CalculationStates
 from keyboards.navigation import back_menu
-from keyboards.main_menu import main_menu
 from utils.reset import reset_to_menu
 from constants import (
     CURRENCY_CODES,
@@ -415,12 +414,10 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             core=core,
             util_fee_rub=core["breakdown"].get("util_rub", 0.0),
         )
-        await message.answer(
-            msg, disable_web_page_preview=True, reply_markup=main_menu()
-        )
-        await state.clear()
+        await message.answer(msg, disable_web_page_preview=True)
+        await reset_to_menu(message, state)
     except Exception as exc:  # pragma: no cover - defensive
         logging.exception("Calculation failed: %s", exc)
         await message.answer("❌ Ошибка расчёта. Проверьте введённые данные.")
-        await state.clear()
+        await reset_to_menu(message, state)
 
