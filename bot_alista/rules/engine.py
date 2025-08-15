@@ -1,13 +1,13 @@
 # bot_alista/rules/engine.py
 from __future__ import annotations
-from typing import Literal, Dict, Any
-from .loader import load_rules, pick_rule
+from typing import Literal, Dict, Any, List
+from .loader import pick_rule, RuleRow
 
 PersonType = Literal["individual", "company"]
 UsageType = Literal["personal", "commercial"]
 
 def calc_fl_stp(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int,
+    *, rules: List[RuleRow], customs_value_eur: float, eur_rub_rate: float, engine_cc: int,
     segment: str, category: str, fuel: str, age_bucket: str
 ) -> Dict[str, Any]:
     """
@@ -17,7 +17,6 @@ def calc_fl_stp(
       - Some datasets contain both (use max(ad valorem, min €/cc)).
     Returns duty_eur and duty_rub as the 'STP' (no separate VAT/excise).
     """
-    rules = load_rules()
     rule = pick_rule(rules, segment=segment, category=category, fuel=fuel,
                      age_bucket=age_bucket, engine_cc=engine_cc, engine_hp=None)
     if not rule:
@@ -46,13 +45,13 @@ def calc_fl_stp(
     }
 
 def calc_ul(
-    *, customs_value_eur: float, eur_rub_rate: float, engine_cc: int, engine_hp: int,
-    segment: str, category: str, fuel: str, age_bucket: str, vat_override_pct: float | None = None
+    *, rules: List[RuleRow], customs_value_eur: float, eur_rub_rate: float,
+    engine_cc: int, engine_hp: int, segment: str, category: str,
+    fuel: str, age_bucket: str, vat_override_pct: float | None = None
 ) -> Dict[str, Any]:
     """
     Companies/commercial — ad valorem vs min €/cc vs specific €/cc + excise + VAT.
     """
-    rules = load_rules()
     rule = pick_rule(rules, segment=segment, category=category, fuel=fuel,
                      age_bucket=age_bucket, engine_cc=engine_cc, engine_hp=engine_hp)
     if not rule:

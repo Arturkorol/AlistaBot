@@ -138,8 +138,8 @@ def pick_rule(rows: List[RuleRow], *, segment: str, category: str, fuel: str,
             and _match(engine_cc, r.cc_from, r.cc_to)]
     return cand[0] if cand else None
 
-def get_available_age_labels() -> set[str]:
-    rows = load_rules()
+def get_available_age_labels(rows: List[RuleRow]) -> set[str]:
+    """Return a set of age bucket labels available in provided rules."""
     return { r.age_bucket for r in rows if r.age_bucket }
 
 def normalize_fuel_label(user_fuel: str) -> str:
