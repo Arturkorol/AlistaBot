@@ -19,7 +19,5 @@ EMAIL_LOGIN = os.getenv("EMAIL_LOGIN")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 EMAIL_TO = os.getenv("EMAIL_TO")
 
-# Fail fast if the mandatory token is missing to help diagnose
-# misconfigured environments early.
-if not TOKEN:
-    raise RuntimeError("BOT_TOKEN is not configured. Check your .env file")
+# Optional: other modules may import this file without a configured token.
+# The bot itself validates the presence of the token at startup.
