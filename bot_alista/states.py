@@ -16,3 +16,9 @@ class CalculationStates(StatesGroup):
     calc_year = State()
     age_over_3 = State()
     manual_rate = State()
+
+
+class RequestStates(StatesGroup):
+    """Conversation steps for submitting a contact request."""
+
+    contact = State()
