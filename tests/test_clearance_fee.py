@@ -1,7 +1,13 @@
+import os
+import sys
 import pytest
 
-from tariff_engine import calc_clearance_fee_rub
-from calculator import CLEARANCE_FEE_TABLE, _pick_rate
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from tariff_engine import (
+    calc_clearance_fee_rub,
+    CLEARANCE_FEE_TABLE,
+    _pick_rate,
+)
 
 
 @pytest.mark.parametrize("value, expected", [
