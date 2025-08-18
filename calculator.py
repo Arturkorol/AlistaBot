@@ -217,6 +217,24 @@ def _excise_hp_rate(hp: int) -> int:
     return 0
 
 
+def _compute_duty_eur(age_cat: str, engine_cc: int, value_eur: float) -> tuple[float, str]:
+    if age_cat == "under_3":
+        rule = pick_fl_under3_rule_by_value_eur(value_eur)
+        trace = (
+            f"СТП ≤3 стоимость {value_eur:.2f} EUR → pct {rule['pct']} min {rule['min']} €/см³"
+        )
+        duty = max(value_eur * rule["pct"], engine_cc * rule["min"])
+    elif age_cat == "3_5":
+        per_cc = _pick_rate(FL_STP_3_5, engine_cc)
+        trace = f"СТП 3-5 лет ставка {per_cc} €/см³"
+        duty = engine_cc * per_cc
+    else:
+        per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
+        trace = f"СТП >5 лет ставка {per_cc} €/см³"
+        duty = engine_cc * per_cc
+    return duty, trace
+
+
 # ---------------------------------------------------------------------------
 # Расчёт для физических лиц
 # ---------------------------------------------------------------------------
@@ -233,35 +251,10 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
 
     if fuel.lower() == "электро":
         # ФЛ: электромобиль считаем по СТП как ДВС (а не 15%)
-        if age_cat == "under_3":
-            rule = pick_fl_under3_rule_by_value_eur(value_eur)
-            trace.append(
-                f"СТП ≤3 стоимость {value_eur:.2f} EUR → pct {rule['pct']} min {rule['min']} €/см³"
-            )
-            duty_eur = max(value_eur * rule["pct"], engine_cc * rule["min"])
-        elif age_cat == "3_5":
-            per_cc = _pick_rate(FL_STP_3_5, engine_cc)
-            trace.append(f"СТП 3-5 лет ставка {per_cc} €/см³")
-            duty_eur = engine_cc * per_cc
-        else:
-            per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
-            trace.append(f"СТП >5 лет ставка {per_cc} €/см³")
-            duty_eur = engine_cc * per_cc
+        duty_eur, duty_trace = _compute_duty_eur(age_cat, engine_cc, value_eur)
     else:
-        if age_cat == "under_3":
-            rule = pick_fl_under3_rule_by_value_eur(value_eur)
-            trace.append(
-                f"СТП ≤3 стоимость {value_eur:.2f} EUR → pct {rule['pct']} min {rule['min']} €/см³"
-            )
-            duty_eur = max(value_eur * rule["pct"], engine_cc * rule["min"])
-        elif age_cat == "3_5":
-            per_cc = _pick_rate(FL_STP_3_5, engine_cc)
-            trace.append(f"СТП 3-5 лет ставка {per_cc} €/см³")
-            duty_eur = engine_cc * per_cc
-        else:
-            per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
-            trace.append(f"СТП >5 лет ставка {per_cc} €/см³")
-            duty_eur = engine_cc * per_cc
+        duty_eur, duty_trace = _compute_duty_eur(age_cat, engine_cc, value_eur)
+    trace.append(duty_trace)
 
     duty_rub = duty_eur * eur_rate
 
