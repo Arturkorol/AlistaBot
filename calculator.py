@@ -170,12 +170,17 @@ def _format_money(value: float) -> str:
 
 def _get_rate(code: Currency) -> float:
     """Получить курс валюты к рублю на сегодня."""
-    if code.upper() == "RUB":
+    code = code.upper()
+    if code not in SUPPORTED_CURRENCIES:
+        raise ValueError(
+            f"Unsupported currency: {code}. Supported: {', '.join(SUPPORTED_CURRENCIES)}"
+        )
+    if code == "RUB":
         return 1.0
     today = date.today()
     try:
         # Используем файловый кэш, чтобы расчёт работал без сети
-        return get_cached_rate(today, code.upper())
+        return get_cached_rate(today, code)
     except Exception:
         # Не искажаем расчёт фиктивными курсами
         raise RuntimeError("Курс ЦБ недоступен — попробуйте позже")
