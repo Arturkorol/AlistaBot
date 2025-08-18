@@ -293,8 +293,8 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
 
     # Пошлина
     if fuel.lower() == "электро":
-        duty_eur = customs_value * 0.15
-        trace.append("Электро: 15% адвалор")
+        duty_eur = value_eur * 0.15
+        trace.append(f"Электро: 15% от {value_eur:.2f} EUR")
     else:
         if age_cat == "under_3":
             # ЮЛ ≤3 лет: 15% адвалор (если CSV не даёт иное для конкретного кода)
