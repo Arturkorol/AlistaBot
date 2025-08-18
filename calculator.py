@@ -134,8 +134,26 @@ FL_STP_UNDER3_BY_VALUE_EUR = [
     (math.inf,{"pct": 0.48, "min": 20.0}),
 ]
 
-
 def pick_fl_under3_rule_by_value_eur(value_eur: float) -> dict:
+    """Return duty rule for a vehicle under three years old by customs value.
+
+    Parameters
+    ----------
+    value_eur : float
+        Customs value of the vehicle in euros.
+
+    Returns
+    -------
+    dict
+        Rule containing percentage (``pct``) and minimum euro-per-cc value.
+
+    Raises
+    ------
+    ValueError
+        If ``value_eur`` is negative.
+    """
+    if value_eur < 0:
+        raise ValueError("value_eur must be non-negative")
     for lim, rule in FL_STP_UNDER3_BY_VALUE_EUR:
         if value_eur <= lim:
             return rule
