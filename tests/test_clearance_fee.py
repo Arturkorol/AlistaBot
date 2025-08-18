@@ -5,8 +5,6 @@ import pytest
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from bot_alista.tariff_engine import (
     calc_clearance_fee_rub,
-    CLEARANCE_FEE_TABLE,
-    _pick_rate,
 )
 
 
@@ -26,4 +24,3 @@ from bot_alista.tariff_engine import (
 ])
 def test_clearance_fee_boundaries(value, expected):
     assert calc_clearance_fee_rub(value) == expected
-    assert _pick_rate(CLEARANCE_FEE_TABLE, value) == expected

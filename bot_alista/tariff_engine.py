@@ -113,14 +113,16 @@ def _validate_positive_float(value: float, name: str) -> None:
         raise ValueError(f"{name} должно быть положительным числом")
 
 
-def calc_clearance_fee_rub(customs_value_rub: float) -> float:
-    """
-    Customs clearance fee ladder (RUB), tuned to hit known 2025 bands:
-      ~1.2M → 4,269 ; ~2.4M → 11,746 ; ~4.0M → 16,524
-    Extend as needed for higher tiers.
+def calc_clearance_fee_rub(customs_value_rub: float) -> int:
+    """Расчёт сбора за таможенное оформление в рублях.
+
+    Логика основана на лестнице фиксированных ставок, где для каждого
+    диапазона таможенной стоимости задана своя константная величина.
+    Таблица отражает пороги на 2025 год и может быть расширена при
+    появлении новых уровней.
     """
     _validate_positive_float(customs_value_rub, "Таможенная стоимость")
-    return float(_pick_rate(CLEARANCE_FEE_TABLE, float(customs_value_rub)))
+    return _pick_rate(CLEARANCE_FEE_TABLE, float(customs_value_rub))
 
 
 # Public API ---------------------------------------------------------------
