@@ -2,6 +2,7 @@ import os
 import sys
 
 import math
+from datetime import date
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -20,7 +21,7 @@ def mock_rates(monkeypatch):
 
 def test_fl_under3_by_value():
     res = calculate_individual(customs_value=20000, currency="USD", engine_cc=2500,
-                               production_year=2022, fuel="Бензин")
+                               production_year=date.today().year - 1, fuel="Бензин")
     assert res["duty_rub"] > 600_000
     assert "clearance_fee_rub" in res
 
