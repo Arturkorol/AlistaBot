@@ -65,3 +65,17 @@ def test_ul_5_7_diesel_brackets():
 def test_pick_fl_under3_rule_negative():
     with pytest.raises(ValueError):
         pick_fl_under3_rule_by_value_eur(-100)
+
+
+def test_ul_electric_excise_zero():
+    res = calculate_company(
+        customs_value=30000,
+        currency="USD",
+        engine_cc=0,
+        production_year=2024,
+        fuel="Электро",
+        hp=200,
+    )
+    assert res["excise_rub"] == 0
+    expected_vat = (res["customs_value_rub"] + res["duty_rub"]) * 0.20
+    assert math.isclose(res["vat_rub"], expected_vat, rel_tol=1e-6)

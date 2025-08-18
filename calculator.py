@@ -323,8 +323,12 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     duty_rub = duty_eur * eur_rate
 
     # Акциз
-    excise_rate = _excise_hp_rate(hp)
-    excise_rub = hp * excise_rate
+    if fuel.lower() == "электро":
+        excise_rate = 0
+        excise_rub = 0
+    else:
+        excise_rate = _excise_hp_rate(hp)
+        excise_rub = hp * excise_rate
 
     # НДС
     vat_rub = (value_rub + duty_rub + excise_rub) * 0.20
