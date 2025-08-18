@@ -70,10 +70,11 @@ UTIL_COEFF_FL = {
 
 UTIL_BASE_UL = 20_000  # базовая ставка для юр. лиц с 01.05.2025
 UTIL_COEFF_UL = {
-    "under_3": 0.2,
-    "3_5": 0.34,
-    "5_7": 0.43,
-    "over_7": 0.62,
+    "under_3": 33.37,
+    "3_5": 22.25,
+    "5_7": 15.75,
+    "7_10": 10.96,
+    "over_10": 6.73,
 }
 
 CLEARANCE_FEE_TABLE = [
@@ -134,10 +135,12 @@ def _age_category(year: int, person_type: str) -> str:
         return "3_5"
     if person_type == "fl":
         return "over_5"
-    # для юр. лиц различаем 5–7 и старше 7
+    # для юр. лиц: детализированные возрастные категории
     if 5 < age <= 7:
         return "5_7"
-    return "over_7"
+    if 7 < age <= 10:
+        return "7_10"
+    return "over_10"
 
 
 def _pick_rate(table, engine_cc: int):
@@ -268,7 +271,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     vat_rub = (value_rub + duty_rub + excise_rub) * 0.20
 
     # Утильсбор
-    util_coeff = UTIL_COEFF_UL[age_cat if age_cat in UTIL_COEFF_UL else "over_7"]
+    util_coeff = UTIL_COEFF_UL.get(age_cat, UTIL_COEFF_UL["over_10"])
     util_rub = UTIL_BASE_UL * util_coeff
 
     # Сбор за оформление
