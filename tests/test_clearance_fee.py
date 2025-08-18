@@ -3,7 +3,7 @@ import sys
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from tariff_engine import (
+from bot_alista.tariff_engine import (
     calc_clearance_fee_rub,
     CLEARANCE_FEE_TABLE,
     _pick_rate,
