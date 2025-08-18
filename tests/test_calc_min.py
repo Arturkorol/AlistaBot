@@ -1,6 +1,7 @@
 import os
 import sys
 
+import math
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -34,3 +35,23 @@ def test_ul_under3_15pct():
     res = calculate_company(customs_value=30000, currency="USD", engine_cc=2000,
                             production_year=2024, fuel="Бензин", hp=150)
     assert res["duty_rub"] > 300_000
+
+
+def test_ul_3_5_petrol_brackets():
+    res_small = calculate_company(customs_value=10000, currency="USD", engine_cc=1200,
+                                  production_year=2022, fuel="Бензин", hp=100)
+    res_large = calculate_company(customs_value=10000, currency="USD", engine_cc=2600,
+                                  production_year=2022, fuel="Бензин", hp=100)
+    eur_rate = 92.86
+    assert math.isclose(res_small["duty_rub"], 1200 * 1.7 * eur_rate, rel_tol=1e-6)
+    assert math.isclose(res_large["duty_rub"], 2600 * 3.0 * eur_rate, rel_tol=1e-6)
+
+
+def test_ul_5_7_diesel_brackets():
+    res_small = calculate_company(customs_value=10000, currency="USD", engine_cc=1200,
+                                  production_year=2019, fuel="Дизель", hp=100)
+    res_large = calculate_company(customs_value=10000, currency="USD", engine_cc=2600,
+                                  production_year=2019, fuel="Дизель", hp=100)
+    eur_rate = 92.86
+    assert math.isclose(res_small["duty_rub"], 1200 * 3.2 * eur_rate, rel_tol=1e-6)
+    assert math.isclose(res_large["duty_rub"], 2600 * 5.0 * eur_rate, rel_tol=1e-6)

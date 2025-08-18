@@ -45,9 +45,46 @@ FL_STP_OVER5 = [
 ]
 
 # Ставки для юридических лиц (упрощённая модель)
+# Для категорий 3–5 и 5–7 лет хранится процент и минимальная ставка €/см³
 UL_DUTY_UNDER3 = FL_STP_UNDER3  # те же проценты и минимумы
-UL_DUTY_3_5 = FL_STP_3_5
-UL_DUTY_5_7 = FL_STP_OVER5
+UL_DUTY_3_5: dict[str, list[tuple[int, dict[str, float]]]] = {
+    "petrol": [
+        (1000, {"pct": 0.0, "min_eur_cc": 1.5}),
+        (1500, {"pct": 0.0, "min_eur_cc": 1.7}),
+        (1800, {"pct": 0.0, "min_eur_cc": 2.5}),
+        (2300, {"pct": 0.0, "min_eur_cc": 2.7}),
+        (3000, {"pct": 0.0, "min_eur_cc": 3.0}),
+        (math.inf, {"pct": 0.0, "min_eur_cc": 3.6}),
+    ],
+    "diesel": [
+        (1000, {"pct": 0.0, "min_eur_cc": 1.5}),
+        (1500, {"pct": 0.0, "min_eur_cc": 1.7}),
+        (1800, {"pct": 0.0, "min_eur_cc": 2.5}),
+        (2300, {"pct": 0.0, "min_eur_cc": 2.7}),
+        (3000, {"pct": 0.0, "min_eur_cc": 3.0}),
+        (math.inf, {"pct": 0.0, "min_eur_cc": 3.6}),
+    ],
+}
+
+UL_DUTY_5_7: dict[str, list[tuple[int, dict[str, float]]]] = {
+    "petrol": [
+        (1000, {"pct": 0.0, "min_eur_cc": 3.0}),
+        (1500, {"pct": 0.0, "min_eur_cc": 3.2}),
+        (1800, {"pct": 0.0, "min_eur_cc": 3.5}),
+        (2300, {"pct": 0.0, "min_eur_cc": 4.8}),
+        (3000, {"pct": 0.0, "min_eur_cc": 5.0}),
+        (math.inf, {"pct": 0.0, "min_eur_cc": 5.7}),
+    ],
+    "diesel": [
+        (1000, {"pct": 0.0, "min_eur_cc": 3.0}),
+        (1500, {"pct": 0.0, "min_eur_cc": 3.2}),
+        (1800, {"pct": 0.0, "min_eur_cc": 3.5}),
+        (2300, {"pct": 0.0, "min_eur_cc": 4.8}),
+        (3000, {"pct": 0.0, "min_eur_cc": 5.0}),
+        (math.inf, {"pct": 0.0, "min_eur_cc": 5.7}),
+    ],
+}
+
 UL_DUTY_OVER7 = [
     (1000, 3.2), (1500, 3.5), (1800, 4.8),
     (2300, 5.0), (3000, 5.7), (math.inf, 7.5),
@@ -231,6 +268,8 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     trace: list[str] = []
     rate = _get_rate(currency)
     value_rub = customs_value * rate
+    eur_rate = _get_rate("EUR")
+    value_eur = value_rub / eur_rate
     age_cat = _age_category(production_year, "ul")
 
     # Пошлина
@@ -240,24 +279,28 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     else:
         if age_cat == "under_3":
             # ЮЛ ≤3 лет: 15% адвалор (если CSV не даёт иное для конкретного кода)
-            eur_rate = _get_rate("EUR")
-            value_eur = value_rub / eur_rate
             duty_eur = value_eur * 0.15
             trace.append(f"ЮЛ ≤3 лет: 15% от {value_eur:.2f} EUR")
-        elif age_cat == "3_5":
-            per_cc = _pick_rate(UL_DUTY_3_5, engine_cc)
-            duty_eur = engine_cc * per_cc
-            trace.append(f"ЮЛ 3-5 лет ставка {per_cc} €/см³")
-        elif age_cat == "5_7":
-            per_cc = _pick_rate(UL_DUTY_5_7, engine_cc)
-            duty_eur = engine_cc * per_cc
-            trace.append(f"ЮЛ 5-7 лет ставка {per_cc} €/см³")
+        elif age_cat in {"3_5", "5_7"}:
+            table = UL_DUTY_3_5 if age_cat == "3_5" else UL_DUTY_5_7
+            fuel_key = "diesel" if "диз" in fuel.lower() else "petrol"
+            rule = _pick_rate(table[fuel_key], engine_cc)
+            pct = rule.get("pct", 0.0)
+            min_cc = rule.get("min_eur_cc", 0.0)
+            if pct > 0:
+                duty_eur = max(value_eur * pct, engine_cc * min_cc)
+                trace.append(
+                    f"ЮЛ {age_cat} {fuel_key} pct {pct} min {min_cc} €/см³"
+                )
+            else:
+                duty_eur = engine_cc * min_cc
+                trace.append(
+                    f"ЮЛ {age_cat} {fuel_key} ставка {min_cc} €/см³"
+                )
         else:
             per_cc = _pick_rate(UL_DUTY_OVER7, engine_cc)
             duty_eur = engine_cc * per_cc
             trace.append(f"ЮЛ >7 лет ставка {per_cc} €/см³")
-
-    eur_rate = _get_rate("EUR")
     duty_rub = duty_eur * eur_rate
 
     # Акциз
