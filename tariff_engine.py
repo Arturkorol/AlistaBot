@@ -83,9 +83,9 @@ def calc_clearance_fee_rub(customs_value_rub: float) -> float:
     if v <= 200_000:    return 1_067.0
     if v <= 450_000:    return 2_134.0
     if v <= 1_200_000:  return 4_269.0
-    if v <= 3_000_000:  return 11_746.0
-    if v <= 5_000_000:  return 16_524.0
-    if v <= 7_000_000:  return 20_000.0
+    if v <= 2_500_000:  return 10_672.0
+    if v <= 5_000_000:  return 15_532.0
+    if v <= 7_000_000:  return 24_852.0
     return 30_000.0
 
 
