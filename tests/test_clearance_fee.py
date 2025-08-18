@@ -1,6 +1,6 @@
 import pytest
 
-from tariff_engine import calc_clearance_fee_rub
+from bot_alista.tariff_engine import calc_clearance_fee_rub
 from calculator import CLEARANCE_FEE_TABLE, _pick_rate
 
 
