@@ -266,8 +266,8 @@ UTIL_CONFIG: Dict = {
             "cc<=1000": 0.17,
             "cc1000_2000": 0.17,
             "cc2000_3000": 0.17,
-            "cc3000_3500": 107.67,
-            "cc>3500": 137.11,
+            "cc3000_3500": 0.17,
+            "cc>3500": 0.17,
         },
         ">3y": {
             "ev": 0.26,
@@ -275,11 +275,11 @@ UTIL_CONFIG: Dict = {
             "cc<=1000": 0.26,
             "cc1000_2000": 0.26,
             "cc2000_3000": 0.26,
-            "cc3000_3500": 164.84,
-            "cc>3500": 180.24,
+            "cc3000_3500": 0.26,
+            "cc>3500": 0.26,
         },
     },
-    "coefficients_commercial": {"ev_or_hybrid": 33.37, "default": 10.0},
+    "coefficients_commercial": {"ev_or_hybrid": 33.37, "default": 22.25},
     "date_rules": {
         "2025-05-01": {
             "formula": "ed_plus_half_diff",
