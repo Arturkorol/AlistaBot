@@ -4,7 +4,12 @@ import sys
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from calculator import calculate_individual, calculate_company
+from calculator import (
+    FL_STP_UNDER3_BY_VALUE_EUR,
+    calculate_company,
+    calculate_individual,
+    pick_fl_under3_rule_by_value_eur,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -34,3 +39,8 @@ def test_ul_under3_15pct():
     res = calculate_company(customs_value=30000, currency="USD", engine_cc=2000,
                             production_year=2024, fuel="Бензин", hp=150)
     assert res["duty_rub"] > 300_000
+
+
+def test_under3_table_source():
+    rule = pick_fl_under3_rule_by_value_eur(8000)
+    assert rule == FL_STP_UNDER3_BY_VALUE_EUR[0][1]
