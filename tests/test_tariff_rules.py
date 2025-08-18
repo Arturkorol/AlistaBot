@@ -1,12 +1,8 @@
-import os
-import sys
 from datetime import date
 
 import pytest
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from tariff_engine import (
+from bot_alista.tariff_engine import (
     calc_breakdown_rules,
     calc_breakdown_with_mode,
     calc_clearance_fee_rub,

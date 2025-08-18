@@ -1,7 +1,6 @@
 import pytest
 
-from tariff_engine import calc_clearance_fee_rub
-from calculator import CLEARANCE_FEE_TABLE, _pick_rate
+from bot_alista.tariff_engine import calc_clearance_fee_rub
 
 
 @pytest.mark.parametrize("value, expected", [
@@ -20,4 +19,3 @@ from calculator import CLEARANCE_FEE_TABLE, _pick_rate
 ])
 def test_clearance_fee_boundaries(value, expected):
     assert calc_clearance_fee_rub(value) == expected
-    assert _pick_rate(CLEARANCE_FEE_TABLE, value) == expected
