@@ -1,7 +1,8 @@
 import asyncio
 from aiogram import Bot, Dispatcher
-from config import TOKEN
-from handlers import menu, calculate, navigation, request
+
+from .config import TOKEN
+from .handlers import menu, calculate, navigation, request
 
 
 async def main():

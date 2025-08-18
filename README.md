@@ -22,8 +22,11 @@ Install dependencies and run the bot:
 
 ```
 pip install -r requirements.txt
-python bot_alista/main.py
+python -m bot_alista.main
 ```
+
+Run the bot as a module (`python -m bot_alista.main`) so that package-relative imports
+resolve correctly.
 
 The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load variables from the `.env` file automatically. For container deployments, supply the same environment variables via your container runtime's secret or environment management instead of a `.env` file.
 
