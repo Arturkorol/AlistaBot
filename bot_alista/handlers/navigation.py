@@ -17,3 +17,10 @@ async def cancel_command(message: types.Message, state: FSMContext) -> None:
 async def nav_main_menu(message: types.Message, state: FSMContext) -> None:
     """Return to main menu when user presses navigation buttons."""
     await reset_to_menu(message, state)
+
+
+@router.message(F.text == "❌ Выход")
+async def exit_to_menu(message: types.Message, state: FSMContext) -> None:
+    """Handle exit button by resetting state and sending a farewell."""
+    await reset_to_menu(message, state)
+    await message.answer("До встречи!")
