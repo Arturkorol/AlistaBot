@@ -6,7 +6,11 @@ from datetime import date
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from calculator import calculate_individual, calculate_company
+from calculator import (
+    calculate_individual,
+    calculate_company,
+    pick_fl_under3_rule_by_value_eur,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -56,3 +60,8 @@ def test_ul_5_7_diesel_brackets():
     eur_rate = 92.86
     assert math.isclose(res_small["duty_rub"], 1200 * 3.2 * eur_rate, rel_tol=1e-6)
     assert math.isclose(res_large["duty_rub"], 2600 * 5.0 * eur_rate, rel_tol=1e-6)
+
+
+def test_pick_fl_under3_rule_negative():
+    with pytest.raises(ValueError):
+        pick_fl_under3_rule_by_value_eur(-100)
