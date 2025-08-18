@@ -9,4 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == "__main__":
-    asyncio.run(run_bot())
+    try:
+        asyncio.run(run_bot())
+    except RuntimeError as exc:  # Missing configuration
+        logging.error("%s", exc)

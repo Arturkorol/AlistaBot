@@ -1,11 +1,13 @@
-import asyncio
 from aiogram import Bot, Dispatcher
 
 from .config import TOKEN
 from .handlers import menu, calculate, navigation, request
 
 
-async def main():
+async def main() -> None:
+    """Start polling if the bot token is configured."""
+    if not TOKEN:
+        raise RuntimeError("BOT_TOKEN is not configured. Check your .env file")
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
 
@@ -15,7 +17,3 @@ async def main():
     dp.include_router(request.router)
 
     await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
