@@ -12,7 +12,7 @@ cp .env.example .env
 Required variables:
 
 - `BOT_TOKEN` – Telegram bot token.
-- `SMTP_SERVER` – SMTP server host.
+- `SMTP_SERVER` – SMTP server host (use `SMTP_SERVER`, not `SMTP_SERVE`).
 - `SMTP_PORT` – SMTP port.
 - `EMAIL_LOGIN` – SMTP account username.
 - `EMAIL_PASSWORD` – SMTP account password.
