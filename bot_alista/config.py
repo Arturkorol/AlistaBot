@@ -1,14 +1,16 @@
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-# Load the .env file located in the project root regardless of the
-# current working directory. This avoids situations where environment
-# variables are not loaded when the script is executed from another
-# folder.
-env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(env_path)
+# Attempt to load environment variables from a file. If the ENV_FILE
+# variable is set, use it; otherwise search for a ".env" file in the
+# current working directory tree. Missing files are ignored so that
+# configuration can also be supplied via the server environment.
+env_file = os.getenv("ENV_FILE")
+if env_file:
+    load_dotenv(env_file)
+else:
+    load_dotenv(find_dotenv())
 
 TOKEN = os.getenv("BOT_TOKEN")
 

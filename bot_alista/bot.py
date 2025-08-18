@@ -7,7 +7,7 @@ from .handlers import menu, calculate, navigation, request
 async def main() -> None:
     """Start polling if the bot token is configured."""
     if not TOKEN:
-        raise RuntimeError("BOT_TOKEN is not configured. Check your .env file")
+        raise RuntimeError("BOT_TOKEN is not configured. Check your environment variables.")
     bot = Bot(token=TOKEN)
     dp = Dispatcher()
 
