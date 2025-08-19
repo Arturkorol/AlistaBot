@@ -20,6 +20,8 @@ Required variables:
 - `EMAIL_PASSWORD` – SMTP account password.
 - `EMAIL_TO` – recipient email address.
 
+The email service checks that `EMAIL_LOGIN`, `EMAIL_PASSWORD`, `SMTP_SERVER`, `SMTP_PORT`, and the recipient address are present before attempting to send. If any are missing, the message is not sent and an error is logged.
+
 Install dependencies and run the bot:
 
 ```

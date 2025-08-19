@@ -1,6 +1,7 @@
 import os
 import smtplib
 import ssl
+import logging
 
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +17,10 @@ def send_email(
 
     Returns True if the message was sent successfully, otherwise False.
     """
+
+    if not all([EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT, to_email]):
+        logging.error("Missing email configuration or recipient address.")
+        return False
 
     try:
         msg = MIMEMultipart()
@@ -40,13 +45,13 @@ def send_email(
             server.login(EMAIL_LOGIN, EMAIL_PASSWORD)
             server.send_message(msg)
 
-        print(f"✅ Email отправлен на {to_email}")
+        logging.info("✅ Email отправлен на %s", to_email)
         return True
 
     except smtplib.SMTPAuthenticationError:
-        print("❌ Ошибка авторизации SMTP. Проверьте логин/пароль.")
+        logging.error("❌ Ошибка авторизации SMTP. Проверьте логин/пароль.")
         return False
     except Exception as e:  # pragma: no cover - we just log and return
-        print(f"❌ Ошибка отправки письма: {e}")
+        logging.error("❌ Ошибка отправки письма: %s", e)
         return False
 
