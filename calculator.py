@@ -13,6 +13,7 @@ from typing import Dict
 import math
 
 from bot_alista.services.rates import get_cached_rate_sync as get_cached_rate
+from bot_alista.tariff_engine import calc_clearance_fee_rub
 
 # ---------------------------------------------------------------------------
 # Вспомогательные структуры и таблицы тарифов
@@ -114,15 +115,6 @@ UTIL_COEFF_UL = {
     "over_10": 6.73,
 }
 
-CLEARANCE_FEE_TABLE = [
-    (200_000, 1067),
-    (450_000, 2134),
-    (1_200_000, 4269),
-    (3_000_000, 11746),
-    (5_000_000, 16524),
-    (7_000_000, 20000),
-    (math.inf, 30000),
-]
 
 # ФЛ ≤3 лет — таблица по ТАМОЖЕННОЙ СТОИМОСТИ (EUR), не по объёму!
 FL_STP_UNDER3_BY_VALUE_EUR = [
@@ -260,7 +252,7 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
 
     util_coeff = UTIL_COEFF_FL["under_3" if age_cat == "under_3" else "over_3"]
     util_rub = UTIL_BASE_UL * util_coeff
-    fee_rub = _pick_rate(CLEARANCE_FEE_TABLE, value_rub)
+    fee_rub = calc_clearance_fee_rub(value_rub)
     trace.append(f"Сбор за оформление: {fee_rub} руб")
     total_rub = duty_rub + util_rub + fee_rub
 
@@ -338,7 +330,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     util_rub = UTIL_BASE_UL * util_coeff
 
     # Сбор за оформление
-    fee_rub = _pick_rate(CLEARANCE_FEE_TABLE, value_rub)
+    fee_rub = calc_clearance_fee_rub(value_rub)
     trace.append(f"Сбор за оформление: {fee_rub} руб")
 
     total_rub = duty_rub + excise_rub + vat_rub + util_rub + fee_rub

@@ -1,7 +1,9 @@
 import pytest
+from datetime import date
 
 from bot_alista.tariff_engine import calc_clearance_fee_rub
-from calculator import CLEARANCE_FEE_TABLE, _pick_rate
+import calculator
+from calculator import calculate_individual
 
 
 @pytest.mark.parametrize("value, expected", [
@@ -20,4 +22,17 @@ from calculator import CLEARANCE_FEE_TABLE, _pick_rate
 ])
 def test_clearance_fee_boundaries(value, expected):
     assert calc_clearance_fee_rub(value) == expected
-    assert _pick_rate(CLEARANCE_FEE_TABLE, value) == expected
+
+
+def test_calculator_uses_clearance_fee_function(monkeypatch):
+    """calculator module should delegate clearance fee computation to tariff_engine."""
+    monkeypatch.setattr(calculator, "get_cached_rate", lambda *args, **kwargs: 100.0)
+    value = 450_001
+    res = calculate_individual(
+        customs_value=value,
+        currency="RUB",
+        engine_cc=1500,
+        production_year=date.today().year,
+        fuel="Бензин",
+    )
+    assert res["clearance_fee_rub"] == calc_clearance_fee_rub(value)

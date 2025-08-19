@@ -57,9 +57,9 @@ PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
     ),
 }
 
-# Customs clearance fee (RUB) to display and add for individuals.
-# Adjust if your reference differs.
-CUSTOMS_CLEARANCE_FEE_RUB: float = 4269.0
+# Customs clearance fee is calculated via
+# ``tariff_engine.calc_clearance_fee_rub``.  No fixed constant is stored
+# here to avoid drift from the authoritative fee ladder.
 
 
 def _age_bucket(age_years: float) -> str:

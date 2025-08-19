@@ -42,6 +42,8 @@ The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to l
 - Rules are loaded from `bot_alista/data/rules/russia_auto_import_rules_2025_formulas.csv` (UTF-8-SIG). If the file is missing, minimal fallback rules are used.
 - Individuals (personal): STP unified duty from CSV; VAT and excise are embedded.
 - Companies (commercial): duty = max(ad valorem, min €/cc) or specific €/cc, plus excise (rub/hp) and VAT 20%.
-- Clearance fee ladder updated for 2025 bands.
+- Clearance fee ladder updated for 2025 bands. Use
+  `tariff_engine.calc_clearance_fee_rub` to obtain the customs clearance fee
+  instead of a fixed constant.
 - Utilization fee uses factual age from production year; for FL duty bucket, the user selects ≤3 or >3 years.
 
