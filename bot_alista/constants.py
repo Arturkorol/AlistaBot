@@ -1,10 +1,11 @@
 from typing import Literal
 
 # Button labels
-BTN_CALC = "📊 Рассчитать"
+BTN_CALC = "📊 Рассчитать стоимость таможенной очистки"
+BTN_LEAD = "📝 Оставить заявку"
+BTN_EXIT = "❌ Выход"
 BTN_BACK = "⬅ Назад"
 BTN_FAQ = "ℹ️ FAQ"
-BTN_LEAD = "📞 Заявка"
 BTN_LAST = "🧾 Последний расчёт"
 BTN_NEW = "🔁 Новый расчёт"
 BTN_SEND = "📩 Отправить менеджеру"
