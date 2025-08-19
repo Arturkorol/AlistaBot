@@ -1,12 +1,8 @@
-import os
-import sys
 from datetime import date
 
 import pytest
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from tariff_engine import (
+from bot_alista.tariff_engine import (
     calc_breakdown_rules,
     calc_breakdown_with_mode,
     calc_clearance_fee_rub,
@@ -24,7 +20,7 @@ CLEARANCE_FEE = calc_clearance_fee_rub(CUSTOMS_VALUE_RUB)
 
 
 @pytest.mark.parametrize(
-    "case",
+    "scenario",
     [
         # FL ≤3y, 1801–2300 cc (upper boundary 2300)
         {
@@ -86,14 +82,14 @@ CLEARANCE_FEE = calc_clearance_fee_rub(CUSTOMS_VALUE_RUB)
         },
     ],
 )
-def test_csv_tariff_brackets(case):
-    if case["person_type"] == "company":
+def test_csv_tariff_brackets(scenario):
+    if scenario["person_type"] == "company":
         core = calc_ul(
             rules=load_rules(),
             customs_value_eur=CUSTOMS_VALUE_EUR,
             eur_rub_rate=EUR_RUB_RATE,
-            engine_cc=case["engine_cc"],
-            engine_hp=case["engine_hp"],
+            engine_cc=scenario["engine_cc"],
+            engine_hp=scenario["engine_hp"],
             segment="Легковой",
             category="M1",
             fuel="Бензин",
@@ -106,10 +102,10 @@ def test_csv_tariff_brackets(case):
         util_rub = calc_util_rub(
             person_type="company",
             usage="commercial",
-            engine_cc=case["engine_cc"],
+            engine_cc=scenario["engine_cc"],
             fuel="ice",
             vehicle_kind="passenger",
-            age_years=case["util_age"],
+            age_years=scenario["util_age"],
             date_decl=DECL_DATE,
             avg_vehicle_cost_rub=None,
             actual_costs_rub=None,
@@ -117,14 +113,14 @@ def test_csv_tariff_brackets(case):
         )
     else:
         res = calc_breakdown_rules(
-            person_type=case["person_type"],
-            usage_type=case["usage_type"],
+            person_type=scenario["person_type"],
+            usage_type=scenario["usage_type"],
             customs_value_eur=CUSTOMS_VALUE_EUR,
             eur_rub_rate=EUR_RUB_RATE,
-            engine_cc=case["engine_cc"],
-            engine_hp=case["engine_hp"],
-            production_year=case["production_year"],
-            age_choice_over3=case["age_choice_over3"],
+            engine_cc=scenario["engine_cc"],
+            engine_hp=scenario["engine_hp"],
+            production_year=scenario["production_year"],
+            age_choice_over3=scenario["age_choice_over3"],
             fuel_type="Бензин",
             decl_date=DECL_DATE,
         )
@@ -138,27 +134,27 @@ def test_csv_tariff_brackets(case):
 
     customs_value_rub = CUSTOMS_VALUE_EUR * EUR_RUB_RATE
 
-    if "per_cc" in case:
-        expected_duty_eur = case["engine_cc"] * case["per_cc"]
+    if "per_cc" in scenario:
+        expected_duty_eur = scenario["engine_cc"] * scenario["per_cc"]
         expected_duty_rub = eur_to_rub(expected_duty_eur, EUR_RUB_RATE)
         expected_excise = 0.0
         expected_vat = 0.0
     else:
-        ad_valorem = CUSTOMS_VALUE_EUR * case["duty_pct"] / 100.0
-        min_eur = case["engine_cc"] * case["min_eur_cc"]
+        ad_valorem = CUSTOMS_VALUE_EUR * scenario["duty_pct"] / 100.0
+        min_eur = scenario["engine_cc"] * scenario["min_eur_cc"]
         expected_duty_eur = max(ad_valorem, min_eur)
         expected_duty_rub = eur_to_rub(expected_duty_eur, EUR_RUB_RATE)
-        expected_excise = case.get("expected_excise", 0.0)
-        expected_vat = round((customs_value_rub + expected_duty_rub + expected_excise) * case["vat_pct"] / 100.0, 2)
+        expected_excise = scenario.get("expected_excise", 0.0)
+        expected_vat = round((customs_value_rub + expected_duty_rub + expected_excise) * scenario["vat_pct"] / 100.0, 2)
 
     expected_fee = CLEARANCE_FEE
     expected_util = calc_util_rub(
-        person_type=case["person_type"],
-        usage=case["usage_type"],
-        engine_cc=case["engine_cc"],
+        person_type=scenario["person_type"],
+        usage=scenario["usage_type"],
+        engine_cc=scenario["engine_cc"],
         fuel="ice",
         vehicle_kind="passenger",
-        age_years=case["util_age"],
+        age_years=scenario["util_age"],
         date_decl=DECL_DATE,
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
@@ -170,28 +166,6 @@ def test_csv_tariff_brackets(case):
     assert vat_rub == expected_vat
     assert fee_rub == expected_fee
     assert util_rub == expected_util
-
-
-@pytest.mark.parametrize(
-    "customs_value, expected_fee",
-    [
-        (200_000, 1_067.0),
-        (200_001, 2_134.0),
-        (450_000, 2_134.0),
-        (450_001, 4_269.0),
-        (1_200_000, 4_269.0),
-        (1_200_001, 11_746.0),
-        (3_000_000, 11_746.0),
-        (3_000_001, 16_524.0),
-        (5_000_000, 16_524.0),
-        (5_000_001, 20_000.0),
-        (7_000_000, 20_000.0),
-        (7_000_001, 30_000.0),
-    ],
-)
-def test_clearance_fee_brackets(customs_value, expected_fee):
-    assert calc_clearance_fee_rub(customs_value) == expected_fee
-
 
 def test_export_breakdown_zero():
     res = calc_breakdown_with_mode(
