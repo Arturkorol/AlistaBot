@@ -359,42 +359,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     }
 
 
-# ---------------------------------------------------------------------------
-# Формирование текстовых ответов для бота
-# ---------------------------------------------------------------------------
-
-
-def format_individual_result(data: Dict[str, float]) -> str:
-    base = (
-        "📦 Таможенная стоимость: " + _format_money(data["customs_value_rub"]) + " ₽\n"
-        "🛃 СТП: " + _format_money(data["duty_rub"]) + " ₽\n"
-        "♻️ Утильсбор: " + _format_money(data["util_rub"]) + " ₽\n"
-        "📄 Сбор за оформление: " + _format_money(data.get("clearance_fee_rub", 0)) + " ₽\n"
-        "✅ Итоговая сумма: " + _format_money(data["total_rub"]) + " ₽"
-    )
-    if trace := data.get("trace"):
-        base += "\n" + "\n".join(trace[:10])
-    return base
-
-
-def format_company_result(data: Dict[str, float]) -> str:
-    base = (
-        "📦 Таможенная стоимость: " + _format_money(data["customs_value_rub"]) + " ₽\n"
-        "🛃 Пошлина: " + _format_money(data["duty_rub"]) + " ₽\n"
-        "🚗 Акциз: " + _format_money(data["excise_rub"]) + " ₽\n"
-        "💰 НДС: " + _format_money(data["vat_rub"]) + " ₽\n"
-        "♻️ Утилизационный сбор: " + _format_money(data["util_rub"]) + " ₽\n"
-        "📄 Сбор за оформление: " + _format_money(data["clearance_fee_rub"]) + " ₽\n"
-        "✅ Итоговая сумма: " + _format_money(data["total_rub"]) + " ₽"
-    )
-    if trace := data.get("trace"):
-        base += "\n" + "\n".join(trace[:10])
-    return base
-
-
 __all__ = [
     "calculate_individual",
     "calculate_company",
-    "format_individual_result",
-    "format_company_result",
 ]

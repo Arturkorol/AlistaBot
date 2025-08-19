@@ -53,6 +53,16 @@ def format_result_message(
     age_info = meta.get("age_info", "")
     person_usage = meta.get("person_usage", "")
     extra_notes = meta.get("extra_notes", [])
+    trace = (
+        meta.get("trace")
+        or core.get("trace")
+        or br.get("trace")
+    )
+    if trace:
+        if isinstance(trace, list):
+            extra_notes.extend(trace[:10])
+        else:
+            extra_notes.append(str(trace))
 
     lines: list[str] = []
     lines.append("📦 Расчёт таможенных платежей:\n")
