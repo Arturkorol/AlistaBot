@@ -40,7 +40,7 @@ from ..services.rates import (
     get_cached_rates,
     validate_or_prompt_rate,
 )
-from tariff_engine import calc_breakdown_rules
+from bot_alista.tariff_engine import calc_breakdown_rules
 from ..formatting import format_result_message
 
 

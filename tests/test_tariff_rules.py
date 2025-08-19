@@ -1,12 +1,8 @@
-import os
-import sys
 from datetime import date
 
 import pytest
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
-from tariff_engine import (
+from bot_alista.tariff_engine import (
     calc_breakdown_rules,
     calc_breakdown_with_mode,
     calc_clearance_fee_rub,
@@ -170,28 +166,6 @@ def test_csv_tariff_brackets(case):
     assert vat_rub == expected_vat
     assert fee_rub == expected_fee
     assert util_rub == expected_util
-
-
-@pytest.mark.parametrize(
-    "customs_value, expected_fee",
-    [
-        (200_000, 1_067.0),
-        (200_001, 2_134.0),
-        (450_000, 2_134.0),
-        (450_001, 4_269.0),
-        (1_200_000, 4_269.0),
-        (1_200_001, 11_746.0),
-        (3_000_000, 11_746.0),
-        (3_000_001, 16_524.0),
-        (5_000_000, 16_524.0),
-        (5_000_001, 20_000.0),
-        (7_000_000, 20_000.0),
-        (7_000_001, 30_000.0),
-    ],
-)
-def test_clearance_fee_brackets(customs_value, expected_fee):
-    assert calc_clearance_fee_rub(customs_value) == expected_fee
-
 
 def test_export_breakdown_zero():
     res = calc_breakdown_with_mode(
