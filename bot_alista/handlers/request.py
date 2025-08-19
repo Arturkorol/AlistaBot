@@ -8,10 +8,11 @@ from ..keyboards.navigation import back_menu
 from ..utils.reset import reset_to_menu
 from ..services.email import send_email
 from ..config import EMAIL_TO
+from ..constants import BTN_LEAD
 
 router = Router()
 
-@router.message(F.text == "📝 Оставить заявку")
+@router.message(F.text == BTN_LEAD)
 async def start_request(message: types.Message, state: FSMContext) -> None:
     """Initiate the request conversation by asking for contact details."""
     await state.set_state(RequestStates.contact)

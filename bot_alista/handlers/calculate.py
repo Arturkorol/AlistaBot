@@ -35,6 +35,7 @@ from ..constants import (
     BTN_AGE_OVER3_NO,
     BTN_BACK,
     ERROR_RATE,
+    BTN_CALC,
 )
 from ..services.rates import (
     get_cached_rates,
@@ -121,7 +122,7 @@ async def _check_nav(
 # ---------------------------------------------------------------------------
 
 
-@router.message(F.text == "📊 Рассчитать стоимость таможенной очистки")
+@router.message(F.text == BTN_CALC)
 async def start_calculation(message: types.Message, state: FSMContext) -> None:
     await state.set_state(CalculationStates.person_type)
     await message.answer(PROMPT_PERSON, reply_markup=_person_type_kb())
