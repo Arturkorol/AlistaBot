@@ -4,10 +4,10 @@ import sys
 import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import calculator
+import bot_alista.tariff_engine as tariff_engine
 
 
-@pytest.mark.parametrize("code", calculator.SUPPORTED_CURRENCIES)
+@pytest.mark.parametrize("code", tariff_engine.SUPPORTED_CURRENCIES)
 def test_get_rate_supported_currencies(monkeypatch, code):
     called = []
 
@@ -15,8 +15,8 @@ def test_get_rate_supported_currencies(monkeypatch, code):
         called.append(c)
         return 42.0
 
-    monkeypatch.setattr("calculator.get_cached_rate", fake_cached_rate)
-    rate = calculator._get_rate(code)
+    monkeypatch.setattr("bot_alista.tariff_engine.get_cached_rate", fake_cached_rate)
+    rate = tariff_engine._get_rate(code)
     if code == "RUB":
         assert rate == 1.0
         assert called == []
@@ -29,6 +29,6 @@ def test_get_rate_unsupported_currency(monkeypatch):
     def fake_cached_rate(*args, **kwargs):
         raise AssertionError("should not be called")
 
-    monkeypatch.setattr("calculator.get_cached_rate", fake_cached_rate)
+    monkeypatch.setattr("bot_alista.tariff_engine.get_cached_rate", fake_cached_rate)
     with pytest.raises(ValueError):
-        calculator._get_rate("GBP")
+        tariff_engine._get_rate("GBP")
