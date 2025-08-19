@@ -12,7 +12,7 @@ from typing import Dict
 
 import math
 
-from bot_alista.services.rates import get_cached_rate
+from bot_alista.services.rates import get_cached_rate_sync as get_cached_rate
 
 # ---------------------------------------------------------------------------
 # Вспомогательные структуры и таблицы тарифов
