@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 from datetime import date
+import math
+
+from bot_alista.services.rates import (
+    get_cached_rate_sync as get_cached_rate,
+)
 
 from bot_alista.tariff.personal_rates import (
     calc_individual_personal_duty_eur,
@@ -34,6 +39,60 @@ ENGINE_CC_MIN = 2300
 ENGINE_CC_MAX = 3000
 AD_VALOREM_RATE = 0.20
 VAT_RATE = 0.20
+
+Currency = str
+SUPPORTED_CURRENCIES: tuple[Currency, ...] = ("USD", "EUR", "CNY", "JPY", "RUB")
+
+FL_STP_UNDER3_BY_VALUE_EUR = [
+    (8500,    {"pct": 0.54, "min": 2.5}),
+    (16700,   {"pct": 0.48, "min": 3.5}),
+    (42300,   {"pct": 0.48, "min": 5.5}),
+    (84500,   {"pct": 0.48, "min": 7.5}),
+    (169000,  {"pct": 0.48, "min": 15.0}),
+    (math.inf,{"pct": 0.48, "min": 20.0}),
+]
+
+def pick_fl_under3_rule_by_value_eur(value_eur: float) -> dict:
+    """Return duty rule for a vehicle under three years old by customs value."""
+    if value_eur < 0:
+        raise ValueError("value_eur must be non-negative")
+    for lim, rule in FL_STP_UNDER3_BY_VALUE_EUR:
+        if value_eur <= lim:
+            return rule
+    return FL_STP_UNDER3_BY_VALUE_EUR[-1][1]
+
+
+CLEARANCE_FEE_TABLE = [
+    (200_000, 1067),
+    (450_000, 2134),
+    (1_200_000, 4269),
+    (3_000_000, 11746),
+    (5_000_000, 16524),
+    (7_000_000, 20000),
+    (math.inf, 30000),
+]
+
+def _pick_rate(table, value):
+    for limit, rate in table:
+        if value <= limit:
+            return rate
+    return table[-1][1]
+
+
+def _get_rate(code: Currency) -> float:
+    """Получить курс валюты к рублю на сегодня."""
+    code = code.upper()
+    if code not in SUPPORTED_CURRENCIES:
+        raise ValueError(
+            f"Unsupported currency: {code}. Supported: {', '.join(SUPPORTED_CURRENCIES)}"
+        )
+    if code == "RUB":
+        return 1.0
+    today = date.today()
+    try:
+        return get_cached_rate(today, code)
+    except Exception as exc:
+        raise RuntimeError("Курс ЦБ недоступен — попробуйте позже") from exc
 
 
 @dataclass(frozen=True)
@@ -79,14 +138,7 @@ def calc_clearance_fee_rub(customs_value_rub: float) -> float:
     Extend as needed for higher tiers.
     """
     _validate_positive_float(customs_value_rub, "Таможенная стоимость")
-    v = float(customs_value_rub)
-    if v <= 200_000:    return 1_067.0
-    if v <= 450_000:    return 2_134.0
-    if v <= 1_200_000:  return 4_269.0
-    if v <= 3_000_000:  return 11_746.0
-    if v <= 5_000_000:  return 16_524.0
-    if v <= 7_000_000:  return 20_000.0
-    return 30_000.0
+    return float(_pick_rate(CLEARANCE_FEE_TABLE, float(customs_value_rub)))
 
 
 # Public API ---------------------------------------------------------------
