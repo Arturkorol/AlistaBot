@@ -36,13 +36,20 @@ The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to l
 
 ## Single instance lock
 
-Only one polling process should run at a time. The bot creates a lock file at `/tmp/alistabot.lock` when it starts. If another process is already running, startup fails with an error. To override a stale lock (for example after a crash), delete the lock file or start the bot with the `--force` flag:
+Only one polling process should run at a time. The bot creates a lock file at
+`/tmp/alistabot.lock` when it starts and stores the PID of the running process.
+If another process is already running, startup fails with an error. To override
+an apparently stale lock (for example after a crash), first check that the PID
+in the lock file does not correspond to a running process, then start the bot
+with the `--force` flag:
 
 ```
 python -m bot_alista.main --force
 ```
 
-If the process exits abnormally (e.g. is killed), remove `/tmp/alistabot.lock` to allow a clean restart.
+Use `--force` only after verifying that no other bot process is active.
+If the process exits abnormally (e.g. is killed), remove `/tmp/alistabot.lock`
+to allow a clean restart.
 
 ## Customs and duty calculations
 
