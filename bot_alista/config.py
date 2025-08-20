@@ -1,17 +1,20 @@
 import os
 import re
+from pathlib import Path
 
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 
 # Attempt to load environment variables from a file. If the ENV_FILE
-# variable is set, use it; otherwise search for a ".env" file in the
-# current working directory tree. Missing files are ignored so that
-# configuration can also be supplied via the server environment.
+# variable is set, use it; otherwise look for a ".env" file in the project
+# root (directory containing this package's parent). Missing files are
+# ignored so that configuration can also be supplied via the server
+# environment.
 env_file = os.getenv("ENV_FILE")
 if env_file:
     load_dotenv(env_file)
 else:
-    load_dotenv(find_dotenv())
+    base_dir = Path(__file__).resolve().parent.parent
+    load_dotenv(base_dir / ".env")
 
 TOKEN = os.getenv("BOT_TOKEN")
 
