@@ -34,6 +34,16 @@ resolve correctly.
 
 The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load variables from the `.env` file automatically. For container deployments, supply the same environment variables via your container runtime's secret or environment management instead of a `.env` file or point `ENV_FILE` to an external location.
 
+## Single instance lock
+
+Only one polling process should run at a time. The bot creates a lock file at `/tmp/alistabot.lock` when it starts. If another process is already running, startup fails with an error. To override a stale lock (for example after a crash), delete the lock file or start the bot with the `--force` flag:
+
+```
+python -m bot_alista.main --force
+```
+
+If the process exits abnormally (e.g. is killed), remove `/tmp/alistabot.lock` to allow a clean restart.
+
 ## Customs and duty calculations
 
 - Customs value can now be entered in EUR / USD / JPY / CNY. CBR daily rates are fetched by declaration date; if unavailable, the bot asks for manual rates.
