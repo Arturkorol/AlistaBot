@@ -82,11 +82,16 @@ def _car_type_kb() -> types.ReplyKeyboardMarkup:
 
 
 def _currency_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [types.KeyboardButton(text=CURRENCY_CODES[0]), types.KeyboardButton(text=CURRENCY_CODES[1])],
-        [types.KeyboardButton(text=CURRENCY_CODES[2]), types.KeyboardButton(text=CURRENCY_CODES[3])],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
-    ]
+    kb: list[list[types.KeyboardButton]] = []
+    row: list[types.KeyboardButton] = []
+    for code in CURRENCY_CODES:
+        row.append(types.KeyboardButton(text=code))
+        if len(row) == 2:
+            kb.append(row)
+            row = []
+    if row:
+        kb.append(row)
+    kb.append([types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")])
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
 
