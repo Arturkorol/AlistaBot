@@ -34,6 +34,7 @@ from ..constants import (
     BTN_AGE_OVER3_YES,
     BTN_AGE_OVER3_NO,
     BTN_BACK,
+    BTN_HOME,
     ERROR_RATE,
     BTN_CALC,
 )
@@ -59,7 +60,7 @@ def _person_type_kb() -> types.ReplyKeyboardMarkup:
             types.KeyboardButton(text="Физическое лицо"),
             types.KeyboardButton(text="Юридическое лицо"),
         ],
-        [types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_HOME)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -67,7 +68,7 @@ def _person_type_kb() -> types.ReplyKeyboardMarkup:
 def _usage_type_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text="Личное"), types.KeyboardButton(text="Коммерческое")],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_HOME)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -76,7 +77,7 @@ def _car_type_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
         [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_HOME)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -85,7 +86,7 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text=CURRENCY_CODES[0]), types.KeyboardButton(text=CURRENCY_CODES[1])],
         [types.KeyboardButton(text=CURRENCY_CODES[2]), types.KeyboardButton(text=CURRENCY_CODES[3])],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_HOME)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -93,7 +94,7 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
 def _age_over3_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text=BTN_AGE_OVER3_YES), types.KeyboardButton(text=BTN_AGE_OVER3_NO)],
-        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_HOME)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -107,10 +108,10 @@ async def _check_nav(
 ) -> bool:
     """Handle navigation buttons. Return True if navigation occurred."""
 
-    if message.text == "🏠 Главное меню":
+    if message.text == BTN_HOME:
         await reset_to_menu(message, state)
         return True
-    if message.text == "⬅ Назад" and prev_state and prev_prompt and prev_kb:
+    if message.text == BTN_BACK and prev_state and prev_prompt and prev_kb:
         await state.set_state(prev_state)
         await message.answer(prev_prompt, reply_markup=prev_kb)
         return True

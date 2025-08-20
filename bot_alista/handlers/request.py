@@ -8,7 +8,7 @@ from ..keyboards.navigation import back_menu
 from ..utils.reset import reset_to_menu
 from ..services.email import send_email
 from ..config import EMAIL_TO
-from ..constants import BTN_LEAD
+from ..constants import BTN_LEAD, BTN_BACK, BTN_HOME
 
 router = Router()
 
@@ -25,7 +25,7 @@ async def start_request(message: types.Message, state: FSMContext) -> None:
 @router.message(RequestStates.contact)
 async def handle_contact(message: types.Message, state: FSMContext) -> None:
     """Receive contact info, send it via email and return to main menu."""
-    if message.text in {"🏠 Главное меню", "⬅ Назад"}:
+    if message.text in {BTN_HOME, BTN_BACK}:
         await reset_to_menu(message, state)
         return
 
