@@ -366,7 +366,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         manual_rates = data.get("manual_rates", {})
         needed = {currency_code, "EUR"}
         try:
-            rates = await get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
+            rates = await get_cached_rates(decl_date, codes=needed)
             customs_value_rub = amount * rates[currency_code]
         except Exception:
             missing = [c for c in needed if c not in manual_rates]
