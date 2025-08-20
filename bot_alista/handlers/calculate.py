@@ -199,7 +199,10 @@ async def get_amount(message: types.Message, state: FSMContext) -> None:
         return
     try:
         amount = float(message.text.replace(",", "."))
-    except Exception:
+    except ValueError:
+        await message.answer(ERROR_AMOUNT)
+        return
+    if amount <= 0:
         await message.answer(ERROR_AMOUNT)
         return
     await state.update_data(amount=amount)
@@ -225,7 +228,10 @@ async def get_engine(message: types.Message, state: FSMContext) -> None:
         return
     try:
         engine = int(message.text)
-    except Exception:
+    except ValueError:
+        await message.answer(ERROR_ENGINE)
+        return
+    if engine <= 0:
         await message.answer(ERROR_ENGINE)
         return
     await state.update_data(engine=engine)
@@ -248,7 +254,10 @@ async def get_power(message: types.Message, state: FSMContext) -> None:
             power_hp = power_kw * 1.35962
         else:
             power_hp = float("".join(c for c in val if c.isdigit() or c == "."))
-    except Exception:
+    except ValueError:
+        await message.answer(ERROR_POWER)
+        return
+    if power_hp <= 0:
         await message.answer(ERROR_POWER)
         return
     await state.update_data(power_hp=round(power_hp, 1))
@@ -264,9 +273,11 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
         return
     try:
         year = int(message.text)
-        if year < 1980 or year > date.today().year:
-            raise ValueError
-    except Exception:
+    except ValueError:
+        await message.answer(ERROR_YEAR)
+        return
+    current_year = date.today().year
+    if year < 1980 or year > current_year:
         await message.answer(ERROR_YEAR)
         return
     await state.update_data(year=year)
