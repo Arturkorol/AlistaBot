@@ -9,6 +9,7 @@ async def main() -> None:
     if not TOKEN:
         raise RuntimeError("BOT_TOKEN is not configured. Check your environment variables.")
     bot = Bot(token=TOKEN)
+    await bot.delete_webhook(drop_pending_updates=True)
     dp = Dispatcher()
 
     dp.include_router(menu.router)
