@@ -2,6 +2,7 @@
 
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
+import asyncio
 
 from ..states import RequestStates
 from ..keyboards.navigation import back_menu
@@ -34,7 +35,7 @@ async def handle_contact(message: types.Message, state: FSMContext) -> None:
         f"Заявка от {message.from_user.full_name} (@{message.from_user.username}):\n"
         f"{contact}"
     )
-    success = send_email(EMAIL_TO, "Новая заявка", body)
+    success = await asyncio.to_thread(send_email, EMAIL_TO, "Новая заявка", body)
 
     if success:
         await message.answer("✅ Спасибо! Мы свяжемся с вами в ближайшее время.")
