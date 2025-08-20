@@ -90,9 +90,11 @@ async def main(*, force: bool = False) -> None:
     dp.include_router(request.router)
 
     try:
-        await dp.start_polling(bot)
+        await bot.get_updates(limit=1, timeout=0)
     except TelegramConflictError:
         logging.error(
             "Telegram reported a conflict: another bot instance may be running."
         )
         raise SystemExit(1)
+
+    await dp.start_polling(bot)

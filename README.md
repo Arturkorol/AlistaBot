@@ -38,10 +38,12 @@ The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to l
 
 Only one polling process should run at a time. The bot creates a lock file at
 `/tmp/alistabot.lock` when it starts and stores the PID of the running process.
-If another process is already running, startup fails with an error. To override
-an apparently stale lock (for example after a crash), first check that the PID
-in the lock file does not correspond to a running process, then start the bot
-with the `--force` flag:
+If another process is already running, startup fails with an error. During
+startup the bot also performs a one-shot `getUpdates` request; if Telegram
+reports that another instance is already polling with the same token, the bot
+logs an error and exits. To override an apparently stale lock (for example
+after a crash), first check that the PID in the lock file does not correspond to
+a running process, then start the bot with the `--force` flag:
 
 ```
 python -m bot_alista.main --force
