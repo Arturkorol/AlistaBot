@@ -1,9 +1,11 @@
 """Bot startup and locking utilities."""
 
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramConflictError
 
 import os
 import atexit
+import logging
 
 from .config import TOKEN
 from .handlers import menu, calculate, navigation, request
@@ -11,30 +13,58 @@ from .handlers import menu, calculate, navigation, request
 LOCKFILE = "/tmp/alistabot.lock"
 
 
+def _remove_lock() -> None:
+    try:
+        os.remove(LOCKFILE)
+    except OSError:
+        pass
+
+
+def _pid_running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    else:
+        return True
+
+
 def _acquire_lock(force: bool) -> None:
     """Create a lock file to prevent multiple polling processes.
 
-    If the lock file already exists and ``force`` is ``False``, a ``RuntimeError``
-    is raised. When ``force`` is ``True`` a stale lock file is removed.
-    The lock file is removed automatically at process exit, but if the process
-    is killed it might persist and must be deleted manually.
+    The lock file contains the PID of the owning process. Creation uses an
+    atomic operation so that two processes cannot acquire the lock
+    simultaneously. If a lock already exists and ``force`` is ``True`` the PID
+    from the file is checked and the lock is removed only if no such process is
+    running.
     """
 
-    if os.path.exists(LOCKFILE):
-        if force:
-            try:
-                os.remove(LOCKFILE)
-            except OSError:
-                pass
-        else:
+    try:
+        fd = os.open(LOCKFILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        if not force:
             raise RuntimeError(
                 f"Another instance appears to be running (lock: {LOCKFILE})."
             )
+        pid = None
+        try:
+            with open(LOCKFILE) as existing:
+                pid = int(existing.read().strip())
+        except Exception:
+            pass
+        if pid is not None and _pid_running(pid):
+            raise RuntimeError(
+                f"Another instance (PID {pid}) appears to be running (lock: {LOCKFILE})."
+            )
+        _remove_lock()
+        fd = os.open(LOCKFILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
 
-    with open(LOCKFILE, "w") as lock:
+    with os.fdopen(fd, "w") as lock:
         lock.write(str(os.getpid()))
 
-    atexit.register(lambda: os.path.exists(LOCKFILE) and os.remove(LOCKFILE))
+    atexit.register(_remove_lock)
 
 
 async def main(*, force: bool = False) -> None:
@@ -59,4 +89,10 @@ async def main(*, force: bool = False) -> None:
     dp.include_router(navigation.router)
     dp.include_router(request.router)
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except TelegramConflictError:
+        logging.error(
+            "Telegram reported a conflict: another bot instance may be running."
+        )
+        raise SystemExit(1)
