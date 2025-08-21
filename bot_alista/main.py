@@ -7,6 +7,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+# Make external packages available when running from source checkout
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "external"))
 sys.path.append(os.path.dirname(__file__))
 from bot_alista.bot import main as run_bot
 
