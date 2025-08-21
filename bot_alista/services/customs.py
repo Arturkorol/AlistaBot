@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import logging
 import time
-from .customs_rates import fetch_tariffs
+from .customs_calculator import CustomsCalculator
 
 # Логирование в файл
 logging.basicConfig(
@@ -73,11 +73,11 @@ def calculate_customs(
     age = current_year - year
 
     if tariffs is None:
-        tariffs = fetch_tariffs()
+        tariffs = CustomsCalculator.get_tariffs()
     duty_tables = tariffs["duty"]
-    under_3 = duty_tables.get("under_3", {"per_cc": 2.5, "price_percent": 0.48})
-    rates_3_5 = duty_tables.get("3_5", [])
-    rates_5_plus = duty_tables.get("over_5", [])
+    under_3 = duty_tables["under_3"]
+    rates_3_5 = duty_tables["3_5"]
+    rates_5_plus = duty_tables["over_5"]
 
     duty = 0
     excise_rub = 0
@@ -86,7 +86,7 @@ def calculate_customs(
     # Логика для ДВС
     if car_type.lower() in ["бензин", "дизель"]:
         if age < 3:
-            duty = max(price_eur * under_3.get("price_percent", 0.48), engine_cc * under_3.get("per_cc", 2.5))
+            duty = max(price_eur * under_3["price_percent"], engine_cc * under_3["per_cc"])
         elif 3 <= age <= 5:
             rate = next(rate for limit, rate in rates_3_5 if engine_cc <= limit)
             duty = engine_cc * rate
@@ -96,12 +96,12 @@ def calculate_customs(
 
         # Акциз для >3000 см³
         if engine_cc > 3000:
-            excise_rub = power_hp * tariffs["excise"].get("over_3000_hp_rub", 0)
+            excise_rub = power_hp * tariffs["excise"]["over_3000_hp_rub"]
 
     # Логика для гибридов (скидка на пошлину 50%)
     elif car_type.lower() == "гибрид":
         if age < 3:
-            duty = max(price_eur * under_3.get("price_percent", 0.48), engine_cc * under_3.get("per_cc", 2.5)) * 0.5
+            duty = max(price_eur * under_3["price_percent"], engine_cc * under_3["per_cc"]) * 0.5
         elif 3 <= age <= 5:
             rate = next(rate for limit, rate in rates_3_5 if engine_cc <= limit) * 0.5
             duty = engine_cc * rate
@@ -131,7 +131,7 @@ def calculate_customs(
     vat = (price_eur + duty + excise + utilization_fee) * 0.20
 
     # Сбор за оформление
-    fee = tariffs.get("processing_fee", 5)
+    fee = tariffs["processing_fee"]
 
     total_eur = duty + excise + vat + utilization_fee + fee
     total_rub = total_eur * eur_rate
