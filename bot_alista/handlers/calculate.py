@@ -42,6 +42,30 @@ from ..services.rates import (
 )
 from tariff_engine import calc_breakdown_rules
 from ..formatting import format_result_message
+from ..models.enums import (
+    PersonType,
+    UsageType,
+    FuelType,
+    AgeCategory,
+)
+
+
+PERSON_MAP = {
+    "Физическое лицо": PersonType.INDIVIDUAL,
+    "Юридическое лицо": PersonType.COMPANY,
+}
+
+USAGE_MAP = {
+    "Личное": UsageType.PERSONAL,
+    "Коммерческое": UsageType.COMMERCIAL,
+}
+
+FUEL_MAP = {
+    "Бензин": FuelType.ICE,
+    "Дизель": FuelType.ICE,
+    "Гибрид": FuelType.HYBRID,
+    "Электро": FuelType.EV,
+}
 
 
 router = Router()
@@ -131,10 +155,11 @@ async def start_calculation(message: types.Message, state: FSMContext) -> None:
 async def get_person_type(message: types.Message, state: FSMContext) -> None:
     if await _check_nav(message, state, None, None, None):
         return
-    if message.text not in {"Физическое лицо", "Юридическое лицо"}:
+    person = PERSON_MAP.get(message.text)
+    if not person:
         await message.answer(ERROR_PERSON)
         return
-    await state.update_data(person_type=message.text)
+    await state.update_data(person_type=person)
     await state.set_state(CalculationStates.usage_type)
     await message.answer(PROMPT_USAGE, reply_markup=_usage_type_kb())
 
@@ -145,10 +170,11 @@ async def get_usage_type(message: types.Message, state: FSMContext) -> None:
         message, state, CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()
     ):
         return
-    if message.text not in {"Личное", "Коммерческое"}:
+    usage = USAGE_MAP.get(message.text)
+    if not usage:
         await message.answer(ERROR_USAGE)
         return
-    await state.update_data(usage_type=message.text)
+    await state.update_data(usage_type=usage)
     await state.set_state(CalculationStates.calc_type)
     await message.answer(PROMPT_TYPE, reply_markup=_car_type_kb())
 
@@ -163,10 +189,11 @@ async def get_car_type(message: types.Message, state: FSMContext) -> None:
         _usage_type_kb(),
     ):
         return
-    if message.text not in {"Бензин", "Дизель", "Гибрид", "Электро"}:
+    fuel = FUEL_MAP.get(message.text)
+    if not fuel:
         await message.answer(ERROR_TYPE)
         return
-    await state.update_data(car_type=message.text)
+    await state.update_data(car_type=fuel)
     await state.set_state(CalculationStates.currency_code)
     await message.answer(PROMPT_CURRENCY, reply_markup=_currency_kb())
 
@@ -198,7 +225,7 @@ async def get_amount(message: types.Message, state: FSMContext) -> None:
         return
     await state.update_data(amount=amount)
     data = await state.get_data()
-    if data.get("car_type") != "Электро":
+    if data.get("car_type") is not FuelType.EV:
         await state.set_state(CalculationStates.calc_engine)
         await message.answer(PROMPT_ENGINE, reply_markup=back_menu())
     else:
@@ -230,8 +257,12 @@ async def get_engine(message: types.Message, state: FSMContext) -> None:
 @router.message(CalculationStates.calc_power)
 async def get_power(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
-    prev_state = CalculationStates.calc_engine if data.get("car_type") != "Электро" else CalculationStates.customs_value_amount
-    prev_prompt = PROMPT_ENGINE if data.get("car_type") != "Электро" else PROMPT_AMOUNT
+    prev_state = (
+        CalculationStates.calc_engine
+        if data.get("car_type") is not FuelType.EV
+        else CalculationStates.customs_value_amount
+    )
+    prev_prompt = PROMPT_ENGINE if data.get("car_type") is not FuelType.EV else PROMPT_AMOUNT
     prev_kb = back_menu()
     if await _check_nav(message, state, prev_state, prev_prompt, prev_kb):
         return
@@ -272,9 +303,11 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
     CalculationStates.age_over_3, F.text.in_({BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO})
 )
 async def on_age_over_3_choice(message: types.Message, state: FSMContext) -> None:
-    over3 = message.text == BTN_AGE_OVER3_YES
-    age_years = 4.0 if over3 else 2.0
-    await state.update_data(age_years=age_years, age_over_3=over3)
+    age_cat = (
+        AgeCategory.OVER_3 if message.text == BTN_AGE_OVER3_YES else AgeCategory.UNDER_OR_EQUAL_3
+    )
+    age_years = 4.0 if age_cat is AgeCategory.OVER_3 else 2.0
+    await state.update_data(age_years=age_years, age_category=age_cat)
 
     # Hide the age keyboard immediately
     await message.answer("Принято ✅", reply_markup=types.ReplyKeyboardRemove())
@@ -333,17 +366,14 @@ async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
 async def _run_calculation(state: FSMContext, message: types.Message) -> None:
     data = await state.get_data()
     try:
-        car_type: str = data["car_type"]
+        fuel_type: FuelType = data["car_type"]
         currency_code: str = data["currency_code"]
         amount: float = data["amount"]
         engine_cc: int = data.get("engine", 0)
         engine_hp: int = int(data.get("power_hp", 0))
         year: int = data["year"]
-        person_ru: str = data.get("person_type", "Физическое лицо")
-        usage_ru: str = data.get("usage_type", "Личное")
-
-        person_type = "individual" if person_ru == "Физическое лицо" else "company"
-        usage_type = "personal" if usage_ru == "Личное" else "commercial"
+        person_type: PersonType = data.get("person_type", PersonType.INDIVIDUAL)
+        usage_type: UsageType = data.get("usage_type", UsageType.PERSONAL)
 
         decl_date = data.get("decl_date") or date.today()
         manual_rates = data.get("manual_rates", {})
@@ -366,8 +396,8 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         eur_rate = rates["EUR"]
         customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
-        fuel_type = car_type
-        age_over_3 = bool(data.get("age_over_3", False))
+        age_category: AgeCategory = data.get("age_category", AgeCategory.UNDER_OR_EQUAL_3)
+        age_over_3 = age_category is AgeCategory.OVER_3
 
         core = calc_breakdown_rules(
             person_type=person_type,
@@ -394,12 +424,12 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         meta = {
             "person_usage": (
                 "Тип лица: Физическое, личное использование"
-                if person_type == "individual" and usage_type == "personal"
+                if person_type is PersonType.INDIVIDUAL and usage_type is UsageType.PERSONAL
                 else "Тип лица: Юридическое / коммерческое использование"
             ),
             "age_info": "Выбор для пошлины (ФЛ): "
             + ("старше 3 лет" if age_over_3 else "не старше 3 лет")
-            if person_type == "individual" and usage_type == "personal"
+            if person_type is PersonType.INDIVIDUAL and usage_type is UsageType.PERSONAL
             else "",
             "util_age_info": "",
             "duty_rate_info": rate_line,

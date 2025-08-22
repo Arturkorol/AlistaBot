@@ -28,6 +28,7 @@ from bot_alista.rules.age import (
     candidate_fl_labels,
 )
 from bot_alista.rules.engine import calc_fl_stp, calc_ul
+from bot_alista.models.enums import PersonType, UsageType, FuelType
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 ENGINE_CC_MIN = 2300
@@ -212,7 +213,7 @@ def calc_import_breakdown(
     engine_hp: int,
     is_disabled_vehicle: bool,
     is_export: bool,
-    person_type: str = "individual",
+    person_type: PersonType = PersonType.INDIVIDUAL,
     country_origin: str | None = None,
 ) -> dict[str, Any]:
     """Полный расчет таможенных платежей при импорте.
@@ -296,8 +297,8 @@ def calc_import_breakdown(
 
 def calc_breakdown_with_mode(
     *,
-    person_type: str,
-    usage_type: str,
+    person_type: PersonType,
+    usage_type: UsageType,
     customs_value_eur: float,
     eur_rub_rate: float,
     engine_cc: int,
@@ -325,7 +326,7 @@ def calc_breakdown_with_mode(
         core["breakdown"]["clearance_fee_rub"] = 0.0
         return core
 
-    if person_type == "individual" and usage_type == "personal":
+    if person_type == PersonType.INDIVIDUAL and usage_type == UsageType.PERSONAL:
         customs_value_rub = eur_to_rub(customs_value_eur, eur_rub_rate)
 
         core = {
@@ -390,15 +391,15 @@ def calc_breakdown_with_mode(
 
 def calc_breakdown_rules(
     *,
-    person_type: str,          # "individual" | "company"
-    usage_type: str,           # "personal"  | "commercial"
+    person_type: PersonType,
+    usage_type: UsageType,
     customs_value_eur: float,
     eur_rub_rate: float,
     engine_cc: int | None,
     engine_hp: int | None,
     production_year: int,
-    age_choice_over3: bool,    # FL: user's answer to "older than 3?"
-    fuel_type: str,
+    age_choice_over3: bool,
+    fuel_type: FuelType,
     decl_date: date | None,
     segment: str = "Легковой",
     category: str = "M1",
@@ -411,7 +412,7 @@ def calc_breakdown_rules(
     customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
     actual_age = compute_actual_age_years(production_year, decl_date)
 
-    if person_type == "individual" and usage_type == "personal":
+    if person_type == PersonType.INDIVIDUAL and usage_type == UsageType.PERSONAL:
         # Resolve FL age label with graceful fallback
         fl_age_candidates = candidate_fl_labels(age_choice_over3, actual_age, buckets)
         last_exc: Exception | None = None
@@ -439,10 +440,10 @@ def calc_breakdown_rules(
         # UTIL uses factual age (not the user's button)
         util_age_years = 4.0 if actual_age > 3.0 else 2.0
         util_rub = calc_util_rub(
-            person_type="individual",
-            usage="personal",
+            person_type=PersonType.INDIVIDUAL,
+            usage=UsageType.PERSONAL,
             engine_cc=int(engine_cc or 0),
-            fuel=("ev" if fuel_norm == "Электро" else "ice"),
+            fuel=(FuelType.EV if fuel_norm == "Электро" else FuelType.ICE),
             vehicle_kind="passenger",
             age_years=util_age_years,
             date_decl=decl_date,
@@ -508,10 +509,10 @@ def calc_breakdown_rules(
     total_no_util = round(core["duty_rub"] + core["excise_rub"] + core["vat_rub"] + fee_rub, 2)
 
     util_rub = calc_util_rub(
-        person_type="company",
-        usage="commercial",
+        person_type=PersonType.COMPANY,
+        usage=UsageType.COMMERCIAL,
         engine_cc=int(engine_cc or 0),
-        fuel=("ev" if fuel_norm == "Электро" else "ice"),
+        fuel=(FuelType.EV if fuel_norm == "Электро" else FuelType.ICE),
         vehicle_kind="passenger",
         age_years=actual_age,
         date_decl=decl_date,

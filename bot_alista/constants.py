@@ -1,5 +1,7 @@
 from typing import Literal
 
+from .models.enums import PersonType, UsageType, FuelType, AgeCategory
+
 # Button labels
 BTN_CALC = "📊 Рассчитать"
 BTN_BACK = "⬅ Назад"
@@ -11,10 +13,7 @@ BTN_SEND = "📩 Отправить менеджеру"
 BTN_AGE_OVER3_YES = "Да"
 BTN_AGE_OVER3_NO = "Нет"
 
-# Type aliases
-PersonType = Literal["физическое лицо", "юридическое лицо"]
-UsageType = Literal["личное", "коммерческое"]
-FuelType = Literal["бензин", "дизель", "гибрид", "электро"]
+# Type aliases (re-exported for convenience)
 VehicleKind = Literal["легковой", "грузовой", "мототехника"]
 
 # Validation ranges
