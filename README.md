@@ -22,7 +22,7 @@ Install dependencies and run the bot:
 
 ```
 pip install -r requirements.txt
-python bot_alista/main.py
+python -m bot_alista.main
 ```
 
 The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load variables from the `.env` file automatically and [`PyYAML`](https://pypi.org/project/PyYAML/) for parsing YAML configuration files. For container deployments, supply the same environment variables via your container runtime's secret or environment management instead of a `.env` file.

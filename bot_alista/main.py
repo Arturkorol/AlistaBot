@@ -1,14 +1,11 @@
 """Entry point for running the Telegram bot."""
 
 import asyncio
-import sys
-import os
 import logging
 
-logging.basicConfig(level=logging.INFO)
+from .bot import main as run_bot
 
-sys.path.append(os.path.dirname(__file__))
-from bot_alista.bot import main as run_bot
+logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == "__main__":
