@@ -8,8 +8,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 from typing import Dict, Iterable, Literal
+import asyncio
 import json
-import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -29,7 +29,7 @@ def _cache_file(for_date: date) -> Path:
     return base / f"{for_date.isoformat()}.json"
 
 
-def _fetch_cbr_rates(
+async def _fetch_cbr_rates(
     for_date: date,
     codes: Iterable[str] = SUPPORTED_CODES,
     retries: int = 3,
@@ -48,14 +48,16 @@ def _fetch_cbr_rates(
 
     for attempt in range(1, retries + 1):
         try:
-            resp = requests.get(CBR_URL, params=params, timeout=timeout)
+            resp = await asyncio.to_thread(
+                requests.get, CBR_URL, params=params, timeout=timeout
+            )
             resp.raise_for_status()
             resp.encoding = "windows-1251"
             root = ET.fromstring(resp.text)
         except (requests.RequestException, ET.ParseError) as exc:
             if attempt == retries:
                 raise RuntimeError("Ошибка получения данных ЦБ РФ") from exc
-            time.sleep(attempt)
+            await asyncio.sleep(attempt)
             continue
 
         rates: Dict[str, float] = {}
@@ -83,7 +85,7 @@ def _fetch_cbr_rates(
 # Публичное API
 # ---------------------------------------------------------------------------
 
-def get_cbr_rate(
+async def get_cbr_rate(
     for_date: date,
     code: Literal["EUR", "USD", "JPY", "CNY"],
     retries: int = 3,
@@ -97,10 +99,11 @@ def get_cbr_rate(
     :param timeout: таймаут запроса в секундах
     :return: курс в рублях за единицу валюты
     """
-    return _fetch_cbr_rates(for_date, [code], retries=retries, timeout=timeout)[code]
+    rates = await _fetch_cbr_rates(for_date, [code], retries=retries, timeout=timeout)
+    return rates[code]
 
 
-def get_cached_rates(
+async def get_cached_rates(
     for_date: date,
     codes: Iterable[str] = SUPPORTED_CODES,
     retries: int = 3,
@@ -122,7 +125,7 @@ def get_cached_rates(
         except json.JSONDecodeError:
             pass  # повреждённый кэш – перезапишем ниже
 
-    fresh = _fetch_cbr_rates(for_date, SUPPORTED_CODES, retries=retries, timeout=timeout)
+    fresh = await _fetch_cbr_rates(for_date, SUPPORTED_CODES, retries=retries, timeout=timeout)
     payload = {
         "date": for_date.isoformat(),
         "provider": "CBR",
@@ -134,17 +137,18 @@ def get_cached_rates(
     return {code: fresh[code] for code in codes}
 
 
-def get_cached_rate(
+async def get_cached_rate(
     for_date: date,
     code: Literal["EUR", "USD", "JPY", "CNY"],
     retries: int = 3,
     timeout: float = 5.0,
 ) -> float:
     """Возвращает курс валюты из кэша или с запросом в ЦБ РФ."""
-    return get_cached_rates(for_date, [code], retries=retries, timeout=timeout)[code]
+    rates = await get_cached_rates(for_date, [code], retries=retries, timeout=timeout)
+    return rates[code]
 
 
-def currency_to_rub(
+async def currency_to_rub(
     amount: float,
     code: Literal["EUR", "USD", "JPY", "CNY"],
     for_date: date | None = None,
@@ -158,7 +162,7 @@ def currency_to_rub(
     """
     if for_date is None:
         for_date = date.today()
-    rate = get_cached_rate(for_date, code)
+    rate = await get_cached_rate(for_date, code)
     return amount * rate
 
 
@@ -186,11 +190,14 @@ def validate_or_prompt_rate(user_input: str) -> float:
 
 
 if __name__ == "__main__":
-    today = date.today()
-    rates = get_cached_rates(today)
-    print(f"Курсы ЦБ РФ на {today}:")
-    for code, rate in rates.items():
-        print(f"  {code}: {rate:.4f} руб.")
-    amount = 100
-    rub = currency_to_rub(amount, "USD", today)
-    print(f"{amount} USD = {rub:.2f} RUB")
+    async def main() -> None:
+        today = date.today()
+        rates = await get_cached_rates(today)
+        print(f"Курсы ЦБ РФ на {today}:")
+        for code, rate in rates.items():
+            print(f"  {code}: {rate:.4f} руб.")
+        amount = 100
+        rub = await currency_to_rub(amount, "USD", today)
+        print(f"{amount} USD = {rub:.2f} RUB")
+
+    asyncio.run(main())
