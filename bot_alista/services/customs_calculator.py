@@ -5,6 +5,8 @@ from typing import Any, Dict
 from datetime import datetime
 import yaml
 
+from ..models import FuelType
+
 
 class CustomsCalculator:
     """Perform customs calculations and expose ETC/CTP helpers.
@@ -69,8 +71,16 @@ class CustomsCalculator:
         return "over_5"
 
     @staticmethod
-    def _clearance_fee_rub(customs_value_rub: float) -> float:
-        """Tiered customs clearance fee (ported from ``tariff_engine``)."""
+    def _clearance_fee_rub(customs_value_rub: float, tariffs: Dict[str, Any]) -> float:
+        """Tiered customs clearance fee loaded from config or using defaults."""
+        table = tariffs.get("clearance_fee_rub")
+        if table:
+            for limit, fee in table:
+                if customs_value_rub <= limit:
+                    return float(fee)
+            return float(table[-1][1])
+
+        # Fallback to hard-coded tiers (ported from ``tariff_engine``)
         v = float(customs_value_rub)
         if v <= 200_000:
             return 1_067.0
@@ -120,12 +130,14 @@ class CustomsCalculator:
         util_key = "age_under_3" if cat == "under_3" else "age_over_3"
         util = tariffs.get("utilization", {}).get(util_key, 0.0)
 
-        # VAT
-        vat = 0.2 * (price_eur + duty + excise + util)
+        # VAT rate may be customized via config
+        vat_cfg = tariffs.get("vat", {})
+        vat_rate = vat_cfg.get("rate", 0.2)
+        vat = vat_rate * (price_eur + duty + excise + util)
 
-        # Processing fee uses tiered table in RUB then converted to EUR
+        # Processing fee tiers loaded from config
         customs_value_rub = price_eur * eur_rate
-        fee_rub = self._clearance_fee_rub(customs_value_rub)
+        fee_rub = self._clearance_fee_rub(customs_value_rub, tariffs)
         fee = fee_rub / eur_rate
 
         total = duty + excise + util + vat + fee
@@ -148,7 +160,7 @@ class CustomsCalculator:
         price_eur: float,
         engine_cc: int,
         year: int,
-        car_type: str,
+        car_type: FuelType | str,
         power_hp: float = 0,
         weight_kg: float = 0,
     ) -> Dict[str, float]:
@@ -160,10 +172,11 @@ class CustomsCalculator:
         """
 
         self._reset_state()
+        fuel = FuelType.from_str(car_type)
         self.price_eur = price_eur
         self.engine_cc = engine_cc
         self.year = year
-        self.car_type = car_type
+        self.car_type = fuel.value
         self.power_hp = power_hp
         self.weight_kg = weight_kg
 

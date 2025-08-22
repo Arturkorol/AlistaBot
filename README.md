@@ -37,4 +37,5 @@ The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to l
 - Companies (commercial): duty = max(ad valorem, min €/cc) or specific €/cc, plus excise (rub/hp) and VAT 20%.
 - Clearance fee ladder updated for 2025 bands.
 - Utilization fee uses factual age from production year; for FL duty bucket, the user selects ≤3 or >3 years.
+- Vehicle inputs such as fuel, person type, usage, and age are validated via enums in `bot_alista/models/enums.py`.
 
