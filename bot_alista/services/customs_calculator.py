@@ -193,3 +193,34 @@ class CustomsCalculator:
         etc = price_eur + res["total_eur"]
         res.update({"vehicle_price_eur": price_eur, "etc_eur": etc})
         return res
+
+
+def calculate_ctp(
+    *,
+    eur_rate: float | None = None,
+    tariffs: Dict[str, Any] | None = None,
+    **kwargs,
+) -> Dict[str, float]:
+    """Convenience wrapper returning customs tax payments.
+
+    A new :class:`CustomsCalculator` instance is created for each call ensuring
+    that no state leaks between invocations.
+    """
+
+    calc = CustomsCalculator(eur_rate=eur_rate, tariffs=tariffs)
+    return calc.calculate_ctp(**kwargs)
+
+
+def calculate_etc(
+    *,
+    eur_rate: float | None = None,
+    tariffs: Dict[str, Any] | None = None,
+    **kwargs,
+) -> Dict[str, float]:
+    """Convenience wrapper returning estimated total cost including customs."""
+
+    calc = CustomsCalculator(eur_rate=eur_rate, tariffs=tariffs)
+    return calc.calculate_etc(**kwargs)
+
+
+__all__ = ["CustomsCalculator", "calculate_ctp", "calculate_etc"]
