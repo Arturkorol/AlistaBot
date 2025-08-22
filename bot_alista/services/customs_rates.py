@@ -4,23 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-# Default fallback tariffs in case fetching fails
-DEFAULT_TARIFFS: dict[str, Any] = {
-    "duty": {
-        "under_3": {"per_cc": 2.5, "price_percent": 0.48},
-        "3_5": [
-            (1000, 1.5), (1500, 1.7), (1800, 2.5),
-            (2300, 2.7), (3000, 3.0), (99999, 3.6)
-        ],
-        "over_5": [
-            (1000, 3.0), (1500, 3.2), (1800, 3.5),
-            (2300, 4.8), (3000, 5.0), (99999, 5.7)
-        ],
-    },
-    "excise": {"over_3000_hp_rub": 511},
-    "utilization": {"age_under_3": 2000, "age_over_3": 3400},
-    "processing_fee": 5,
-}
+from .customs_calculator import CustomsCalculator
 
 # Simple in-memory cache per day
 _cached_tariffs: dict[str, Any] | None = None
@@ -31,11 +15,12 @@ TARIFF_URL = "https://customs.gov.ru/api/tariffs"  # Placeholder URL
 
 def _parse_json(data: dict[str, Any]) -> dict[str, Any]:
     """Extracts needed fields from JSON structure."""
+    fallback = CustomsCalculator.get_tariffs()
     try:
         duty = data["duty"]
         excise = data["excise"]
         utilization = data["utilization"]
-        fee = data.get("processing_fee", 5)
+        fee = data["processing_fee"]
         return {
             "duty": duty,
             "excise": excise,
@@ -43,16 +28,29 @@ def _parse_json(data: dict[str, Any]) -> dict[str, Any]:
             "processing_fee": fee,
         }
     except Exception:
-        return DEFAULT_TARIFFS
+        return fallback
 
 
 def _parse_xml(text: str) -> dict[str, Any]:
     """Parses XML tariff data into the standard structure."""
+    fallback = CustomsCalculator.get_tariffs()
     try:
         root = ET.fromstring(text)
         duty: dict[str, Any] = {
-            "under_3": {"per_cc": float(root.findtext("duty/under_3/per_cc", 2.5)),
-                         "price_percent": float(root.findtext("duty/under_3/price_percent", 0.48))},
+            "under_3": {
+                "per_cc": float(
+                    root.findtext(
+                        "duty/under_3/per_cc",
+                        fallback["duty"]["under_3"]["per_cc"],
+                    )
+                ),
+                "price_percent": float(
+                    root.findtext(
+                        "duty/under_3/price_percent",
+                        fallback["duty"]["under_3"]["price_percent"],
+                    )
+                ),
+            },
             "3_5": [],
             "over_5": [],
         }
@@ -61,13 +59,28 @@ def _parse_xml(text: str) -> dict[str, Any]:
         for node in root.findall("duty/over_5/rate"):
             duty["over_5"].append((int(node.get("max_cc")), float(node.text)))
         excise = {
-            "over_3000_hp_rub": float(root.findtext("excise/over_3000_hp_rub", 511))
+            "over_3000_hp_rub": float(
+                root.findtext(
+                    "excise/over_3000_hp_rub",
+                    fallback["excise"]["over_3000_hp_rub"],
+                )
+            )
         }
         utilization = {
-            "age_under_3": float(root.findtext("utilization/age_under_3", 2000)),
-            "age_over_3": float(root.findtext("utilization/age_over_3", 3400)),
+            "age_under_3": float(
+                root.findtext(
+                    "utilization/age_under_3",
+                    fallback["utilization"]["age_under_3"],
+                )
+            ),
+            "age_over_3": float(
+                root.findtext(
+                    "utilization/age_over_3",
+                    fallback["utilization"]["age_over_3"],
+                )
+            ),
         }
-        fee = float(root.findtext("processing_fee", 5))
+        fee = float(root.findtext("processing_fee", fallback["processing_fee"]))
         return {
             "duty": duty,
             "excise": excise,
@@ -75,7 +88,7 @@ def _parse_xml(text: str) -> dict[str, Any]:
             "processing_fee": fee,
         }
     except Exception:
-        return DEFAULT_TARIFFS
+        return fallback
 
 
 def _validate_tariffs(data: dict[str, Any]) -> bool:
@@ -118,7 +131,7 @@ def fetch_tariffs() -> dict[str, Any]:
             raise ValueError("invalid data structure")
     except Exception as e:
         logging.warning("Failed to fetch tariffs: %s", e)
-        tariffs = DEFAULT_TARIFFS
+        tariffs = CustomsCalculator.get_tariffs()
 
     _cached_tariffs = tariffs
     _cached_date = today
