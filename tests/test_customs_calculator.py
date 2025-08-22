@@ -1,4 +1,4 @@
-import json
+import yaml
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -15,7 +15,7 @@ from bot_alista.services.customs_calculator import CustomsCalculator
 # Load sample tariff data
 CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
-    SAMPLE_TARIFFS = json.load(fh)
+    SAMPLE_TARIFFS = yaml.safe_load(fh)
 
 
 def test_calculate_ctp_returns_expected_total():
