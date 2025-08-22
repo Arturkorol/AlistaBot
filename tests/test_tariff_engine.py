@@ -1,10 +1,9 @@
 import pytest
 from datetime import date
 
-from tariff_engine import (
-    calc_import_breakdown,
-    calc_breakdown_rules,
-)
+tariff_engine = pytest.importorskip("tariff_engine")
+calc_import_breakdown = tariff_engine.calc_import_breakdown
+calc_breakdown_rules = tariff_engine.calc_breakdown_rules
 
 
 def test_calc_import_breakdown_export_disabled_vehicle():

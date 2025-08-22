@@ -21,4 +21,16 @@ excise:
 utilization:
   age_under_3: 2000
   age_over_3: 3400
-processing_fee: 5
+  base_rates_rub:
+    passenger: 20000
+    commercial: 150000
+vat:
+  rate: 0.2
+clearance_fee_rub:
+  - [200000, 1067]
+  - [450000, 2134]
+  - [1200000, 4269]
+  - [3000000, 11746]
+  - [5000000, 16524]
+  - [7000000, 20000]
+  - [999999999, 30000]
