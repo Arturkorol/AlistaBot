@@ -1,36 +1,49 @@
-import pathlib
+import json
+from pathlib import Path
+from datetime import datetime
 import sys
+
 import pytest
 
-# Ensure repo root on path
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+# Ensure repo root on sys.path for namespace package resolution
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tariff_engine import calc_import_duty_eur
-import calculator
-from calculator import calculate_individual
+from bot_alista.services.customs_calculator import CustomsCalculator
+
+# Load sample tariff data
+CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
+with open(CONFIG, "r", encoding="utf-8") as fh:
+    SAMPLE_TARIFFS = json.load(fh)
 
 
-def test_calc_import_duty_minimum_applied():
-    duty = calc_import_duty_eur(customs_value_eur=1000, engine_cc=2500)
-    assert duty == pytest.approx(1100.0)
-
-
-def test_calc_import_duty_with_zero_value_raises():
-    with pytest.raises(ValueError):
-        calc_import_duty_eur(customs_value_eur=0, engine_cc=2500)
-
-
-def test_calculate_individual_unsupported_currency_fallback(monkeypatch):
-    def mock_get_rate(for_date, code):
-        raise RuntimeError("unsupported currency")
-    monkeypatch.setattr(calculator, "get_cbr_rate", mock_get_rate)
-    res = calculate_individual(
-        customs_value=10000,
-        currency="GBP",
-        engine_cc=2000,
-        production_year=2024,
-        fuel="бензин",
+def test_calculate_ctp_returns_expected_total():
+    """Verify customs tax payments using sample tariffs."""
+    year = datetime.now().year - 1  # ensure vehicle is under 3 years old
+    total = CustomsCalculator.calculate_ctp(
+        price_eur=10_000,
+        engine_cc=2_000,
+        year=year,
+        car_type="Бензин",
+        power_hp=150,
+        eur_rate=1.0,
+        tariffs=SAMPLE_TARIFFS,
     )
-    assert res["currency_rate"] == 100.0
+    assert total == pytest.approx(10_405.0)
+
+
+def test_calculate_etc_includes_vehicle_price():
+    """ETC should equal purchase price plus customs payments."""
+    year = datetime.now().year - 1
+    etc = CustomsCalculator.calculate_etc(
+        price_eur=10_000,
+        engine_cc=2_000,
+        year=year,
+        car_type="Бензин",
+        power_hp=150,
+        eur_rate=1.0,
+        tariffs=SAMPLE_TARIFFS,
+    )
+    # price 10_000 + customs payments 10_405 = 20_405
+    assert etc == pytest.approx(20_405.0)
