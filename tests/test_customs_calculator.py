@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.services import CustomsCalculator
 
 # Load sample tariff data
 CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
