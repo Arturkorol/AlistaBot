@@ -1,4 +1,4 @@
-"""FSM states for customs calculation flow."""
+"""FSM state groups for bot conversations."""
 
 from aiogram.fsm.state import State, StatesGroup
 
@@ -16,3 +16,16 @@ class CalculationStates(StatesGroup):
     calc_year = State()
     age_over_3 = State()
     manual_rate = State()
+
+
+class RequestStates(StatesGroup):
+    """Conversation steps for submitting a customs request."""
+
+    request_name = State()
+    request_car = State()
+    request_contact = State()
+    request_price = State()
+    request_comment = State()
+
+
+__all__ = ["CalculationStates", "RequestStates"]
