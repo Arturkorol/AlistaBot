@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict
-import json
+import yaml
 
 
 class CustomsCalculator:
@@ -26,7 +26,7 @@ class CustomsCalculator:
                 / "config.yaml"
             )
             with open(config_path, "r", encoding="utf-8") as fh:
-                cls._tariffs = json.load(fh)
+                cls._tariffs = yaml.safe_load(fh)
         return cls._tariffs
 
     @classmethod
