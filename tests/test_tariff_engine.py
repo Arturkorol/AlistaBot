@@ -1,95 +1,63 @@
+import yaml
+from pathlib import Path
+from datetime import datetime
+import sys
+
 import pytest
-from datetime import date
-
-from tariff_engine import (
-    calc_import_breakdown,
-    calc_breakdown_rules,
-)
 
 
-def test_calc_import_breakdown_export_disabled_vehicle():
-    result = calc_import_breakdown(
-        customs_value_eur=10000,
-        eur_rub_rate=100.0,
-        engine_cc=2500,
-        engine_hp=150,
-        is_disabled_vehicle=True,
-        is_export=True,
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from bot_alista.services import calculate_ctp, calculate_etc, CustomsCalculator
+
+
+CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
+with open(CONFIG, "r", encoding="utf-8") as fh:
+    SAMPLE_TARIFFS = yaml.safe_load(fh)
+
+
+def test_wrapper_matches_class_result():
+    year = datetime.now().year - 1
+    kwargs = dict(price_eur=10_000, engine_cc=2_000, year=year, car_type="Бензин", power_hp=150)
+    calc = CustomsCalculator(eur_rate=1.0, tariffs=SAMPLE_TARIFFS)
+    class_result = calc.calculate_ctp(**kwargs)
+    func_result = calculate_ctp(eur_rate=1.0, tariffs=SAMPLE_TARIFFS, **kwargs)
+    assert func_result == class_result
+
+
+def test_calculate_etc_wrapper_adds_vehicle_price():
+    year = datetime.now().year - 1
+    kwargs = dict(price_eur=10_000, engine_cc=2_000, year=year, car_type="Бензин", power_hp=150)
+    ctp = calculate_ctp(eur_rate=1.0, tariffs=SAMPLE_TARIFFS, **kwargs)
+    etc = calculate_etc(eur_rate=1.0, tariffs=SAMPLE_TARIFFS, **kwargs)
+    assert etc["etc_eur"] == pytest.approx(kwargs["price_eur"] + ctp["total_eur"])
+
+
+def test_wrapper_state_isolated():
+    year = datetime.now().year - 1
+    first = calculate_ctp(
+        eur_rate=1.0,
+        tariffs=SAMPLE_TARIFFS,
+        price_eur=10_000,
+        engine_cc=2_000,
+        year=year,
+        car_type="Бензин",
+        power_hp=150,
     )
-    breakdown = result["breakdown"]
-    assert breakdown["total_rub"] == 0.0
-    assert breakdown["duty_eur"] == 0.0
-    assert breakdown["excise_rub"] == 0.0
-    assert breakdown["vat_rub"] == 0.0
-    assert any("экспорт" in note.lower() for note in result["notes"])
-
-
-def test_calc_breakdown_rules_individual_personal():
-    result = calc_breakdown_rules(
-        person_type="individual",
-        usage_type="personal",
-        customs_value_eur=10000,
-        eur_rub_rate=100.0,
-        engine_cc=2500,
-        engine_hp=None,
-        production_year=2023,
-        age_choice_over3=False,
-        fuel_type="Бензин",
-        decl_date=date(2025, 1, 1),
+    second = calculate_ctp(
+        eur_rate=1.0,
+        tariffs=SAMPLE_TARIFFS,
+        price_eur=5_000,
+        engine_cc=1_600,
+        year=year,
+        car_type="Бензин",
+        power_hp=100,
     )
-    b = result["breakdown"]
-    assert b["excise_rub"] == 0.0
-    assert b["vat_rub"] == 0.0
-    expected_total = b["duty_rub"] + b["clearance_fee_rub"]
-    assert b["total_rub"] == expected_total
-    assert b["total_with_util_rub"] == b["total_rub"] + b["util_rub"]
-    assert any("FL STP" in note for note in result["notes"])
+    assert first is not second
+    assert first["total_eur"] == pytest.approx(11_467.0)
+    assert second["total_eur"] == pytest.approx(9_267.0)
+    # ensure first result dict not mutated after second calculation
+    assert first["total_eur"] == pytest.approx(11_467.0)
 
-
-def test_calc_breakdown_rules_company_commercial():
-    result = calc_breakdown_rules(
-        person_type="company",
-        usage_type="commercial",
-        customs_value_eur=10000,
-        eur_rub_rate=100.0,
-        engine_cc=2500,
-        engine_hp=150,
-        production_year=2023,
-        age_choice_over3=False,
-        fuel_type="Бензин",
-        decl_date=date(2025, 1, 1),
-    )
-    b = result["breakdown"]
-    expected_total = (
-        b["duty_rub"]
-        + b["excise_rub"]
-        + b["vat_rub"]
-        + b["clearance_fee_rub"]
-    )
-    assert b["total_rub"] == expected_total
-    assert b["total_with_util_rub"] == expected_total + b["util_rub"]
-    assert any("UL by CSV" in note for note in result["notes"])
-
-
-def test_calc_import_breakdown_validation_errors_negative():
-    with pytest.raises(ValueError):
-        calc_import_breakdown(
-            customs_value_eur=-100,
-            eur_rub_rate=100.0,
-            engine_cc=2500,
-            engine_hp=150,
-            is_disabled_vehicle=False,
-            is_export=False,
-        )
-
-
-def test_calc_import_breakdown_validation_errors_engine_range():
-    with pytest.raises(ValueError):
-        calc_import_breakdown(
-            customs_value_eur=10000,
-            eur_rub_rate=100.0,
-            engine_cc=2000,
-            engine_hp=150,
-            is_disabled_vehicle=False,
-            is_export=False,
-        )
