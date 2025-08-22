@@ -1,3 +1,4 @@
+import logging
 import os
 import smtplib
 import ssl
@@ -6,7 +7,11 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from config import EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
+from ..config import EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 def send_email(
@@ -40,13 +45,13 @@ def send_email(
             server.login(EMAIL_LOGIN, EMAIL_PASSWORD)
             server.send_message(msg)
 
-        print(f"✅ Email отправлен на {to_email}")
+        logger.info("✅ Email отправлен на %s", to_email)
         return True
 
     except smtplib.SMTPAuthenticationError:
-        print("❌ Ошибка авторизации SMTP. Проверьте логин/пароль.")
+        logger.error("❌ Ошибка авторизации SMTP. Проверьте логин/пароль.")
         return False
     except Exception as e:  # pragma: no cover - we just log and return
-        print(f"❌ Ошибка отправки письма: {e}")
+        logger.error("❌ Ошибка отправки письма: %s", e, exc_info=True)
         return False
 
