@@ -5,6 +5,8 @@ from typing import Any, Dict
 from datetime import datetime
 import yaml
 
+from ..models import FuelType
+
 
 class CustomsCalculator:
     """Perform customs calculations and expose ETC/CTP helpers.
@@ -148,7 +150,7 @@ class CustomsCalculator:
         price_eur: float,
         engine_cc: int,
         year: int,
-        car_type: str,
+        car_type: FuelType | str,
         power_hp: float = 0,
         weight_kg: float = 0,
     ) -> Dict[str, float]:
@@ -160,10 +162,11 @@ class CustomsCalculator:
         """
 
         self._reset_state()
+        fuel = FuelType.from_str(car_type)
         self.price_eur = price_eur
         self.engine_cc = engine_cc
         self.year = year
-        self.car_type = car_type
+        self.car_type = fuel.value
         self.power_hp = power_hp
         self.weight_kg = weight_kg
 
