@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.models import FuelType
 
 CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
@@ -22,14 +23,14 @@ def test_state_reset_between_calls():
         price_eur=10_000,
         engine_cc=2_000,
         year=year,
-        car_type="Бензин",
+        car_type=FuelType.GASOLINE,
         power_hp=150,
     )
     second = calc.calculate_ctp(
         price_eur=5_000,
         engine_cc=1_600,
         year=year,
-        car_type="Бензин",
+        car_type=FuelType.GASOLINE,
         power_hp=100,
     )
     assert first["total_eur"] == pytest.approx(11_467.0)
