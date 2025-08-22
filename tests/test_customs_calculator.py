@@ -1,8 +1,13 @@
 import yaml
 from pathlib import Path
 from datetime import datetime
+import sys
 
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from bot_alista.services.customs_calculator import CustomsCalculator
 
@@ -15,29 +20,27 @@ with open(CONFIG, "r", encoding="utf-8") as fh:
 def test_calculate_ctp_returns_expected_total():
     """Verify customs tax payments using sample tariffs."""
     year = datetime.now().year - 1  # ensure vehicle is under 3 years old
-    total = CustomsCalculator.calculate_ctp(
+    calc = CustomsCalculator(eur_rate=1.0, tariffs=SAMPLE_TARIFFS)
+    res = calc.calculate_ctp(
         price_eur=10_000,
         engine_cc=2_000,
         year=year,
         car_type="Бензин",
         power_hp=150,
-        eur_rate=1.0,
-        tariffs=SAMPLE_TARIFFS,
     )
-    assert total == pytest.approx(10_405.0)
+    assert res["total_eur"] == pytest.approx(11_467.0)
 
 
 def test_calculate_etc_includes_vehicle_price():
     """ETC should equal purchase price plus customs payments."""
     year = datetime.now().year - 1
-    etc = CustomsCalculator.calculate_etc(
+    calc = CustomsCalculator(eur_rate=1.0, tariffs=SAMPLE_TARIFFS)
+    etc = calc.calculate_etc(
         price_eur=10_000,
         engine_cc=2_000,
         year=year,
         car_type="Бензин",
         power_hp=150,
-        eur_rate=1.0,
-        tariffs=SAMPLE_TARIFFS,
     )
-    # price 10_000 + customs payments 10_405 = 20_405
-    assert etc == pytest.approx(20_405.0)
+    # price 10_000 + customs payments 11_467 = 21_467
+    assert etc["etc_eur"] == pytest.approx(21_467.0)

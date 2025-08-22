@@ -40,8 +40,8 @@ from ..services.rates import (
     get_cached_rates,
     validate_or_prompt_rate,
 )
-from tariff_engine import calc_breakdown_rules
 from ..formatting import format_result_message
+from ..services import CustomsCalculator
 
 
 router = Router()
@@ -369,20 +369,28 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         fuel_type = car_type
         age_over_3 = bool(data.get("age_over_3", False))
 
-        core = calc_breakdown_rules(
-            person_type=person_type,
-            usage_type=usage_type,
-            customs_value_eur=customs_value_eur,
-            eur_rub_rate=eur_rate,
+        calc = CustomsCalculator(eur_rate=eur_rate)
+        breakdown = calc.calculate_ctp(
+            price_eur=customs_value_eur,
             engine_cc=engine_cc,
-            engine_hp=engine_hp,
-            production_year=year,
-            age_choice_over3=age_over_3,
-            fuel_type=fuel_type,
-            decl_date=decl_date,
+            year=year,
+            car_type=fuel_type,
+            power_hp=engine_hp,
         )
+        core = {
+            "breakdown": {
+                "customs_value_rub": customs_value_rub,
+                "duty_rub": breakdown["duty_eur"] * eur_rate,
+                "excise_rub": breakdown["excise_eur"] * eur_rate,
+                "vat_rub": breakdown["vat_eur"] * eur_rate,
+                "clearance_fee_rub": breakdown["fee_eur"] * eur_rate,
+                "total_rub": breakdown["total_eur"] * eur_rate,
+                "util_rub": breakdown["util_eur"] * eur_rate,
+            },
+            "notes": [],
+        }
 
-        duty_eur = core["breakdown"].get("duty_eur")
+        duty_eur = breakdown.get("duty_eur")
         rate_line = ""
         if duty_eur and engine_cc:
             try:
