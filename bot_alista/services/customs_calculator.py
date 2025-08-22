@@ -69,22 +69,13 @@ class CustomsCalculator:
         return "over_5"
 
     @staticmethod
-    def _clearance_fee_rub(customs_value_rub: float) -> float:
-        """Tiered customs clearance fee (ported from ``tariff_engine``)."""
-        v = float(customs_value_rub)
-        if v <= 200_000:
-            return 1_067.0
-        if v <= 450_000:
-            return 2_134.0
-        if v <= 1_200_000:
-            return 4_269.0
-        if v <= 3_000_000:
-            return 11_746.0
-        if v <= 5_000_000:
-            return 16_524.0
-        if v <= 7_000_000:
-            return 20_000.0
-        return 30_000.0
+    def _clearance_fee_rub(customs_value_rub: float, tariffs: Dict[str, Any]) -> float:
+        """Tiered customs clearance fee loaded from tariff config."""
+        table = tariffs.get("clearance_fee_rub", [])
+        for limit, fee in table:
+            if customs_value_rub <= limit:
+                return float(fee)
+        return float(table[-1][1]) if table else 0.0
 
     # ------------------------------------------------------------------
     # Core calculations
@@ -121,11 +112,12 @@ class CustomsCalculator:
         util = tariffs.get("utilization", {}).get(util_key, 0.0)
 
         # VAT
-        vat = 0.2 * (price_eur + duty + excise + util)
+        vat_rate = tariffs.get("vat", {}).get("rate", 0.0)
+        vat = vat_rate * (price_eur + duty + excise + util)
 
         # Processing fee uses tiered table in RUB then converted to EUR
         customs_value_rub = price_eur * eur_rate
-        fee_rub = self._clearance_fee_rub(customs_value_rub)
+        fee_rub = self._clearance_fee_rub(customs_value_rub, tariffs)
         fee = fee_rub / eur_rate
 
         total = duty + excise + util + vat + fee
