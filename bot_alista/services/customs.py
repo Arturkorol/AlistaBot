@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict
+from typing import Dict
 
 try:
     from tks_api_official import CustomsCalculator
-except Exception:  # pragma: no cover - fallback when package missing
+except ImportError:  # pragma: no cover - fallback when package missing
     from .customs_calculator import CustomsCalculator
 
 
@@ -18,42 +17,28 @@ def calculate_customs(
     power_hp: float = 0,
     weight_kg: float = 0,
     eur_rate: float | None = None,
-    tariffs: Dict[str, Any] | None = None,
 ) -> Dict[str, float]:
-    """Простейший расчёт таможенных платежей в евро.
+    """Proxy to :class:`CustomsCalculator.calculate_customs`.
 
-    Функция покрывает минимальный набор сценариев, необходимый для тестов.
-    Она учитывает пошлину, утилизационный сбор, НДС и сбор за оформление.
+    The helper returns a simplified dictionary compatible with the previous
+    interface used in tests.
     """
 
-    tariffs = tariffs or CustomsCalculator.get_tariffs()
-    age = datetime.now().year - year
-
-    if age < 3:
-        duty_cfg = tariffs["duty"]["under_3"]
-        duty = max(price_eur * duty_cfg["price_percent"], engine_cc * duty_cfg["per_cc"])
-        util = tariffs["utilization"]["age_under_3"]
-    else:
-        table_key = "3_5" if age <= 5 else "over_5"
-        table = tariffs["duty"][table_key]
-        rate = 0.0
-        for max_cc, r in table:
-            if engine_cc <= max_cc:
-                rate = r
-                break
-        duty = engine_cc * rate
-        util = tariffs["utilization"]["age_over_3"]
-
-    vat = (price_eur + duty + util) * 0.20
-    fee = tariffs["processing_fee"]
-    total = duty + util + vat + fee
-
+    res = CustomsCalculator.calculate_customs(
+        price_eur=price_eur,
+        engine_cc=engine_cc,
+        year=year,
+        car_type=car_type,
+        power_hp=power_hp,
+        weight_kg=weight_kg,
+        eur_rate=eur_rate,
+    )
     return {
-        "duty_eur": duty,
-        "utilization_eur": util,
-        "vat_eur": vat,
-        "processing_fee_eur": fee,
-        "total_eur": total,
+        "duty_eur": res["duty_eur"],
+        "utilization_eur": res["util_eur"],
+        "vat_eur": res["vat_eur"],
+        "processing_fee_eur": res["fee_eur"],
+        "total_eur": res["total_eur"],
     }
 
 

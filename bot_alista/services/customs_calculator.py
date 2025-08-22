@@ -9,9 +9,9 @@ import yaml
 class CustomsCalculator:
     """Utility loader for customs tariff configuration.
 
-    The class lazily reads :mod:`external/tks_api_official/config.yaml` once and
-    caches the resulting dictionary.  This provides a single source of truth for
-    all customs related calculations within the bot.
+    The class lazily reads :mod:`config/tariffs.yaml` once and caches the
+    resulting dictionary. This provides a single source of truth for all customs
+    related calculations within the bot.
     """
 
     _tariffs: Dict[str, Any] | None = None
@@ -22,9 +22,8 @@ class CustomsCalculator:
         if cls._tariffs is None:
             config_path = (
                 Path(__file__).resolve().parents[2]
-                / "external"
-                / "tks_api_official"
-                / "config.yaml"
+                / "config"
+                / "tariffs.yaml"
             )
             with open(config_path, "r", encoding="utf-8") as fh:
                 cls._tariffs = yaml.safe_load(fh)
@@ -48,6 +47,13 @@ class CustomsCalculator:
             return "3_5"
         return "over_5"
 
+    @staticmethod
+    def _pick_rate(table, value):
+        for limit, rate in table:
+            if value <= limit:
+                return rate
+        return table[-1][1]
+
     @classmethod
     def calculate_customs(
         cls,
@@ -66,29 +72,26 @@ class CustomsCalculator:
         eur_rate = eur_rate or 1.0
         cat = cls._age_category(year)
 
-        # Duty
+        fl_duty = tariffs["duty"]["fl"]
         if cat == "under_3":
-            cfg = tariffs["duty"]["under_3"]
-            duty = max(price_eur * cfg["price_percent"], engine_cc * cfg["per_cc"])
+            rule = cls._pick_rate(fl_duty["under_3"], engine_cc)
+            duty = max(price_eur * rule["pct"], engine_cc * rule["min"])
         else:
-            table = tariffs["duty"][cat]
-            rate = next(r for limit, r in table if engine_cc <= limit)
+            table_key = cat if cat in fl_duty else "over_5"
+            rate = cls._pick_rate(fl_duty[table_key], engine_cc)
             duty = engine_cc * rate
 
-        # Excise (only when engine volume over 3000 cc)
         excise = 0.0
-        if engine_cc > 3000:
-            exc_cfg = tariffs.get("excise", {})
-            per_hp = exc_cfg.get("over_3000_hp_rub", 0.0) / eur_rate
-            excise = power_hp * per_hp
+        if power_hp:
+            per_hp_rub = cls._pick_rate(tariffs["excise"]["hp"], power_hp)
+            excise = power_hp * (per_hp_rub / eur_rate)
 
-        # Utilization fee
-        util_key = "age_under_3" if cat == "under_3" else "age_over_3"
-        util = tariffs.get("utilization", {}).get(util_key, 0.0)
+        util_key = "under_3" if cat == "under_3" else "over_3"
+        util = tariffs["utilization"]["fl"][util_key]
 
-        # VAT is 20% of price + duty + excise + utilization
         vat = 0.2 * (price_eur + duty + excise + util)
-        fee = tariffs.get("processing_fee", 0.0)
+        fee_rub = cls._pick_rate(tariffs["processing_fee"], price_eur * eur_rate)
+        fee = fee_rub / eur_rate
 
         total = duty + excise + util + vat + fee
         return {
