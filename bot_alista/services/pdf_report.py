@@ -74,7 +74,7 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     add_row("Пошлина", f"{result.get('duty_eur', '')} €")
     add_row("Акциз", f"{result.get('excise_eur', '')} €")
     add_row("НДС", f"{result.get('vat_eur', '')} €")
-    add_row("Утильсбор", f"{result.get('util_eur', '')} €")
+    add_row("Утильсбор", f"{result.get('utilization_eur', '')} €")
     add_row("Сбор", f"{result.get('fee_eur', '')} €")
     add_row("ИТОГО (EUR)", f"{result.get('total_eur', '')} €")
     add_row("ИТОГО (RUB)", f"{result.get('total_rub', '')} ₽")

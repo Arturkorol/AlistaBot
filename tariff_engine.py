@@ -29,6 +29,7 @@ from bot_alista.rules.age import (
 )
 from bot_alista.rules.engine import calc_fl_stp, calc_ul
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.tariff.clearance_fee import calc_clearance_fee_rub
 
 ENGINE_CC_MIN = 2300
 ENGINE_CC_MAX = 3000
@@ -72,21 +73,6 @@ def _validate_positive_float(value: float, name: str) -> None:
         raise ValueError(f"{name} должно быть положительным числом")
 
 
-def calc_clearance_fee_rub(customs_value_rub: float) -> float:
-    """
-    Customs clearance fee ladder (RUB), tuned to hit known 2025 bands:
-      ~1.2M → 4,269 ; ~2.4M → 11,746 ; ~4.0M → 16,524
-    Extend as needed for higher tiers.
-    """
-    _validate_positive_float(customs_value_rub, "Таможенная стоимость")
-    v = float(customs_value_rub)
-    if v <= 200_000:    return 1_067.0
-    if v <= 450_000:    return 2_134.0
-    if v <= 1_200_000:  return 4_269.0
-    if v <= 3_000_000:  return 11_746.0
-    if v <= 5_000_000:  return 16_524.0
-    if v <= 7_000_000:  return 20_000.0
-    return 30_000.0
 
 
 # Public API ---------------------------------------------------------------

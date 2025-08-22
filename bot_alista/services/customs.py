@@ -6,6 +6,11 @@ except Exception:  # pragma: no cover - fallback when package missing
     from .customs_calculator import CustomsCalculator
 
 
+def calculate_customs(*args, **kwargs):
+    """Proxy to :class:`tks_api_official.CustomsCalculator.calculate_customs`."""
+    return CustomsCalculator.calculate_customs(*args, **kwargs)
+
+
 def calculate_etc(*args, **kwargs):
     """Proxy to :class:`tks_api_official.CustomsCalculator.calculate_etc`."""
     return CustomsCalculator.calculate_etc(*args, **kwargs)
@@ -16,4 +21,4 @@ def calculate_ctp(*args, **kwargs):
     return CustomsCalculator.calculate_ctp(*args, **kwargs)
 
 
-__all__ = ["calculate_etc", "calculate_ctp", "CustomsCalculator"]
+__all__ = ["calculate_customs", "calculate_etc", "calculate_ctp", "CustomsCalculator"]
