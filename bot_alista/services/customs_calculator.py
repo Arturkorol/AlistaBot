@@ -73,6 +73,59 @@ class CustomsCalculator:
         return res["total_eur"]
 
     @classmethod
+    def calculate_customs(
+        cls,
+        *,
+        price_eur: float,
+        engine_cc: int,
+        year: int,
+        car_type: str,
+        power_hp: float = 0,
+        weight_kg: float = 0,
+        eur_rate: float | None = None,
+        tariffs: Dict[str, Any] | None = None,
+    ) -> Dict[str, float]:
+        """Compute customs payments in euros using simple tariff rules."""
+
+        tariffs = tariffs or cls.get_tariffs()
+
+        from datetime import datetime
+
+        age = datetime.now().year - year
+
+        def _pick(table, cc):
+            for limit, rate in table:
+                if cc <= limit:
+                    return rate
+            return table[-1][1]
+
+        if age < 3:
+            per_cc = tariffs["duty"]["under_3"]["per_cc"]
+            pct = tariffs["duty"]["under_3"]["price_percent"]
+            duty = max(price_eur * pct, engine_cc * per_cc)
+            util = tariffs["utilization"]["age_under_3"]
+        elif age <= 5:
+            rate = _pick(tariffs["duty"]["3_5"], engine_cc)
+            duty = engine_cc * rate
+            util = tariffs["utilization"]["age_over_3"]
+        else:
+            rate = _pick(tariffs["duty"]["over_5"], engine_cc)
+            duty = engine_cc * rate
+            util = tariffs["utilization"]["age_over_3"]
+
+        vat = (price_eur + duty + util) * 0.20
+        processing = tariffs.get("processing_fee", 0)
+        total = duty + util + vat + processing
+
+        return {
+            "duty_eur": duty,
+            "util_eur": util,
+            "vat_eur": vat,
+            "processing_fee_eur": processing,
+            "total_eur": total,
+        }
+
+    @classmethod
     def calculate_etc(
         cls,
         *,

@@ -13,6 +13,7 @@ from typing import Dict
 import math
 
 from bot_alista.services.rates import get_cbr_rate
+from bot_alista.tariff.clearance_fee import calc_clearance_fee_rub
 
 # ---------------------------------------------------------------------------
 # Вспомогательные структуры и таблицы тарифов
@@ -75,16 +76,6 @@ UTIL_COEFF_UL = {
     "5_7": 0.43,
     "over_7": 0.62,
 }
-
-CLEARANCE_FEE_TABLE = [
-    (200_000, 1067),
-    (450_000, 2134),
-    (1_200_000, 4269),
-    (3_000_000, 11746),
-    (5_000_000, 16524),
-    (7_000_000, 20000),
-    (math.inf, 30000),
-]
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +213,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
     util_rub = UTIL_BASE_UL * util_coeff
 
     # Сбор за оформление
-    fee_rub = _pick_rate(CLEARANCE_FEE_TABLE, value_rub)
+    fee_rub = calc_clearance_fee_rub(value_rub)
 
     total_rub = duty_rub + excise_rub + vat_rub + util_rub + fee_rub
 

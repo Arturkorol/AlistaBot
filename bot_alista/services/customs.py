@@ -16,4 +16,14 @@ def calculate_ctp(*args, **kwargs):
     return CustomsCalculator.calculate_ctp(*args, **kwargs)
 
 
-__all__ = ["calculate_etc", "calculate_ctp", "CustomsCalculator"]
+def calculate_customs(*args, **kwargs):
+    """Proxy to :class:`tks_api_official.CustomsCalculator.calculate_customs`."""
+    return CustomsCalculator.calculate_customs(*args, **kwargs)
+
+
+__all__ = [
+    "calculate_etc",
+    "calculate_ctp",
+    "calculate_customs",
+    "CustomsCalculator",
+]
