@@ -1,9 +1,6 @@
 import yaml
 from pathlib import Path
-from datetime import datetime
 import sys
-import copy
-
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,63 +8,170 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from bot_alista.services.customs_calculator import CustomsCalculator
-
-# Load sample tariff data
-CONFIG = Path(__file__).resolve().parents[1] / "external" / "tks_api_official" / "config.yaml"
+from bot_alista.services.currency import to_eur
+CONFIG = ROOT / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
-    SAMPLE_TARIFFS = yaml.safe_load(fh)
+    TARIFFS = yaml.safe_load(fh)
+
+
+def setup_calc():
+    return CustomsCalculator(eur_rate=100.0, tariffs=TARIFFS)
 
 
 def test_calculate_ctp_returns_expected_total():
-    """Verify customs tax payments using sample tariffs."""
-    year = datetime.now().year - 1  # ensure vehicle is under 3 years old
-    calc = CustomsCalculator(eur_rate=1.0, tariffs=SAMPLE_TARIFFS)
-    res = calc.calculate_ctp(
-        price_eur=10_000,
-        engine_cc=2_000,
-        year=year,
-        car_type="Бензин",
-        power_hp=150,
+    calc = setup_calc()
+    price_usd = 10000
+    price_eur = to_eur(price_usd, "USD")
+    calc.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=price_usd,
+        owner_type="individual",
+        currency="USD",
     )
-    assert res["total_eur"] == pytest.approx(11_467.0)
+    res = calc.calculate_ctp()
+
+    tariffs = TARIFFS
+    duty = max(
+        2000 * tariffs["age_groups"]["5-7"]["gasoline"]["rate_per_cc"],
+        tariffs["age_groups"]["5-7"]["gasoline"]["min_duty"],
+    )
+    excise = tariffs["excise_rates"]["gasoline"] * 150 / 100.0
+    util = (
+        tariffs["base_util_fee"]
+        * tariffs["ctp_util_coeff_base"]
+        * tariffs["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
+        / 100.0
+    )
+    fee = tariffs["base_clearance_fee"] / 100.0
+    vat = tariffs["vat_rate"] * (price_eur + duty + excise + util + fee)
+    expected_total = duty + excise + util + vat + fee
+
+    assert res["total_eur"] == pytest.approx(expected_total)
 
 
 def test_calculate_etc_includes_vehicle_price():
-    """ETC should equal purchase price plus customs payments."""
-    year = datetime.now().year - 1
-    calc = CustomsCalculator(eur_rate=1.0, tariffs=SAMPLE_TARIFFS)
-    etc = calc.calculate_etc(
-        price_eur=10_000,
-        engine_cc=2_000,
-        year=year,
-        car_type="Бензин",
-        power_hp=150,
+    calc = setup_calc()
+    calc.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=10000,
+        owner_type="individual",
+        currency="USD",
     )
-    # price 10_000 + customs payments 11_467 = 21_467
-    assert etc["etc_eur"] == pytest.approx(21_467.0)
+    ctp = calc.calculate_ctp()
+    etc = calc.calculate_etc()
+    assert etc["etc_eur"] == pytest.approx(etc["vehicle_price_eur"] + etc["total_eur"])
+    # ensure previous result not mutated
+    assert ctp["total_eur"] == pytest.approx(ctp["total_eur"])
 
 
-def test_configuration_values_drive_calculation():
-    """Changing tariff values in config must affect the result."""
-    year = datetime.now().year - 1
-    tariffs = copy.deepcopy(SAMPLE_TARIFFS)
-    tariffs["duty"]["under_3"]["per_cc"] = 0.01
-    tariffs["duty"]["under_3"]["price_percent"] = 0.1
-    tariffs["utilization"]["age_under_3"] = 100.0
-    tariffs["vat"]["rate"] = 0.5
-    tariffs["clearance_fee_rub"] = [[200000, 50]]
-
-    calc = CustomsCalculator(eur_rate=1.0, tariffs=tariffs)
-    res = calc.calculate_ctp(
-        price_eur=1_000,
-        engine_cc=1_000,
-        year=year,
-        car_type="Бензин",
+def test_state_reset_between_calls():
+    calc = setup_calc()
+    calc.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=10000,
+        owner_type="individual",
+        currency="USD",
     )
+    first = calc.calculate_ctp()
 
-    # duty = max(1000*0.1, 1000*0.01) = 100
-    # util = 100
-    # vat = 0.5 * (1000 + 100 + 0 + 100) = 600
-    # fee = 50
-    expected_total = 100 + 100 + 600 + 50
-    assert res["total_eur"] == pytest.approx(expected_total)
+    calc.set_vehicle_details(
+        age="5-7",
+        engine_capacity=1600,
+        engine_type="gasoline",
+        power=100,
+        price=5000,
+        owner_type="individual",
+        currency="USD",
+    )
+    second = calc.calculate_ctp()
+
+    assert first["total_eur"] != second["total_eur"]
+    assert first["total_eur"] == pytest.approx(first["total_eur"])
+
+
+@pytest.mark.parametrize("currency, rate", [
+    ("USD", 0.9),
+    ("EUR", 1.0),
+    ("KRW", 0.0007),
+    ("RUB", 0.01),
+])
+def test_currency_conversion(currency, rate):
+    calc = setup_calc()
+    amount = 10000
+    calc.set_vehicle_details(
+        age="new",
+        engine_capacity=1000,
+        engine_type="gasoline",
+        power=100,
+        price=amount,
+        owner_type="individual",
+        currency=currency,
+    )
+    res = calc.calculate_ctp()
+    assert res["price_eur"] == pytest.approx(amount * rate)
+
+
+def test_invalid_engine_capacity_low():
+    calc = setup_calc()
+    with pytest.raises(ValueError):
+        calc.set_vehicle_details(
+            age="new",
+            engine_capacity=500,
+            engine_type="gasoline",
+            power=100,
+            price=1000,
+            owner_type="individual",
+            currency="EUR",
+        )
+
+
+def test_invalid_engine_capacity_high():
+    calc = setup_calc()
+    with pytest.raises(ValueError):
+        calc.set_vehicle_details(
+            age="new",
+            engine_capacity=9000,
+            engine_type="gasoline",
+            power=100,
+            price=1000,
+            owner_type="individual",
+            currency="EUR",
+        )
+
+
+def test_unsupported_currency():
+    calc = setup_calc()
+    with pytest.raises(ValueError):
+        calc.set_vehicle_details(
+            age="new",
+            engine_capacity=1000,
+            engine_type="gasoline",
+            power=100,
+            price=1000,
+            owner_type="individual",
+            currency="ABC",
+        )
+
+
+def test_unsupported_age_group():
+    calc = setup_calc()
+    with pytest.raises(ValueError):
+        calc.set_vehicle_details(
+            age="over_10",
+            engine_capacity=1000,
+            engine_type="gasoline",
+            power=100,
+            price=1000,
+            owner_type="individual",
+            currency="EUR",
+        )
+

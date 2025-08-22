@@ -58,7 +58,9 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     pdf.cell(0, 8, f"Мощность: {user_info.get('power_hp', '')} л.с.", ln=True)
     pdf.cell(0, 8, f"Объём двигателя: {user_info.get('engine', '')} см³", ln=True)
     pdf.cell(0, 8, f"Масса: {user_info.get('weight', '')} кг", ln=True)
-    pdf.cell(0, 8, f"Цена: {result.get('price_eur', '')} €", ln=True)
+    # some calculators may provide price under different keys
+    price_eur = result.get("price_eur") or result.get("vehicle_price_eur", "")
+    pdf.cell(0, 8, f"Цена: {price_eur} €", ln=True)
     pdf.ln(5)
 
     # Таблица расчёта
@@ -70,14 +72,20 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
         pdf.cell(90, 8, name, border=1)
         pdf.cell(0, 8, str(value), border=1, ln=True)
 
-    add_row("Курс EUR/RUB", f"{result.get('eur_rate', '')} ₽")
+    eur_rate = result.get("eur_rate", 0)
+    total_eur = result.get("total_eur", 0)
+    total_rub = result.get("total_rub")
+    if total_rub is None and eur_rate:
+        total_rub = total_eur * eur_rate
+
+    add_row("Курс EUR/RUB", f"{eur_rate} ₽")
     add_row("Пошлина", f"{result.get('duty_eur', '')} €")
     add_row("Акциз", f"{result.get('excise_eur', '')} €")
     add_row("НДС", f"{result.get('vat_eur', '')} €")
     add_row("Утильсбор", f"{result.get('util_eur', '')} €")
     add_row("Сбор", f"{result.get('fee_eur', '')} €")
-    add_row("ИТОГО (EUR)", f"{result.get('total_eur', '')} €")
-    add_row("ИТОГО (RUB)", f"{result.get('total_rub', '')} ₽")
+    add_row("ИТОГО (EUR)", f"{total_eur} €")
+    add_row("ИТОГО (RUB)", f"{total_rub} ₽")
 
     pdf.output(filename)
 
