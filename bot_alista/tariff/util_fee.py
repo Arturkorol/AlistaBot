@@ -30,13 +30,18 @@ from datetime import date
 from typing import Dict, Literal
 import copy
 
-PersonType = Literal["individual", "company"]
-UsageType = Literal["personal", "commercial"]
-FuelType = Literal["ice", "hybrid", "ev"]
+from ..models.enums import (
+    PersonType,
+    UsageType,
+    FuelType,
+    AgeCategory,
+    WrongParamException,
+)
+
 VehicleKind = Literal["passenger", "commercial"]
 
 
-def get_age_bucket(age_years: float) -> Literal["<=3y", ">3y"]:
+def get_age_bucket(age_years: float) -> AgeCategory:
     """Return age bucket for a vehicle.
 
     Parameters
@@ -46,9 +51,9 @@ def get_age_bucket(age_years: float) -> Literal["<=3y", ">3y"]:
 
     Returns
     -------
-    Literal["<=3y", ">3y"]
-        ``"<=3y"`` when ``age_years`` is less than or equal to three,
-        otherwise ``">3y"``.
+    AgeCategory
+        ``AgeCategory.UNDER_OR_EQUAL_3`` when ``age_years`` is less than or
+        equal to three, otherwise ``AgeCategory.OVER_3``.
 
     Raises
     ------
@@ -57,14 +62,14 @@ def get_age_bucket(age_years: float) -> Literal["<=3y", ">3y"]:
     """
 
     if age_years < 0:
-        raise ValueError("age_years must be non-negative")
-    return "<=3y" if age_years <= 3 else ">3y"
+        raise WrongParamException("age_years", age_years)
+    return AgeCategory.UNDER_OR_EQUAL_3 if age_years <= 3 else AgeCategory.OVER_3
 
 
 def pick_personal_coeff(
     engine_cc: int,
     fuel: FuelType,
-    age_bucket: str,
+    age_bucket: AgeCategory,
     config: Dict,
 ) -> float:
     """Pick coefficient for personal usage.
@@ -75,7 +80,7 @@ def pick_personal_coeff(
         Engine displacement in cubic centimeters. For EV and hybrid vehicles
         ``engine_cc`` may be ``0``. For ICE engines it must be positive.
     fuel:
-        Fuel type: ``"ice"``, ``"hybrid"`` or ``"ev"``.
+        Fuel type: ``"gasoline"``, ``"diesel"``, ``"hybrid"`` or ``"ev"``.
     age_bucket:
         Age bucket obtained from :func:`get_age_bucket`.
     config:
@@ -93,20 +98,18 @@ def pick_personal_coeff(
         missing.
     """
 
-    if fuel not in {"ice", "hybrid", "ev"}:
-        raise ValueError("Unknown fuel type")
     if engine_cc < 0:
         raise ValueError("engine_cc must be non-negative")
-    if fuel == "ice" and engine_cc == 0:
+    if fuel in {FuelType.GASOLINE, FuelType.DIESEL} and engine_cc == 0:
         raise ValueError("engine_cc must be positive for ICE vehicles")
 
     personal = config.get("coefficients_personal")
-    if not personal or age_bucket not in personal:
+    if not personal or age_bucket.value not in personal:
         raise ValueError("Invalid configuration for personal coefficients")
 
-    age_cfg = personal[age_bucket]
-    if fuel in {"ev", "hybrid"}:
-        coeff = age_cfg.get(fuel)
+    age_cfg = personal[age_bucket.value]
+    if fuel in {FuelType.EV, FuelType.HYBRID}:
+        coeff = age_cfg.get(fuel.value)
         if coeff is None:
             raise ValueError("Coefficient for fuel not found in config")
         return float(coeff)
@@ -150,12 +153,12 @@ def calc_util_ed_rub(
         On any invalid parameter or missing configuration.
     """
 
-    if person_type not in {"individual", "company"}:
-        raise ValueError("Unknown person_type")
-    if usage not in {"personal", "commercial"}:
-        raise ValueError("Unknown usage type")
-    if fuel not in {"ice", "hybrid", "ev"}:
-        raise ValueError("Unknown fuel type")
+    if not isinstance(person_type, PersonType):
+        raise WrongParamException("person_type", person_type)
+    if not isinstance(usage, UsageType):
+        raise WrongParamException("usage", usage)
+    if not isinstance(fuel, FuelType):
+        raise WrongParamException("fuel", fuel)
     if vehicle_kind not in {"passenger", "commercial"}:
         raise ValueError("Unknown vehicle kind")
 
@@ -166,14 +169,14 @@ def calc_util_ed_rub(
 
     age_bucket = get_age_bucket(age_years)
 
-    if person_type == "individual" and usage == "personal":
+    if person_type is PersonType.INDIVIDUAL and usage is UsageType.PERSONAL:
         coeff = pick_personal_coeff(engine_cc, fuel, age_bucket, config)
     else:
         # Company or commercial usage
         commercial_cfg = config.get("coefficients_commercial")
         if not commercial_cfg:
             raise ValueError("Commercial coefficients missing in config")
-        if fuel in {"ev", "hybrid"}:
+        if fuel in {FuelType.EV, FuelType.HYBRID}:
             key = "ev_or_hybrid"
         else:
             key = "default"
@@ -294,10 +297,10 @@ if __name__ == "__main__":
 
     # Example 1: individual, personal use
     fee1 = calc_util_rub(
-        person_type="individual",
-        usage="personal",
+        person_type=PersonType.INDIVIDUAL,
+        usage=UsageType.PERSONAL,
         engine_cc=1800,
-        fuel="ice",
+        fuel=FuelType.GASOLINE,
         vehicle_kind="passenger",
         age_years=2.0,
         date_decl=date(2024, 6, 1),
@@ -309,10 +312,10 @@ if __name__ == "__main__":
 
     # Example 2: company, commercial EV
     fee2 = calc_util_rub(
-        person_type="company",
-        usage="commercial",
+        person_type=PersonType.COMPANY,
+        usage=UsageType.COMMERCIAL,
         engine_cc=0,
-        fuel="ev",
+        fuel=FuelType.EV,
         vehicle_kind="commercial",
         age_years=1.0,
         date_decl=date(2024, 6, 1),
@@ -326,10 +329,10 @@ if __name__ == "__main__":
     config3 = copy.deepcopy(UTIL_CONFIG)
     config3["not_in_list"] = True
     fee3 = calc_util_rub(
-        person_type="individual",
-        usage="personal",
+        person_type=PersonType.INDIVIDUAL,
+        usage=UsageType.PERSONAL,
         engine_cc=2500,
-        fuel="ice",
+        fuel=FuelType.GASOLINE,
         vehicle_kind="passenger",
         age_years=4.0,
         date_decl=date(2025, 6, 1),
