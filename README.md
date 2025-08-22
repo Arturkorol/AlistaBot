@@ -25,7 +25,7 @@ pip install -r requirements.txt
 python bot_alista/main.py
 ```
 
-The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load variables from the `.env` file automatically. For container deployments, supply the same environment variables via your container runtime's secret or environment management instead of a `.env` file.
+The project uses [`python-dotenv`](https://pypi.org/project/python-dotenv/) to load variables from the `.env` file automatically and [`PyYAML`](https://pypi.org/project/PyYAML/) for parsing YAML configuration files. For container deployments, supply the same environment variables via your container runtime's secret or environment management instead of a `.env` file.
 
 ## Customs and duty calculations
 
