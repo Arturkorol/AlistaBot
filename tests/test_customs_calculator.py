@@ -1,14 +1,8 @@
 import yaml
 from pathlib import Path
 from datetime import datetime
-import sys
 
 import pytest
-
-# Ensure repo root on sys.path for namespace package resolution
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from bot_alista.services.customs_calculator import CustomsCalculator
 

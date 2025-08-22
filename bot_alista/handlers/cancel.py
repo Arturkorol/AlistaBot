@@ -1,7 +1,7 @@
 from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from utils.reset import reset_to_menu
+from ..utils.reset import reset_to_menu
 
 router = Router()
 

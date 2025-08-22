@@ -1,11 +1,11 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from states import RequestStates
-from keyboards.navigation import back_menu
-from services.email import send_email
-from services.pdf_report import generate_request_pdf
-from utils.reset import reset_to_menu
-from config import EMAIL_TO
+from ..states import RequestStates
+from ..keyboards.navigation import back_menu
+from ..services.email import send_email
+from ..services.pdf_report import generate_request_pdf
+from ..utils.reset import reset_to_menu
+from ..config import EMAIL_TO
 
 import asyncio
 import os
