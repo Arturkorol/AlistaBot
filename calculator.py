@@ -10,9 +10,8 @@ from __future__ import annotations
 from datetime import date
 from typing import Dict
 
-import math
-
 from bot_alista.services.rates import get_cbr_rate
+from bot_alista.services.customs_calculator import CustomsCalculator
 
 # ---------------------------------------------------------------------------
 # Вспомогательные структуры и таблицы тарифов
@@ -22,69 +21,24 @@ Currency = str
 
 SUPPORTED_CURRENCIES: tuple[Currency, ...] = ("USD", "EUR", "CNY", "JPY", "RUB")
 
+TARIFFS = CustomsCalculator.get_tariffs()
 
-# СТП для физических лиц: проценты и минимальные ставки €/см³
-# Таблицы основаны на действующих ставках 2025 года
-FL_STP_UNDER3 = [
-    (1000, {"pct": 0.54, "min": 2.5}),
-    (1500, {"pct": 0.48, "min": 3.5}),
-    (1800, {"pct": 0.48, "min": 5.5}),
-    (2300, {"pct": 0.48, "min": 7.5}),
-    (3000, {"pct": 0.48, "min": 15.0}),
-    (math.inf, {"pct": 0.48, "min": 20.0}),
-]
+FL_STP_UNDER3 = TARIFFS["duty"]["fl"]["under_3"]
+FL_STP_3_5 = TARIFFS["duty"]["fl"]["3_5"]
+FL_STP_OVER5 = TARIFFS["duty"]["fl"]["over_5"]
 
-FL_STP_3_5 = [
-    (1000, 1.5), (1500, 1.7), (1800, 2.5),
-    (2300, 2.7), (3000, 3.0), (math.inf, 3.6),
-]
+UL_DUTY_UNDER3 = TARIFFS["duty"]["ul"]["under_3"]
+UL_DUTY_3_5 = TARIFFS["duty"]["ul"]["3_5"]
+UL_DUTY_5_7 = TARIFFS["duty"]["ul"]["5_7"]
+UL_DUTY_OVER7 = TARIFFS["duty"]["ul"]["over_7"]
 
-FL_STP_OVER5 = [
-    (1000, 3.0), (1500, 3.2), (1800, 3.5),
-    (2300, 4.8), (3000, 5.0), (math.inf, 5.7),
-]
+EXCISE_RUB_PER_HP = TARIFFS["excise"]["hp"]
 
-# Ставки для юридических лиц (упрощённая модель)
-UL_DUTY_UNDER3 = FL_STP_UNDER3  # те же проценты и минимумы
-UL_DUTY_3_5 = FL_STP_3_5
-UL_DUTY_5_7 = FL_STP_OVER5
-UL_DUTY_OVER7 = [
-    (1000, 3.2), (1500, 3.5), (1800, 4.8),
-    (2300, 5.0), (3000, 5.7), (math.inf, 7.5),
-]
+UTIL_COEFF_FL = TARIFFS["utilization"]["fl"]
+UTIL_BASE_UL = TARIFFS["utilization"]["ul"]["base"]
+UTIL_COEFF_UL = TARIFFS["utilization"]["ul"]["coeffs"]
 
-EXCISE_RUB_PER_HP = {
-    90: 0,
-    150: 61,
-    200: 583,
-    300: 955,
-    400: 1628,
-    500: 1685,
-    math.inf: 1740,
-}
-
-UTIL_COEFF_FL = {
-    "under_3": 0.17,
-    "over_3": 0.26,
-}
-
-UTIL_BASE_UL = 20_000  # базовая ставка для юр. лиц с 01.05.2025
-UTIL_COEFF_UL = {
-    "under_3": 0.2,
-    "3_5": 0.34,
-    "5_7": 0.43,
-    "over_7": 0.62,
-}
-
-CLEARANCE_FEE_TABLE = [
-    (200_000, 1067),
-    (450_000, 2134),
-    (1_200_000, 4269),
-    (3_000_000, 11746),
-    (5_000_000, 16524),
-    (7_000_000, 20000),
-    (math.inf, 30000),
-]
+CLEARANCE_FEE_TABLE = TARIFFS["processing_fee"]
 
 
 # ---------------------------------------------------------------------------
@@ -130,10 +84,7 @@ def _pick_rate(table, engine_cc: int):
 
 
 def _excise_hp_rate(hp: int) -> int:
-    for limit, rate in EXCISE_RUB_PER_HP.items():
-        if hp <= limit:
-            return rate
-    return 0
+    return _pick_rate(EXCISE_RUB_PER_HP, hp)
 
 
 # ---------------------------------------------------------------------------
