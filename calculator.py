@@ -95,13 +95,13 @@ def _format_money(value: float) -> str:
     return f"{value:,.2f}".replace(",", " ")
 
 
-def _get_rate(code: Currency) -> float:
+async def _get_rate(code: Currency) -> float:
     """Получить курс валюты к рублю на сегодня."""
     if code == "RUB":
         return 1.0
     today = date.today()
     try:
-        return get_cbr_rate(today, code)
+        return await get_cbr_rate(today, code)
     except Exception:
         # В случае недоступности сервиса ЦБ возвращаем 1 для EUR и 100 для прочих
         return 1.0 if code == "EUR" else 100.0
@@ -140,10 +140,17 @@ def _excise_hp_rate(hp: int) -> int:
 # Расчёт для физических лиц
 # ---------------------------------------------------------------------------
 
-def calculate_individual(*, customs_value: float, currency: Currency, engine_cc: int,
-                         production_year: int, fuel: str, hp: int | None = None) -> Dict[str, float]:
+async def calculate_individual(
+    *,
+    customs_value: float,
+    currency: Currency,
+    engine_cc: int,
+    production_year: int,
+    fuel: str,
+    hp: int | None = None,
+) -> Dict[str, float]:
     """Возвращает расчёт СТП для физического лица."""
-    rate = _get_rate(currency)
+    rate = await _get_rate(currency)
     value_rub = customs_value * rate
     age_cat = _age_category(production_year, "fl")
 
@@ -160,7 +167,7 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
             per_cc = _pick_rate(FL_STP_OVER5, engine_cc)
             duty_eur = engine_cc * per_cc
 
-    eur_rate = _get_rate("EUR")
+    eur_rate = await _get_rate("EUR")
     duty_rub = duty_eur * eur_rate
 
     util_coeff = UTIL_COEFF_FL["under_3" if age_cat == "under_3" else "over_3"]
@@ -184,9 +191,16 @@ def calculate_individual(*, customs_value: float, currency: Currency, engine_cc:
 # Расчёт для юридических лиц
 # ---------------------------------------------------------------------------
 
-def calculate_company(*, customs_value: float, currency: Currency, engine_cc: int,
-                       production_year: int, fuel: str, hp: int) -> Dict[str, float]:
-    rate = _get_rate(currency)
+async def calculate_company(
+    *,
+    customs_value: float,
+    currency: Currency,
+    engine_cc: int,
+    production_year: int,
+    fuel: str,
+    hp: int,
+) -> Dict[str, float]:
+    rate = await _get_rate(currency)
     value_rub = customs_value * rate
     age_cat = _age_category(production_year, "ul")
 
@@ -207,7 +221,7 @@ def calculate_company(*, customs_value: float, currency: Currency, engine_cc: in
             per_cc = _pick_rate(UL_DUTY_OVER7, engine_cc)
             duty_eur = engine_cc * per_cc
 
-    eur_rate = _get_rate("EUR")
+    eur_rate = await _get_rate("EUR")
     duty_rub = duty_eur * eur_rate
 
     # Акциз
