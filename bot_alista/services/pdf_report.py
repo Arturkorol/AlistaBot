@@ -28,7 +28,6 @@ class PDFReport(FPDF):
     def footer(self):
         self.set_y(-15)
         self.set_font("DejaVu", "", 8)
-        self.cell(0, 10, f"Стр. {self.page_no()}", align="C")
         self.cell(0, 10, _sanitize(f"Стр. {self.page_no()}", strip_currency=False), align="C")
 
 
@@ -61,16 +60,10 @@ def _sanitize(text: str, *, strip_currency: bool = True) -> str:
 def generate_request_pdf(data: dict, filename: str):
     """Генерация PDF заявки на растаможку."""
     pdf = PDFReport()
-    pdf.title = "Заявка на растаможку"
     pdf.title = _sanitize("Заявка на растаможку", strip_currency=False)
     pdf.add_page()
 
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(0, 8, f"ФИО: {data.get('name', '')}", ln=True)
-    pdf.cell(0, 8, f"Авто: {data.get('car', '')}", ln=True)
-    pdf.cell(0, 8, f"Контакты: {data.get('contact', '')}", ln=True)
-    pdf.cell(0, 8, f"Стоимость: {data.get('price', '')} €", ln=True)
-    pdf.multi_cell(0, 8, f"Комментарий: {data.get('comment', '')}")
     pdf.cell(0, 8, _sanitize(f"ФИО: {data.get('name', '')}"), ln=True)
     pdf.cell(0, 8, _sanitize(f"Авто: {data.get('car', '')}"), ln=True)
     pdf.cell(0, 8, _sanitize(f"Контакты: {data.get('contact', '')}"), ln=True)
@@ -83,16 +76,10 @@ def generate_request_pdf(data: dict, filename: str):
 def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     """Генерация PDF отчёта по расчёту растаможки."""
     pdf = PDFReport()
-    pdf.title = "Отчёт по расчёту растаможки"
     pdf.title = _sanitize("Отчёт по расчёту растаможки", strip_currency=False)
     pdf.add_page()
 
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 8, f"Тип авто: {user_info.get('car_type', '')}", ln=True)
-    pdf.cell(0, 8, f"Год выпуска: {user_info.get('year', '')}", ln=True)
-    pdf.cell(0, 8, f"Мощность: {user_info.get('power_hp', '')} л.с.", ln=True)
-    pdf.cell(0, 8, f"Объём двигателя: {user_info.get('engine', '')} см³", ln=True)
-    pdf.cell(0, 8, f"Масса: {user_info.get('weight', '')} кг", ln=True)
     pdf.cell(0, 8, _sanitize(f"Тип авто: {user_info.get('car_type', '')}"), ln=True)
     pdf.cell(0, 8, _sanitize(f"Год выпуска: {user_info.get('year', '')}"), ln=True)
     pdf.cell(0, 8, _sanitize(f"Мощность: {user_info.get('power_hp', '')} л.с."), ln=True)
@@ -100,19 +87,15 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     pdf.cell(0, 8, _sanitize(f"Масса: {user_info.get('weight', '')} кг"), ln=True)
     # some calculators may provide price under different keys
     price_eur = result.get("price_eur") or result.get("vehicle_price_eur", "")
-    pdf.cell(0, 8, f"Цена: {price_eur} €", ln=True)
     pdf.cell(0, 8, _sanitize(f"Цена: {price_eur} €"), ln=True)
     pdf.ln(5)
 
     # Таблица расчёта
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 10, "Результаты расчёта", ln=True)
     pdf.cell(0, 10, _sanitize("Результаты расчёта", strip_currency=False), ln=True)
     pdf.set_font("DejaVu", "", 11)
 
     def add_row(name, value):
-        pdf.cell(90, 8, name, border=1)
-        pdf.cell(0, 8, str(value), border=1, ln=True)
         pdf.cell(90, 8, _sanitize(name, strip_currency=False), border=1)
         pdf.cell(0, 8, _sanitize(str(value)), border=1, ln=True)
 

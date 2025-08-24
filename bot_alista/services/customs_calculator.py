@@ -19,16 +19,12 @@ logger = logging.getLogger(__name__)
 BASE_VAT = 0.2
 RECYCLING_FEE_BASE_RATE = 20_000
 CUSTOMS_CLEARANCE_TAX_RANGES = [
-    (200_000, 775),
-    (450_000, 1550),
-    (1_200_000, 3100),
-    (2_700_000, 8530),
-    (4_200_000, 12_000),
-    (5_500_000, 15_500),
+    (200_000, 1_067),
+    (450_000, 2_134),
+    (1_200_000, 4_269),
+    (3_000_000, 11_746),
+    (5_000_000, 16_524),
     (7_000_000, 20_000),
-    (8_000_000, 23_000),
-    (9_000_000, 25_000),
-    (10_000_000, 27_000),
     (float("inf"), 30_000),
 ]
 
@@ -177,7 +173,7 @@ class CustomsCalculator:
     def calculate_ctp(self) -> Dict[str, float]:
         v = self._require_vehicle()
         price_rub = v.price_rub
-        vat_rate = BASE_VAT
+        vat_rate = self.tariffs.get("vat_rate", BASE_VAT)
 
         duty_rate = 0.2
         min_duty_per_cc = to_rub(0.44, "EUR")
@@ -187,7 +183,7 @@ class CustomsCalculator:
         recycling_fee = self.calculate_recycling_fee()
         vat = (price_rub + duty_rub + excise) * vat_rate
 
-        clearance_fee = self.tariffs["base_clearance_fee"]
+        clearance_fee = self.calculate_clearance_tax()
         util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
             "ctp_util_coeff_base", 1.0
         )
@@ -213,8 +209,10 @@ class CustomsCalculator:
         min_duty = cfg.get("min_duty", 0)
         duty_rub = max(rate_per_cc * v.engine_capacity, min_duty)
 
-        clearance_fee = self.tariffs["base_clearance_fee"]
-        util_fee = self.tariffs["base_util_fee"]
+        clearance_fee = self.calculate_clearance_tax()
+        util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
+            "etc_util_coeff_base", 1.0
+        )
         recycling_fee = self.calculate_recycling_fee()
 
         total_pay = duty_rub + clearance_fee + util_fee + recycling_fee
