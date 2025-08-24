@@ -1,11 +1,11 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from states import RequestStates
-from keyboards.navigation import back_menu
-from services.email import send_email
-from services.pdf_report import generate_request_pdf
+from bot_alista.states import RequestStates
+from bot_alista.keyboards.navigation import back_menu
+from bot_alista.services.email import send_email
+from bot_alista.services.pdf_report import generate_request_pdf
 from bot_alista.utils.reset import reset_to_menu
-from config import EMAIL_TO
+from bot_alista.config import EMAIL_TO
 
 from bot_alista.constants import (
     BTN_LEAD,
