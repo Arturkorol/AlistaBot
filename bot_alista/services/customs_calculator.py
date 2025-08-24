@@ -18,15 +18,6 @@ logger = logging.getLogger(__name__)
 
 BASE_VAT = 0.2
 RECYCLING_FEE_BASE_RATE = 20_000
-CUSTOMS_CLEARANCE_TAX_RANGES = [
-    (200_000, 1_067),
-    (450_000, 2_134),
-    (1_200_000, 4_269),
-    (3_000_000, 11_746),
-    (5_000_000, 16_524),
-    (7_000_000, 20_000),
-    (float("inf"), 30_000),
-]
 
 
 class WrongParamException(Exception):
@@ -159,13 +150,15 @@ class CustomsCalculator:
     # Fee helpers
     # ------------------------------------------------------------------
     def calculate_clearance_tax(self) -> float:
+        """Return clearance tax based on price ranges defined in tariffs."""
         v = self._require_vehicle()
         price = v.price_rub
-        for limit, tax in CUSTOMS_CLEARANCE_TAX_RANGES:
+        ranges = self.tariffs["clearance_tax_ranges"]
+        for limit, tax in ranges:
             if price <= limit:
                 logger.info("Customs clearance tax: %s RUB", tax)
                 return float(tax)
-        return float(CUSTOMS_CLEARANCE_TAX_RANGES[-1][1])
+        return float(ranges[-1][1])
 
     def calculate_recycling_fee(self) -> float:
         v = self._require_vehicle()
