@@ -201,13 +201,16 @@ class CustomsCalculator:
         code = currency.upper()
         if code == "EUR":
             return float(amount)
+        if code == "RUB":
+            return float(amount) / self.eur_rate
         try:
-            return float(self.converter.convert(amount, code, "EUR"))
+            rub = float(self.converter.convert(amount, code, "RUB"))
         except Exception:
             rate = self._FALLBACK_RATES.get(code)
             if rate is None:
                 raise WrongParamException(f"Unsupported currency: {currency}")
-            return float(amount) * rate
+            rub = float(amount) * rate * self.eur_rate
+        return rub / self.eur_rate
 
     def _require_vehicle(self) -> _Vehicle:
         if not self._vehicle:
@@ -227,7 +230,8 @@ class CustomsCalculator:
         cfg = self.tariffs["age_groups"][age.value][engine_type.value]
         rate = cfg.get("rate_per_cc", 0)
         min_duty = cfg.get("min_duty", 0)
-        return max(rate * engine_cc, min_duty)
+        duty_rub = max(rate * engine_cc, min_duty)
+        return float(duty_rub) / self.eur_rate
 
     def _excise(self, engine_type: EngineType, power: int) -> float:
         rate_rub = self.tariffs["excise_rates"].get(engine_type.value, 0)
