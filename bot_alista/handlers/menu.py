@@ -6,7 +6,7 @@ from bot_alista.keyboards.main_menu import main_menu
 router = Router()
 
 
-@router.message(Command("start"))
+@router.message(Command("start"), state="*")
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(
