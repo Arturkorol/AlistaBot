@@ -6,7 +6,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from config import EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
+from bot_alista.config import EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
 
 
 def send_email(
@@ -49,4 +49,5 @@ def send_email(
     except Exception as e:  # pragma: no cover - we just log and return
         print(f"❌ Ошибка отправки письма: {e}")
         return False
+
 
