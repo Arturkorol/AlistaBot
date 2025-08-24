@@ -12,6 +12,10 @@ from tabulate import tabulate
 
 from .currency import to_rub
 from .tariffs import get_tariffs
+from bot_alista.clearance_fee import (
+    CLEARANCE_FEE_RANGES,
+    calc_clearance_fee_rub,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +120,12 @@ class CustomsCalculator:
         except ValueError as exc:
             raise WrongParamException(str(exc))
 
-        if engine_capacity < 800 or engine_capacity > 8000:
+        if engine_enum in (EngineType.ELECTRIC, EngineType.HYBRID):
+            if engine_capacity != 0:
+                raise WrongParamException(
+                    "engine_capacity must be 0 for electric/hybrid vehicles"
+                )
+        elif engine_capacity < 800 or engine_capacity > 8000:
             raise WrongParamException("engine_capacity out of range")
 
         try:
@@ -153,12 +162,10 @@ class CustomsCalculator:
         """Return clearance tax based on price ranges defined in tariffs."""
         v = self._require_vehicle()
         price = v.price_rub
-        ranges = self.tariffs["clearance_tax_ranges"]
-        for limit, tax in ranges:
-            if price <= limit:
-                logger.info("Customs clearance tax: %s RUB", tax)
-                return float(tax)
-        return float(ranges[-1][1])
+        ranges = self.tariffs.get("clearance_tax_ranges", CLEARANCE_FEE_RANGES)
+        fee = calc_clearance_fee_rub(price, ranges)
+        logger.info("Customs clearance tax: %s RUB", fee)
+        return fee
 
     def calculate_recycling_fee(self) -> float:
         v = self._require_vehicle()
