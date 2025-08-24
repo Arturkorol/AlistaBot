@@ -11,6 +11,8 @@ if str(ROOT) not in sys.path:
 calculate = pytest.importorskip("bot_alista.handlers.calculate")
 _run_calculation = calculate._run_calculation
 
+from bot_alista.constants import BTN_BACK, BTN_MAIN_MENU
+
 
 class FakeState:
     def __init__(self, data):
@@ -35,7 +37,7 @@ class FakeMessage:
         self.answers = []
 
     async def answer(self, text, **kwargs):
-        self.answers.append(text)
+        self.answers.append((text, kwargs))
 
 
 def test_run_calculation(monkeypatch):
@@ -62,5 +64,10 @@ def test_run_calculation(monkeypatch):
     )
     msg = FakeMessage()
     asyncio.run(_run_calculation(state, msg))
-    assert "ok" in msg.answers[0]
+    text, kwargs = msg.answers[0]
+    assert text == "ok"
+    markup = kwargs.get("reply_markup")
+    assert markup is not None
+    labels = [btn.text for row in markup.keyboard for btn in row]
+    assert BTN_BACK in labels and BTN_MAIN_MENU in labels
     assert state.cleared
