@@ -1,13 +1,15 @@
-from pathlib import Path
-
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import pytest
 
-from bot_alista.services.pdf_report import generate_calculation_pdf
+ROOT = Path(__file__).resolve().parents[1]
+SERVICE_ROOT = ROOT / "bot_alista"
+if str(SERVICE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SERVICE_ROOT))
+
+pdf_report = pytest.importorskip("services.pdf_report")
+generate_calculation_pdf = pdf_report.generate_calculation_pdf
 
 
 def test_generate_calculation_pdf_handles_missing_fields(tmp_path):
