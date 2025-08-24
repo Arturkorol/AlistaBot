@@ -1,7 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher
-from config import TOKEN
-from handlers import menu, calculate, cancel, menu_navigation, request, faq
+from bot_alista.config import TOKEN
+from bot_alista.handlers import menu, calculate, cancel, menu_navigation, request, faq
 
 async def main():
     bot = Bot(token=TOKEN)
@@ -18,3 +18,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
