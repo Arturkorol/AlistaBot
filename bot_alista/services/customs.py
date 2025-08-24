@@ -1,35 +1,41 @@
 from __future__ import annotations
 
-"""Convenience wrappers around :class:`CustomsCalculator`."""
+"""Convenience wrappers around :class:`CustomsCalculator`.
+
+The wrapped class now performs its own currency conversion, so these helpers no
+longer accept an explicit EUR exchange rate.  Vehicle ``price`` and ``currency``
+should be provided directly to :meth:`set_vehicle_details` via keyword
+arguments.
+"""
 
 from typing import Any, Dict
 
 try:  # pragma: no cover - optional external package
     from tks_api_official import CustomsCalculator as _ExternalCalculator
 except Exception:  # pragma: no cover - fallback to bundled implementation
-    from customs_calculator import CustomsCalculator as _ExternalCalculator
+    from .customs_calculator import CustomsCalculator as _ExternalCalculator
 
 _calc: _ExternalCalculator | None = None
 
 
-def get_calculator(*, eur_rate: float | None = None, tariffs: Dict[str, Any] | None = None) -> _ExternalCalculator:
+def get_calculator(*, tariffs: Dict[str, Any] | None = None) -> _ExternalCalculator:
     """Return a shared ``CustomsCalculator`` instance."""
     global _calc
-    if _calc is None or eur_rate is not None or tariffs is not None:
-        _calc = _ExternalCalculator(eur_rate=eur_rate or 1.0, tariffs=tariffs)
+    if _calc is None or tariffs is not None:
+        _calc = _ExternalCalculator(tariffs=tariffs)
     return _calc
 
 
-def calculate_ctp(*, eur_rate: float | None = None, tariffs: Dict[str, Any] | None = None, **vehicle) -> Dict[str, float]:
+def calculate_ctp(*, tariffs: Dict[str, Any] | None = None, **vehicle) -> Dict[str, float]:
     """Set vehicle parameters and return customs payments (CTP)."""
-    calc = get_calculator(eur_rate=eur_rate, tariffs=tariffs)
+    calc = get_calculator(tariffs=tariffs)
     calc.set_vehicle_details(**vehicle)
     return calc.calculate_ctp()
 
 
-def calculate_etc(*, eur_rate: float | None = None, tariffs: Dict[str, Any] | None = None, **vehicle) -> Dict[str, float]:
+def calculate_etc(*, tariffs: Dict[str, Any] | None = None, **vehicle) -> Dict[str, float]:
     """Set vehicle parameters and return ETC including vehicle price."""
-    calc = get_calculator(eur_rate=eur_rate, tariffs=tariffs)
+    calc = get_calculator(tariffs=tariffs)
     calc.set_vehicle_details(**vehicle)
     return calc.calculate_etc()
 
