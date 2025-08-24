@@ -201,13 +201,16 @@ class CustomsCalculator:
         code = currency.upper()
         if code == "EUR":
             return float(amount)
+        if code == "RUB":
+            return float(amount) / self.eur_rate
         try:
-            return float(self.converter.convert(amount, code, "EUR"))
+            rub = float(self.converter.convert(amount, code, "RUB"))
         except Exception:
             rate = self._FALLBACK_RATES.get(code)
             if rate is None:
                 raise WrongParamException(f"Unsupported currency: {currency}")
-            return float(amount) * rate
+            rub = float(amount) * rate * self.eur_rate
+        return rub / self.eur_rate
 
     def _require_vehicle(self) -> _Vehicle:
         if not self._vehicle:
