@@ -7,7 +7,7 @@ from bot_alista.keyboards.navigation import back_menu
 router = Router()
 
 FAQ_TEXT = (
-    "ℹ️ <b>FAQ</b>\n"
+    "ℹ️ FAQ\n"
     "- Как рассчитать пошлину? Используйте пункт \"{calc}\" в главном меню.\n"
     "- Как оставить заявку? Нажмите \"{lead}\" и заполните форму.\n"
     "- Нужна помощь? Свяжитесь с менеджером.".format(calc=BTN_CALC, lead=BTN_LEAD)
