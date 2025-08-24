@@ -7,7 +7,9 @@ from typing import Any, Dict
 try:  # pragma: no cover - optional external package
     from tks_api_official import CustomsCalculator as _ExternalCalculator
 except Exception:  # pragma: no cover - fallback to bundled implementation
-    from .customs_calculator import CustomsCalculator as _ExternalCalculator
+    from bot_alista.services.customs_calculator import (
+        CustomsCalculator as _ExternalCalculator,
+    )
 
 _calc: _ExternalCalculator | None = None
 

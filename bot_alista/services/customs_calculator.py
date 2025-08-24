@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 import yaml
 
-from .currency import to_rub
+from bot_alista.services.currency import to_rub
 
 
 class CustomsCalculator:

@@ -1,5 +1,5 @@
 from aiogram.fsm.context import FSMContext
-from ..keyboards.main_menu import main_menu
+from bot_alista.keyboards.main_menu import main_menu
 from aiogram import types
 
 async def reset_to_menu(message: types.Message, state: FSMContext):

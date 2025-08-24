@@ -9,10 +9,10 @@ from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State
 
-from ..states import CalculationStates
-from ..keyboards.navigation import back_menu
-from ..utils.reset import reset_to_menu
-from ..constants import (
+from bot_alista.states import CalculationStates
+from bot_alista.keyboards.navigation import back_menu
+from bot_alista.utils.reset import reset_to_menu
+from bot_alista.constants import (
     CURRENCY_CODES,
     PROMPT_PERSON,
     ERROR_PERSON,
@@ -36,13 +36,13 @@ from ..constants import (
     BTN_BACK,
     ERROR_RATE,
 )
-from ..services.rates import (
+from bot_alista.services.rates import (
     get_cached_rates,
     validate_or_prompt_rate,
 )
-from ..formatting import format_result_message
-from ..services.customs_calculator import CustomsCalculator
-from ..rules.age import compute_actual_age_years
+from bot_alista.formatting import format_result_message
+from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.rules.age import compute_actual_age_years
 
 router = Router()
 
