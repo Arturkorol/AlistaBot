@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 import yaml
 
-from services.currency import to_eur
+from .currency import to_rub
 
 
 class CustomsCalculator:
@@ -62,7 +62,8 @@ class CustomsCalculator:
         if engine_capacity < 800 or engine_capacity > 8000:
             raise ValueError("engine_capacity out of range")
 
-        price_eur = to_eur(price, currency)
+        price_rub = to_rub(price, currency)
+        price_eur = price_rub / self.eur_rate
 
         self._vehicle = {
             "age": age,
