@@ -4,8 +4,22 @@ from states import RequestStates
 from keyboards.navigation import back_menu
 from services.email import send_email
 from services.pdf_report import generate_request_pdf
-from utils.reset import reset_to_menu
+from bot_alista.utils.reset import reset_to_menu
 from config import EMAIL_TO
+
+from bot_alista.constants import (
+    BTN_LEAD,
+    BTN_MAIN_MENU,
+    BTN_FAQ,
+    PROMPT_REQ_NAME,
+    PROMPT_REQ_CAR,
+    PROMPT_REQ_CONTACT,
+    PROMPT_REQ_PRICE,
+    ERROR_REQ_PRICE,
+    PROMPT_REQ_COMMENT,
+)
+from bot_alista.handlers.faq import show_faq
+from bot_alista.utils.navigation import NavigationManager, NavStep
 
 import asyncio
 import os
@@ -13,74 +27,104 @@ import uuid
 
 router = Router()
 
-
-async def _check_exit(message: types.Message, state: FSMContext) -> bool:
-    """Return to main menu if user pressed a navigation button or typed 'back'."""
-    text = (message.text or "").lower()
-    if text in {"🏠 главное меню", "главное меню", "⬅ назад", "назад", "back"}:
-        await reset_to_menu(message, state)
-        return True
-    return False
-
 # 1️⃣ Старт заявки
-@router.message(F.text == "📝 Оставить заявку")
+@router.message(F.text == BTN_LEAD)
 async def start_request(message: types.Message, state: FSMContext):
-    await state.set_state(RequestStates.request_name)
+    nav = NavigationManager(total_steps=5)
+    await state.update_data(_nav=nav)
 
-    # Клавиатура для первого шага — только "Главное меню"
     kb = types.ReplyKeyboardMarkup(
-        keyboard=[
-            [types.KeyboardButton(text="🏠 Главное меню")]
-        ],
-        resize_keyboard=True
+        keyboard=[[types.KeyboardButton(text=BTN_MAIN_MENU)]],
+        resize_keyboard=True,
     )
 
-    await message.answer("Введите ФИО владельца:", reply_markup=kb)
+    await nav.push(
+        message,
+        state,
+        NavStep(RequestStates.request_name, PROMPT_REQ_NAME, kb),
+    )
 
 # 2️⃣ ФИО
 @router.message(RequestStates.request_name)
 async def get_name(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     await state.update_data(name=message.text.strip())
-    await state.set_state(RequestStates.request_car)
-    await message.answer("Введите марку и модель авто:", reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(RequestStates.request_car, PROMPT_REQ_CAR, back_menu()),
+    )
 
 # 3️⃣ Марка и модель
 @router.message(RequestStates.request_car)
 async def get_car(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     await state.update_data(car=message.text.strip())
-    await state.set_state(RequestStates.request_contact)
-    await message.answer("Введите контактные данные (телефон, e‑mail):", reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(RequestStates.request_contact, PROMPT_REQ_CONTACT, back_menu()),
+    )
 
 # 4️⃣ Контакты
 @router.message(RequestStates.request_contact)
 async def get_contact(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     await state.update_data(contact=message.text.strip())
-    await state.set_state(RequestStates.request_price)
-    await message.answer("Введите ориентировочную стоимость авто (€):", reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(RequestStates.request_price, PROMPT_REQ_PRICE, back_menu()),
+    )
 
 # 5️⃣ Стоимость
 @router.message(RequestStates.request_price)
 async def get_price(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     try:
         price = float(message.text.replace(",", "."))
-    except:
-        return await message.answer("Введите корректную цену в евро.")
+    except Exception:
+        return await message.answer(ERROR_REQ_PRICE)
     await state.update_data(price=price)
-    await state.set_state(RequestStates.request_comment)
-    await message.answer("Введите дополнительный комментарий (или напишите 'нет'):", reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(RequestStates.request_comment, PROMPT_REQ_COMMENT, back_menu()),
+    )
 
 # 6️⃣ Комментарий и отправка заявки
 @router.message(RequestStates.request_comment)
 async def get_comment(message: types.Message, state: FSMContext):
-    if await _check_exit(message, state):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     comment = message.text.strip()
     if comment.lower() == "нет":

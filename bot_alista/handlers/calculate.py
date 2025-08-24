@@ -7,11 +7,9 @@ from datetime import date
 
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State
 
 from bot_alista.states import CalculationStates
 from bot_alista.keyboards.navigation import back_menu
-from bot_alista.utils.reset import reset_to_menu
 from bot_alista.constants import (
     CURRENCY_CODES,
     PROMPT_PERSON,
@@ -34,8 +32,12 @@ from bot_alista.constants import (
     BTN_AGE_OVER3_YES,
     BTN_AGE_OVER3_NO,
     BTN_BACK,
+    BTN_MAIN_MENU,
+    BTN_FAQ,
+    BTN_CALC,
     ERROR_RATE,
 )
+from bot_alista.utils.navigation import NavigationManager, NavStep
 from bot_alista.services.rates import (
     get_cached_rates,
     validate_or_prompt_rate,
@@ -43,6 +45,7 @@ from bot_alista.services.rates import (
 from bot_alista.formatting import format_result_message
 from bot_alista.services.customs_calculator import CustomsCalculator
 from bot_alista.rules.age import compute_actual_age_years
+from bot_alista.handlers.faq import show_faq
 
 router = Router()
 
@@ -66,7 +69,7 @@ def _person_type_kb() -> types.ReplyKeyboardMarkup:
             types.KeyboardButton(text="Физическое лицо"),
             types.KeyboardButton(text="Юридическое лицо"),
         ],
-        [types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_MAIN_MENU), types.KeyboardButton(text=BTN_FAQ)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -74,7 +77,8 @@ def _person_type_kb() -> types.ReplyKeyboardMarkup:
 def _usage_type_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text="Личное"), types.KeyboardButton(text="Коммерческое")],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
+        [types.KeyboardButton(text=BTN_FAQ)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -83,7 +87,8 @@ def _car_type_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
         [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
+        [types.KeyboardButton(text=BTN_FAQ)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -92,7 +97,8 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text=CURRENCY_CODES[0]), types.KeyboardButton(text=CURRENCY_CODES[1])],
         [types.KeyboardButton(text=CURRENCY_CODES[2]), types.KeyboardButton(text=CURRENCY_CODES[3])],
-        [types.KeyboardButton(text="⬅ Назад"), types.KeyboardButton(text="🏠 Главное меню")],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
+        [types.KeyboardButton(text=BTN_FAQ)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
@@ -100,28 +106,10 @@ def _currency_kb() -> types.ReplyKeyboardMarkup:
 def _age_over3_kb() -> types.ReplyKeyboardMarkup:
     kb = [
         [types.KeyboardButton(text=BTN_AGE_OVER3_YES), types.KeyboardButton(text=BTN_AGE_OVER3_NO)],
-        [types.KeyboardButton(text=BTN_BACK)],
+        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
+        [types.KeyboardButton(text=BTN_FAQ)],
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-async def _check_nav(
-    message: types.Message,
-    state: FSMContext,
-    prev_state: State | None,
-    prev_prompt: str | None,
-    prev_kb: types.ReplyKeyboardMarkup | None,
-) -> bool:
-    """Handle navigation buttons. Return True if navigation occurred."""
-
-    if message.text == "🏠 Главное меню":
-        await reset_to_menu(message, state)
-        return True
-    if message.text == "⬅ Назад" and prev_state and prev_prompt and prev_kb:
-        await state.set_state(prev_state)
-        await message.answer(prev_prompt, reply_markup=prev_kb)
-        return True
-    return False
 
 
 # ---------------------------------------------------------------------------
@@ -129,75 +117,109 @@ async def _check_nav(
 # ---------------------------------------------------------------------------
 
 
-@router.message(F.text == "📊 Рассчитать стоимость таможенной очистки")
+@router.message(F.text == BTN_CALC)
 async def start_calculation(message: types.Message, state: FSMContext) -> None:
-    await state.set_state(CalculationStates.person_type)
-    await message.answer(PROMPT_PERSON, reply_markup=_person_type_kb())
+    nav = NavigationManager(total_steps=9)
+    await state.update_data(_nav=nav)
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()),
+    )
 
 
 @router.message(CalculationStates.person_type)
 async def get_person_type(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(message, state, None, None, None):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     if message.text not in {"Физическое лицо", "Юридическое лицо"}:
         await message.answer(ERROR_PERSON)
         return
     await state.update_data(person_type=message.text)
-    await state.set_state(CalculationStates.usage_type)
-    await message.answer(PROMPT_USAGE, reply_markup=_usage_type_kb())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.usage_type, PROMPT_USAGE, _usage_type_kb()),
+    )
 
 
 @router.message(CalculationStates.usage_type)
 async def get_usage_type(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     if message.text not in {"Личное", "Коммерческое"}:
         await message.answer(ERROR_USAGE)
         return
     await state.update_data(usage_type=message.text)
-    await state.set_state(CalculationStates.calc_type)
-    await message.answer(PROMPT_TYPE, reply_markup=_car_type_kb())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.calc_type, PROMPT_TYPE, _car_type_kb()),
+    )
 
 
 @router.message(CalculationStates.calc_type)
 async def get_car_type(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message,
-        state,
-        CalculationStates.usage_type,
-        PROMPT_USAGE,
-        _usage_type_kb(),
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     if message.text not in {"Бензин", "Дизель", "Гибрид", "Электро"}:
         await message.answer(ERROR_TYPE)
         return
     await state.update_data(car_type=message.text)
-    await state.set_state(CalculationStates.currency_code)
-    await message.answer(PROMPT_CURRENCY, reply_markup=_currency_kb())
+    if message.text == "Электро":
+        nav.total_steps = 8
+    else:
+        nav.total_steps = 9
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.currency_code, PROMPT_CURRENCY, _currency_kb()),
+    )
 
 
 @router.message(CalculationStates.currency_code)
 async def choose_currency(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.calc_type, PROMPT_TYPE, _car_type_kb()
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     if message.text not in CURRENCY_CODES:
         await message.answer(ERROR_CURRENCY)
         return
     await state.update_data(currency_code=message.text)
-    await state.set_state(CalculationStates.customs_value_amount)
-    await message.answer(PROMPT_AMOUNT, reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.customs_value_amount, PROMPT_AMOUNT, back_menu()),
+    )
 
 
 @router.message(CalculationStates.customs_value_amount)
 async def get_amount(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.currency_code, PROMPT_CURRENCY, _currency_kb()
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     try:
         amount = float(message.text.replace(",", "."))
@@ -205,25 +227,29 @@ async def get_amount(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_AMOUNT)
         return
     await state.update_data(amount=amount)
-    data = await state.get_data()
     if data.get("car_type") != "Электро":
-        await state.set_state(CalculationStates.calc_engine)
-        await message.answer(PROMPT_ENGINE, reply_markup=back_menu())
+        await nav.push(
+            message,
+            state,
+            NavStep(CalculationStates.calc_engine, PROMPT_ENGINE, back_menu()),
+        )
     else:
         await state.update_data(engine=0)
-        await state.set_state(CalculationStates.calc_power)
-        await message.answer(PROMPT_POWER, reply_markup=back_menu())
+        await nav.push(
+            message,
+            state,
+            NavStep(CalculationStates.calc_power, PROMPT_POWER, back_menu()),
+        )
 
 
 @router.message(CalculationStates.calc_engine)
 async def get_engine(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message,
-        state,
-        CalculationStates.customs_value_amount,
-        PROMPT_AMOUNT,
-        back_menu(),
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     try:
         engine = int(message.text)
@@ -231,17 +257,21 @@ async def get_engine(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_ENGINE)
         return
     await state.update_data(engine=engine)
-    await state.set_state(CalculationStates.calc_power)
-    await message.answer(PROMPT_POWER, reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.calc_power, PROMPT_POWER, back_menu()),
+    )
 
 
 @router.message(CalculationStates.calc_power)
 async def get_power(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
-    prev_state = CalculationStates.calc_engine if data.get("car_type") != "Электро" else CalculationStates.customs_value_amount
-    prev_prompt = PROMPT_ENGINE if data.get("car_type") != "Электро" else PROMPT_AMOUNT
-    prev_kb = back_menu()
-    if await _check_nav(message, state, prev_state, prev_prompt, prev_kb):
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     try:
         val = message.text.lower().replace(",", ".")
@@ -254,15 +284,21 @@ async def get_power(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_POWER)
         return
     await state.update_data(power_hp=round(power_hp, 1))
-    await state.set_state(CalculationStates.calc_year)
-    await message.answer(PROMPT_YEAR, reply_markup=back_menu())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.calc_year, PROMPT_YEAR, back_menu()),
+    )
 
 
 @router.message(CalculationStates.calc_year)
 async def get_year(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.calc_power, PROMPT_POWER, back_menu()
-    ):
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
         return
     try:
         year = int(message.text)
@@ -272,14 +308,25 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
         await message.answer(ERROR_YEAR)
         return
     await state.update_data(year=year)
-    await state.set_state(CalculationStates.age_over_3)
-    await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.age_over_3, PROMPT_AGE_OVER3, _age_over3_kb()),
+    )
 
 
-@router.message(
-    CalculationStates.age_over_3, F.text.in_({BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO})
-)
-async def on_age_over_3_choice(message: types.Message, state: FSMContext) -> None:
+@router.message(CalculationStates.age_over_3)
+async def handle_age_over3(message: types.Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
+        return
+    if message.text not in {BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO}:
+        await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
+        return
     over3 = message.text == BTN_AGE_OVER3_YES
     age_years = 4.0 if over3 else 2.0
     await state.update_data(age_years=age_years, age_over_3=over3)
@@ -290,28 +337,15 @@ async def on_age_over_3_choice(message: types.Message, state: FSMContext) -> Non
     await _run_calculation(state, message)
 
 
-@router.message(CalculationStates.age_over_3, F.text == BTN_BACK)
-async def on_age_over_3_back(message: types.Message, state: FSMContext) -> None:
-    await message.answer(PROMPT_YEAR, reply_markup=types.ReplyKeyboardRemove())
-    await state.set_state(CalculationStates.calc_year)
-
-
-@router.message(CalculationStates.age_over_3)
-async def on_age_over_3_invalid(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.calc_year, PROMPT_YEAR, back_menu()
-    ):
-        return
-    await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
-
-
 @router.message(CalculationStates.manual_rate)
 async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
-    if await _check_nav(
-        message, state, CalculationStates.age_over_3, PROMPT_AGE_OVER3, _age_over3_kb()
-    ):
-        return
     data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return
+    if nav and await nav.handle_nav(message, state):
+        return
     code = data.get("pending_rate_code")
     try:
         rate = validate_or_prompt_rate(message.text)
