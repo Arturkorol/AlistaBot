@@ -13,15 +13,9 @@ from tabulate import tabulate
 from .currency import to_rub
 from .tariffs import get_tariffs
 try:  # pragma: no cover - fallback for direct test import
-    from ..tariff.personal_rates import (
-        CUSTOMS_CLEARANCE_FEE_RUB,
-        calc_individual_personal_duty_eur,
-    )
+    from ..tariff.personal_rates import calc_individual_personal_duty_eur
 except Exception:  # pragma: no cover - fallback
-    from tariff.personal_rates import (
-        CUSTOMS_CLEARANCE_FEE_RUB,
-        calc_individual_personal_duty_eur,
-    )
+    from tariff.personal_rates import calc_individual_personal_duty_eur
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +211,7 @@ class CustomsCalculator:
         duty_eur = calc_individual_personal_duty_eur(v.engine_capacity, age_years)
         duty_rub = to_rub(duty_eur, "EUR")
 
-        clearance_fee = CUSTOMS_CLEARANCE_FEE_RUB
+        clearance_fee = self.calculate_clearance_tax()
         util_fee = self.tariffs["base_util_fee"]
         recycling_fee = self.calculate_recycling_fee()
 

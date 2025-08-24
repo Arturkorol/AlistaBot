@@ -31,7 +31,6 @@ spec = importlib.util.spec_from_file_location(
 pr_mod = importlib.util.module_from_spec(spec)
 sys.modules["tariff.personal_rates"] = pr_mod
 spec.loader.exec_module(pr_mod)  # type: ignore[attr-defined]
-PERSONAL_CLEARANCE_FEE = pr_mod.CUSTOMS_CLEARANCE_FEE_RUB
 
 spec = importlib.util.spec_from_file_location(
     "services.customs_calculator", SERVICES_PATH / "customs_calculator.py"
@@ -74,6 +73,9 @@ else:  # pragma: no cover - fallback for current implementation
         pass
 
 RECYCLING_FEE_BASE_RATE = getattr(cc_mod, "RECYCLING_FEE_BASE_RATE", 20000)
+CLEARANCE_TAX_RANGES = getattr(
+    cc_mod, "CUSTOMS_CLEARANCE_TAX_RANGES", []
+)
 
 CONFIG = ROOT / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
@@ -185,7 +187,9 @@ def test_calculate_personal_rates(calc: CustomsCalculator):
     duty_rub = to_rub(2500 * 5.5, "EUR")
     recycling_rub = RECYCLING_FEE_BASE_RATE * TARIFFS["vehicle_types"]["passenger"]["recycling_factors"]["default"]["gasoline"]
     util_rub = TARIFFS["base_util_fee"]
-    expected_total = duty_rub + util_rub + recycling_rub + PERSONAL_CLEARANCE_FEE
+    price_rub = to_rub(params["price"], params["currency"])
+    fee_rub = next(t for limit, t in CLEARANCE_TAX_RANGES if price_rub <= limit)
+    expected_total = duty_rub + util_rub + recycling_rub + fee_rub
 
     assert res["duty_rub"] == pytest.approx(duty_rub)
     assert res["vat_rub"] == 0.0
