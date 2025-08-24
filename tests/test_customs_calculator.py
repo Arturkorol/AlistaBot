@@ -106,16 +106,9 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     excise_rub = vt["excise_rates"]["gasoline"] * vehicle_usd["power"]
     util_rub = tariffs["base_util_fee"] * tariffs["ctp_util_coeff_base"]
     recycling_rub = RECYCLING_FEE_BASE_RATE * vt["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
-    price_limit_map = [
-        (200_000, 1_067),
-        (450_000, 2_134),
-        (1_200_000, 4_269),
-        (3_000_000, 11_746),
-        (5_000_000, 16_524),
-        (7_000_000, 20_000),
-        (float("inf"), 30_000),
-    ]
-    fee_rub = next(tax for limit, tax in price_limit_map if price_rub <= limit)
+    fee_rub = next(
+        tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
+    )
     vat_rub = tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub)
     expected_total = duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
 
@@ -127,6 +120,16 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     assert res["fee_rub"] == pytest.approx(fee_rub)
     assert res["vat_rub"] == pytest.approx(vat_rub)
     assert res["total_rub"] == pytest.approx(expected_total)
+
+
+def test_clearance_tax_uses_tariff_ranges(
+    calc: CustomsCalculator, vehicle_usd: dict
+) -> None:
+    """Calculator should respect clearance tax ranges from tariffs."""
+    calc.tariffs["clearance_tax_ranges"] = [(float("inf"), 12345)]
+    calc.set_vehicle_details(**vehicle_usd)
+    res = calc.calculate_ctp()
+    assert res["fee_rub"] == pytest.approx(12345)
 
 
 def test_calculate_etc_includes_vehicle_price(calc: CustomsCalculator, vehicle_usd: dict):
