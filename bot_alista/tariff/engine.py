@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Any
 from datetime import date
 
+from bot_alista.clearance_fee import calc_clearance_fee_rub
 from bot_alista.rules.loader import (
     load_rules,
     get_available_age_labels,
@@ -68,23 +69,6 @@ def _validate_positive_int(value: int, name: str) -> None:
 def _validate_positive_float(value: float, name: str) -> None:
     if not isinstance(value, (int, float)) or value <= 0:
         raise ValueError(f"{name} должно быть положительным числом")
-
-
-def calc_clearance_fee_rub(customs_value_rub: float) -> float:
-    """
-    Customs clearance fee ladder (RUB), tuned to hit known 2025 bands:
-      ~1.2M → 4,269 ; ~2.4M → 11,746 ; ~4.0M → 16,524
-    Extend as needed for higher tiers.
-    """
-    _validate_positive_float(customs_value_rub, "Таможенная стоимость")
-    v = float(customs_value_rub)
-    if v <= 200_000:    return 1_067.0
-    if v <= 450_000:    return 2_134.0
-    if v <= 1_200_000:  return 4_269.0
-    if v <= 3_000_000:  return 11_746.0
-    if v <= 5_000_000:  return 16_524.0
-    if v <= 7_000_000:  return 20_000.0
-    return 30_000.0
 
 
 # Public API ---------------------------------------------------------------
