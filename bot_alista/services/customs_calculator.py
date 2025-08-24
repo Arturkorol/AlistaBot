@@ -19,12 +19,10 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import yaml
-try:  # pragma: no cover - handle environments without the real package
-    from currency_converter import CurrencyConverter  # type: ignore
-except Exception:  # pragma: no cover
-    from currency_converter_free import CurrencyConverter  # type: ignore
 from tabulate import tabulate
+
+from .currency import to_eur
+from .tariffs import get_tariffs
 
 logger = logging.getLogger(__name__)
 
@@ -101,41 +99,17 @@ class CustomsCalculator:
     rate and defaults to ``1.0`` so values in EUR and RUB are identical.
     """
 
-    # Fallback conversion rates used if ``CurrencyConverter`` has no data
-    # for the requested currency.  These match the values used by the
-    # existing ``services.currency`` helper for deterministic tests.
-    _FALLBACK_RATES = {"USD": 0.9, "KRW": 0.0007, "RUB": 0.01}
-
     def __init__(
         self,
         config_path: str | Path | None = None,
         *,
         eur_rate: float = 1.0,
         tariffs: Optional[Dict[str, Any]] = None,
-        converter: Optional[CurrencyConverter] = None,
     ) -> None:
-        self.tariffs = tariffs or self.get_tariffs(config_path)
+        self.tariffs = tariffs or get_tariffs(config_path)
         self.eur_rate = eur_rate
-        self.converter = converter or CurrencyConverter()
         self._vehicle: Optional[_Vehicle] = None
         self._last_result: Dict[str, float] | None = None
-
-    # ------------------------------------------------------------------
-    # Tariff loading
-    # ------------------------------------------------------------------
-    @staticmethod
-    def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
-        """Return tariff configuration from ``config.yaml``."""
-
-        if path is None:
-            path = (
-                Path(__file__).resolve().parents[2]
-                / "external"
-                / "tks_api_official"
-                / "config.yaml"
-            )
-        with open(path, "r", encoding="utf-8") as fh:
-            return yaml.safe_load(fh)
 
     # ------------------------------------------------------------------
     # Vehicle state
@@ -180,7 +154,10 @@ class CustomsCalculator:
         # Convert power to horsepower if supplied in kW
         power_hp = power if unit_enum is EnginePowerUnit.HP else int(round(power * 1.35962))
 
-        price_eur = self._to_eur(price, currency)
+        try:
+            price_eur = to_eur(price, currency, eur_rate=self.eur_rate)
+        except ValueError as exc:
+            raise WrongParamException(str(exc)) from exc
 
         self._vehicle = _Vehicle(
             age=age_enum,
@@ -191,26 +168,6 @@ class CustomsCalculator:
             owner_type=owner_enum,
             currency=currency.upper(),
         )
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-    def _to_eur(self, amount: float, currency: str) -> float:
-        """Convert ``amount`` from ``currency`` to EUR using ``CurrencyConverter``."""
-
-        code = currency.upper()
-        if code == "EUR":
-            return float(amount)
-        if code == "RUB":
-            return float(amount) / self.eur_rate
-        try:
-            rub = float(self.converter.convert(amount, code, "RUB"))
-        except Exception:
-            rate = self._FALLBACK_RATES.get(code)
-            if rate is None:
-                raise WrongParamException(f"Unsupported currency: {currency}")
-            rub = float(amount) * rate * self.eur_rate
-        return rub / self.eur_rate
 
     def _require_vehicle(self) -> _Vehicle:
         if not self._vehicle:
