@@ -431,8 +431,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             owner_type=person_type,
             currency=currency_code,
         )
-
-        breakdown = calc.calculate_ctp()
+        breakdown = calc.calculate_auto()
         customs_value_rub = breakdown["price_rub"]
         core = {
             "breakdown": {

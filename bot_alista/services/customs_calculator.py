@@ -62,6 +62,11 @@ class VehicleOwnerType(Enum):
     COMPANY = "company"
 
 
+class VehicleType(Enum):
+    PASSENGER = "passenger"
+    TRUCK = "truck"
+
+
 @dataclass
 class _Vehicle:
     age: VehicleAge
@@ -71,6 +76,7 @@ class _Vehicle:
     price_rub: float
     owner_type: VehicleOwnerType
     currency: str
+    vehicle_type: VehicleType
 
 
 class CustomsCalculator:
@@ -101,6 +107,7 @@ class CustomsCalculator:
         price: float,
         owner_type: str | VehicleOwnerType,
         currency: str = "USD",
+        vehicle_type: str | VehicleType = "passenger",
     ) -> None:
         try:
             age_enum = age if isinstance(age, VehicleAge) else VehicleAge(age)
@@ -109,6 +116,11 @@ class CustomsCalculator:
             )
             owner_enum = (
                 owner_type if isinstance(owner_type, VehicleOwnerType) else VehicleOwnerType(owner_type)
+            )
+            vehicle_type_enum = (
+                vehicle_type
+                if isinstance(vehicle_type, VehicleType)
+                else VehicleType(vehicle_type)
             )
         except ValueError as exc:
             raise WrongParamException(str(exc))
@@ -129,12 +141,19 @@ class CustomsCalculator:
             price_rub=float(price_rub),
             owner_type=owner_enum,
             currency=currency.upper(),
+            vehicle_type=vehicle_type_enum,
         )
 
     def _require_vehicle(self) -> _Vehicle:
         if not self.vehicle:
             raise WrongParamException("Vehicle details not set")
         return self.vehicle
+
+    def _vehicle_tariffs(self, v: _Vehicle) -> Dict[str, Any]:
+        vt = self.tariffs.get("vehicle_types")
+        if vt:
+            return vt[v.vehicle_type.value]
+        return self.tariffs
 
     # ------------------------------------------------------------------
     # Fee helpers
@@ -150,7 +169,8 @@ class CustomsCalculator:
 
     def calculate_recycling_fee(self) -> float:
         v = self._require_vehicle()
-        factors = self.tariffs["recycling_factors"]
+        vt = self._vehicle_tariffs(v)
+        factors = vt["recycling_factors"]
         default = factors.get("default", {})
         adjustments = factors.get("adjustments", {}).get(v.age.value, {})
         engine_factor = adjustments.get(
@@ -162,7 +182,8 @@ class CustomsCalculator:
 
     def calculate_excise(self) -> float:
         v = self._require_vehicle()
-        rate = self.tariffs["excise_rates"].get(v.engine_type.value, 0)
+        vt = self._vehicle_tariffs(v)
+        rate = vt["excise_rates"].get(v.engine_type.value, 0)
         excise = rate * v.power
         logger.info("Excise: %s RUB", excise)
         return float(excise)
@@ -190,6 +211,7 @@ class CustomsCalculator:
 
         total_pay = duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
         res = {
+            "mode": "CTP",
             "price_rub": price_rub,
             "duty_rub": duty_rub,
             "excise_rub": excise,
@@ -204,10 +226,12 @@ class CustomsCalculator:
 
     def calculate_etc(self) -> Dict[str, float]:
         v = self._require_vehicle()
-        cfg = self.tariffs["age_groups"][v.age.value][v.engine_type.value]
-        rate_per_cc = cfg["rate_per_cc"]
+        vt = self._vehicle_tariffs(v)
+        cfg = vt["age_groups"][v.age.value][v.engine_type.value]
+        rate_per_cc = to_rub(cfg["rate_per_cc"], "EUR")
         min_duty = cfg.get("min_duty", 0)
-        duty_rub = max(rate_per_cc * v.engine_capacity, min_duty)
+        min_duty_rub = to_rub(min_duty, "EUR") if min_duty else 0
+        duty_rub = max(rate_per_cc * v.engine_capacity, min_duty_rub)
 
         clearance_fee = self.calculate_clearance_tax()
         util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
@@ -217,7 +241,11 @@ class CustomsCalculator:
 
         total_pay = duty_rub + clearance_fee + util_fee + recycling_fee
         res = {
+            "mode": "ETC",
+            "price_rub": v.price_rub,
             "duty_rub": duty_rub,
+            "excise_rub": 0.0,
+            "vat_rub": 0.0,
             "fee_rub": clearance_fee,
             "util_rub": util_fee,
             "recycling_rub": recycling_fee,
@@ -227,6 +255,26 @@ class CustomsCalculator:
         }
         self._last_result = res
         return res
+
+    def calculate_auto(self) -> Dict[str, float]:
+        v = self._require_vehicle()
+        if v.owner_type is VehicleOwnerType.COMPANY:
+            return self.calculate_ctp()
+        etc = self.calculate_etc()
+        self.set_vehicle_details(
+            age=v.age,
+            engine_capacity=v.engine_capacity,
+            engine_type=v.engine_type,
+            power=v.power,
+            price=v.price_rub,
+            owner_type=v.owner_type,
+            currency="RUB",
+            vehicle_type=v.vehicle_type,
+        )
+        ctp = self.calculate_ctp()
+        chosen = ctp if ctp["total_rub"] >= etc["total_rub"] else etc
+        self._last_result = chosen
+        return chosen
 
     # ------------------------------------------------------------------
     # Debug helper
@@ -254,6 +302,7 @@ __all__ = [
     "EngineType",
     "VehicleAge",
     "VehicleOwnerType",
+    "VehicleType",
     "WrongParamException",
 ]
 
