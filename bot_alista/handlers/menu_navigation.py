@@ -1,5 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
+from aiogram.filters import StateFilter
 
 from bot_alista.constants import BTN_MAIN_MENU, BTN_BACK, BTN_EXIT
 from bot_alista.utils.reset import reset_to_menu
@@ -12,7 +13,7 @@ async def go_main_menu(message: types.Message, state: FSMContext):
     await reset_to_menu(message, state)
 
 
-@router.message(F.text == BTN_BACK, state=None)
+@router.message(F.text == BTN_BACK, StateFilter(None))
 async def go_back(message: types.Message, state: FSMContext):
     # Просто возвращаем в главное меню
     await reset_to_menu(message, state)
