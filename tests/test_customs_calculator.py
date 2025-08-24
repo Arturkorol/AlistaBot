@@ -98,7 +98,16 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     excise_rub = tariffs["excise_rates"]["gasoline"] * vehicle_usd["power"]
     util_rub = tariffs["base_util_fee"] * tariffs["ctp_util_coeff_base"]
     recycling_rub = RECYCLING_FEE_BASE_RATE * tariffs["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
-    fee_rub = tariffs["base_clearance_fee"]
+    price_limit_map = [
+        (200_000, 1_067),
+        (450_000, 2_134),
+        (1_200_000, 4_269),
+        (3_000_000, 11_746),
+        (5_000_000, 16_524),
+        (7_000_000, 20_000),
+        (float("inf"), 30_000),
+    ]
+    fee_rub = next(tax for limit, tax in price_limit_map if price_rub <= limit)
     vat_rub = tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub)
     expected_total = duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
 

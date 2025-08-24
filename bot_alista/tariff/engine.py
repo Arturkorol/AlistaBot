@@ -378,10 +378,14 @@ def calc_breakdown_with_mode(
         is_export=False,
         person_type=person_type,
     )
-    corp["breakdown"].setdefault("clearance_fee_rub", 0.0)
+    fee_rub = calc_clearance_fee_rub(corp["breakdown"]["customs_value_rub"])
+    corp["breakdown"]["clearance_fee_rub"] = fee_rub
+    corp["breakdown"]["total_rub"] = round(
+        corp["breakdown"]["total_rub"] + fee_rub, 2
+    )
     corp.setdefault("rates_used", {}).update({"mode": "corporate_alta"})
     corp.setdefault("notes", []).append(
-        "Company/commercial mode: Alta rules (20% vs ≥0.44 EUR/cc) + excise + VAT."
+        "Company/commercial mode: Alta rules (20% vs ≥0.44 EUR/cc) + excise + VAT; tiered clearance fee applied."
     )
     return corp
 
@@ -405,6 +409,10 @@ def calc_breakdown_rules(
     decl_date = decl_date or date.today()
     fuel_norm = normalize_fuel_label(fuel_type)
     rules, labels, buckets = _get_rule_env()
+
+    util_fuel = (
+        "ev" if fuel_norm == "Электро" else "hybrid" if fuel_norm == "Гибрид" else "ice"
+    )
 
     customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
     actual_age = compute_actual_age_years(production_year, decl_date)
@@ -440,7 +448,7 @@ def calc_breakdown_rules(
             person_type="individual",
             usage="personal",
             engine_cc=int(engine_cc or 0),
-            fuel=("ev" if fuel_norm == "Электро" else "ice"),
+            fuel=util_fuel,
             vehicle_kind="passenger",
             age_years=util_age_years,
             date_decl=decl_date,
@@ -509,7 +517,7 @@ def calc_breakdown_rules(
         person_type="company",
         usage="commercial",
         engine_cc=int(engine_cc or 0),
-        fuel=("ev" if fuel_norm == "Электро" else "ice"),
+        fuel=util_fuel,
         vehicle_kind="passenger",
         age_years=actual_age,
         date_decl=decl_date,
