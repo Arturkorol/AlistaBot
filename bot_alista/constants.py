@@ -1,7 +1,7 @@
 from typing import Literal
 
 # Button labels
-BTN_CALC = "📊 Рассчитать"
+BTN_CALC = "📊 Рассчитать стоимость очистки"
 BTN_BACK = "⬅ Назад"
 BTN_MAIN_MENU = "🏠 Главное меню"
 BTN_EXIT = "❌ Выход"
