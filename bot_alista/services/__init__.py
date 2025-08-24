@@ -17,5 +17,17 @@ def calculate_etc(**kwargs):
     return calc.calculate_etc()
 
 
-__all__ = ["calculate_ctp", "calculate_etc", "CustomsCalculator"]
+def calculate_auto(**kwargs):
+    """Return automatic ETC/CTP calculation for one-off use."""
+    calc = CustomsCalculator()
+    calc.set_vehicle_details(**kwargs)
+    return calc.calculate_auto()
+
+
+__all__ = [
+    "calculate_ctp",
+    "calculate_etc",
+    "calculate_auto",
+    "CustomsCalculator",
+]
 
