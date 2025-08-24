@@ -1,6 +1,6 @@
 base_clearance_fee: 3100
 base_util_fee: 20000
-etc_util_coeff_base: 1.5
+etc_util_coeff_base: 1.0
 ctp_util_coeff_base: 1.2
 excise_rates:
   gasoline: 58
@@ -12,7 +12,7 @@ recycling_factors:
     gasoline: 1.0
     diesel: 1.1
     electric: 0.3
-    hybrid: 0.9
+    hybrid: 1.0
   adjustments:
     "5-7":
       gasoline: 0.26
