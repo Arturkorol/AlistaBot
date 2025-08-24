@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-"""Utility helpers for currency conversion to EUR."""
+"""Utility helpers for currency conversion to EUR.
+
+This module prefers the :mod:`currency_converter` library but falls back to
+``currency_converter_free`` if the primary dependency is unavailable.
+"""
+
+import logging
 
 try:
-    from currency_converter_free import CurrencyConverter
-except Exception:  # pragma: no cover - fallback name
+    from currency_converter import CurrencyConverter
+except Exception:  # pragma: no cover - fallback to free library
+    logging.getLogger(__name__).warning(
+        "currency_converter not available; using currency_converter_free instead"
+    )
     from currency_converter_free import CurrencyConverter
 
 _converter: CurrencyConverter | None = None
