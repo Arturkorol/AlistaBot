@@ -480,7 +480,11 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             core=core,
             util_fee_rub=core["breakdown"].get("util_rub", 0.0),
         )
-        await message.answer(msg, disable_web_page_preview=True)
+        await message.answer(
+            msg,
+            disable_web_page_preview=True,
+            reply_markup=back_menu(),
+        )
         await state.clear()
     except Exception as exc:  # pragma: no cover - defensive
         logging.exception("Calculation failed: %s", exc)
