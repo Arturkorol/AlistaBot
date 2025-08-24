@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from customs_calculator import CustomsCalculator
+from .customs_calculator import CustomsCalculator
 
 # Simple in-memory cache per day
 _cached_tariffs: dict[str, Any] | None = None
