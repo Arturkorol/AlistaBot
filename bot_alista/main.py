@@ -5,7 +5,7 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-from bot import main as run_bot
+from bot_alista.bot import main as run_bot
 
 
 if __name__ == "__main__":
