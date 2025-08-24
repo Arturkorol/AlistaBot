@@ -1,77 +1,69 @@
-"""Stateful customs calculator with currency conversion support.
-
-This module provides a light‑weight implementation of the customs
-calculation engine that mimics the behaviour of the original project
-while keeping the public API stable.  It converts input prices to EUR
-using :class:`CurrencyConverter`, calculates all fees in euros and then
-returns both EUR and RUB values (using the provided ``eur_rate``).
-
-The code is intentionally self contained so that tests can run without
-the optional ``tks_api_official`` dependency shipped with the real
-project.
-"""
+"""RUB based customs calculation utilities."""
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
-import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from tabulate import tabulate
 
-from .currency import to_eur
+from .currency import to_rub
 from .tariffs import get_tariffs
 
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Enumerations and Exceptions
-# ---------------------------------------------------------------------------
+BASE_VAT = 0.2
+RECYCLING_FEE_BASE_RATE = 20_000
+CUSTOMS_CLEARANCE_TAX_RANGES = [
+    (200_000, 775),
+    (450_000, 1550),
+    (1_200_000, 3100),
+    (2_700_000, 8530),
+    (4_200_000, 12_000),
+    (5_500_000, 15_500),
+    (7_000_000, 20_000),
+    (8_000_000, 23_000),
+    (9_000_000, 25_000),
+    (10_000_000, 27_000),
+    (float("inf"), 30_000),
+]
 
 
-class EnginePowerUnit(str, Enum):
-    """Units for engine power."""
+class WrongParamException(Exception):
+    """Exception raised for invalid parameters."""
 
-    HP = "hp"
-    KW = "kw"
+    def __init__(self, message: str):
+        super().__init__(message)
+        logger.error(message)
 
 
-class EngineType(str, Enum):
-    """Supported engine types."""
+class EnginePowerUnit(Enum):
+    KW = "kilowatt"
+    HP = "horsepower"
 
+
+class EngineType(Enum):
     GASOLINE = "gasoline"
     DIESEL = "diesel"
     ELECTRIC = "electric"
     HYBRID = "hybrid"
 
 
-class VehicleAge(str, Enum):
-    """Age groups for vehicles as used in the tariff table."""
-
+class VehicleAge(Enum):
     NEW = "new"
-    AGE_1_3 = "1-3"
-    AGE_3_5 = "3-5"
-    AGE_5_7 = "5-7"
-    OVER_7 = "over_7"
+    ONE_TO_THREE = "1-3"
+    THREE_TO_FIVE = "3-5"
+    FIVE_TO_SEVEN = "5-7"
+    OVER_SEVEN = "over_7"
 
 
-class VehicleOwnerType(str, Enum):
-    """Vehicle ownership categories."""
-
+class VehicleOwnerType(Enum):
     INDIVIDUAL = "individual"
     COMPANY = "company"
-
-
-class WrongParamException(ValueError):
-    """Raised when user supplied parameters are not supported."""
-
-
-# ---------------------------------------------------------------------------
-# Helper dataclass for vehicle details
-# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -79,204 +71,183 @@ class _Vehicle:
     age: VehicleAge
     engine_capacity: int
     engine_type: EngineType
-    power_hp: int
-    price_eur: float
+    power: int
+    price_rub: float
     owner_type: VehicleOwnerType
     currency: str
 
 
-# ---------------------------------------------------------------------------
-# Customs calculator implementation
-# ---------------------------------------------------------------------------
-
-
 class CustomsCalculator:
-    """Calculate customs payments for vehicles.
-
-    Parameters are first stored using :meth:`set_vehicle_details` and then
-    used by :meth:`calculate_ctp` or :meth:`calculate_etc`.  Results include
-    both EUR and RUB values.  ``eur_rate`` represents the EUR/RUB exchange
-    rate and defaults to ``1.0`` so values in EUR and RUB are identical.
-    """
+    """Customs Calculator for vehicle import duties."""
 
     def __init__(
         self,
         config_path: str | Path | None = None,
         *,
-        eur_rate: float = 1.0,
         tariffs: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.tariffs = tariffs or get_tariffs(config_path)
-        self.eur_rate = eur_rate
-        self._vehicle: Optional[_Vehicle] = None
+        self.reset_fields()
         self._last_result: Dict[str, float] | None = None
 
     # ------------------------------------------------------------------
     # Vehicle state
     # ------------------------------------------------------------------
+    def reset_fields(self) -> None:
+        self.vehicle: Optional[_Vehicle] = None
+
     def set_vehicle_details(
         self,
-        *,
         age: str | VehicleAge,
         engine_capacity: int,
         engine_type: str | EngineType,
         power: int,
         price: float,
         owner_type: str | VehicleOwnerType,
-        currency: str = "EUR",
-        power_unit: EnginePowerUnit | str = EnginePowerUnit.HP,
+        currency: str = "USD",
     ) -> None:
-        """Persist vehicle parameters for subsequent calculations."""
-
         try:
             age_enum = age if isinstance(age, VehicleAge) else VehicleAge(age)
             engine_enum = (
-                engine_type
-                if isinstance(engine_type, EngineType)
-                else EngineType(engine_type)
+                engine_type if isinstance(engine_type, EngineType) else EngineType(engine_type)
             )
             owner_enum = (
-                owner_type
-                if isinstance(owner_type, VehicleOwnerType)
-                else VehicleOwnerType(owner_type)
+                owner_type if isinstance(owner_type, VehicleOwnerType) else VehicleOwnerType(owner_type)
             )
-            unit_enum = (
-                power_unit
-                if isinstance(power_unit, EnginePowerUnit)
-                else EnginePowerUnit(power_unit)
-            )
-        except ValueError as exc:  # pragma: no cover - defensive
-            raise WrongParamException(str(exc)) from exc
+        except ValueError as exc:
+            raise WrongParamException(str(exc))
 
         if engine_capacity < 800 or engine_capacity > 8000:
             raise WrongParamException("engine_capacity out of range")
 
-        # Convert power to horsepower if supplied in kW
-        power_hp = power if unit_enum is EnginePowerUnit.HP else int(round(power * 1.35962))
-
         try:
-            price_eur = to_eur(price, currency, eur_rate=self.eur_rate)
-        except ValueError as exc:
-            raise WrongParamException(str(exc)) from exc
+            price_rub = to_rub(price, currency)
+        except Exception as exc:
+            raise WrongParamException(str(exc))
 
-        self._vehicle = _Vehicle(
+        self.vehicle = _Vehicle(
             age=age_enum,
             engine_capacity=int(engine_capacity),
             engine_type=engine_enum,
-            power_hp=int(power_hp),
-            price_eur=float(price_eur),
+            power=int(power),
+            price_rub=float(price_rub),
             owner_type=owner_enum,
             currency=currency.upper(),
         )
 
     def _require_vehicle(self) -> _Vehicle:
-        if not self._vehicle:
+        if not self.vehicle:
             raise WrongParamException("Vehicle details not set")
-        return self._vehicle
-
-    def _recycling_factor(self, age: VehicleAge, engine_type: EngineType) -> float:
-        rf = self.tariffs["recycling_factors"]["default"][engine_type.value]
-        adj = (
-            self.tariffs["recycling_factors"].get("adjustments", {})
-            .get(age.value, {})
-            .get(engine_type.value)
-        )
-        return adj if adj is not None else rf
-
-    def _duty(self, age: VehicleAge, engine_type: EngineType, engine_cc: int) -> float:
-        cfg = self.tariffs["age_groups"][age.value][engine_type.value]
-        rate_rub = cfg.get("rate_per_cc", 0)
-        min_duty_rub = cfg.get("min_duty", 0)
-        duty_rub = max(rate_rub * engine_cc, min_duty_rub)
-        return float(duty_rub) / self.eur_rate
-
-    def _excise(self, engine_type: EngineType, power: int) -> float:
-        rate_rub = self.tariffs["excise_rates"].get(engine_type.value, 0)
-        return float(rate_rub * power) / self.eur_rate
-
-    def _util(self, age: VehicleAge, engine_type: EngineType, coeff_base: float) -> float:
-        base_rub = self.tariffs["base_util_fee"]
-        factor = self._recycling_factor(age, engine_type)
-        return float(base_rub * coeff_base * factor) / self.eur_rate
-
-    def _fee(self) -> float:
-        fee_rub = self.tariffs["base_clearance_fee"]
-        return float(fee_rub) / self.eur_rate
-
-    def _calculate(self, coeff_base: float) -> Dict[str, float]:
-        v = self._require_vehicle()
-        age = v.age
-        engine_type = v.engine_type
-        engine_cc = v.engine_capacity
-        power = v.power_hp
-        price_eur = v.price_eur
-
-        duty_eur = self._duty(age, engine_type, engine_cc)
-        excise_eur = self._excise(engine_type, power)
-        util_eur = self._util(age, engine_type, coeff_base)
-        fee_eur = self._fee()
-
-        vat_rate = self.tariffs.get("vat_rate", 0)
-        vat_eur = vat_rate * (price_eur + duty_eur + excise_eur + util_eur + fee_eur)
-        total_eur = duty_eur + excise_eur + util_eur + vat_eur + fee_eur
-
-        result = {
-            "price_eur": price_eur,
-            "eur_rate": self.eur_rate,
-            "duty_eur": duty_eur,
-            "excise_eur": excise_eur,
-            "util_eur": util_eur,
-            "vat_eur": vat_eur,
-            "fee_eur": fee_eur,
-            "total_eur": total_eur,
-        }
-
-        # Derive RUB values for backwards compatibility and debugging
-        for key in list(result.keys()):
-            if key.endswith("_eur") or key == "price_eur":
-                rub_key = key.replace("_eur", "_rub").replace("price_eur", "price_rub")
-                result[rub_key] = result[key] * self.eur_rate
-
-        result["total_rub"] = result["total_eur"] * self.eur_rate
-        self._last_result = result
-        return result
+        return self.vehicle
 
     # ------------------------------------------------------------------
-    # Public API
+    # Fee helpers
+    # ------------------------------------------------------------------
+    def calculate_clearance_tax(self) -> float:
+        v = self._require_vehicle()
+        price = v.price_rub
+        for limit, tax in CUSTOMS_CLEARANCE_TAX_RANGES:
+            if price <= limit:
+                logger.info("Customs clearance tax: %s RUB", tax)
+                return float(tax)
+        return float(CUSTOMS_CLEARANCE_TAX_RANGES[-1][1])
+
+    def calculate_recycling_fee(self) -> float:
+        v = self._require_vehicle()
+        factors = self.tariffs["recycling_factors"]
+        default = factors.get("default", {})
+        adjustments = factors.get("adjustments", {}).get(v.age.value, {})
+        engine_factor = adjustments.get(
+            v.engine_type.value, default.get(v.engine_type.value, 1.0)
+        )
+        fee = RECYCLING_FEE_BASE_RATE * engine_factor
+        logger.info("Recycling fee: %s RUB", fee)
+        return float(fee)
+
+    def calculate_excise(self) -> float:
+        v = self._require_vehicle()
+        rate = self.tariffs["excise_rates"].get(v.engine_type.value, 0)
+        excise = rate * v.power
+        logger.info("Excise: %s RUB", excise)
+        return float(excise)
+
+    # ------------------------------------------------------------------
+    # Calculation modes
     # ------------------------------------------------------------------
     def calculate_ctp(self) -> Dict[str, float]:
-        """Return customs payments using CTP method."""
+        v = self._require_vehicle()
+        price_rub = v.price_rub
+        vat_rate = BASE_VAT
 
-        coeff = self.tariffs.get("ctp_util_coeff_base", 1.0)
-        return self._calculate(coeff)
+        duty_rate = 0.2
+        min_duty_per_cc = to_rub(0.44, "EUR")
+        duty_rub = max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity)
+
+        excise = self.calculate_excise()
+        recycling_fee = self.calculate_recycling_fee()
+        vat = (price_rub + duty_rub + excise) * vat_rate
+
+        clearance_fee = self.tariffs["base_clearance_fee"]
+        util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
+            "ctp_util_coeff_base", 1.0
+        )
+
+        total_pay = duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
+        res = {
+            "price_rub": price_rub,
+            "duty_rub": duty_rub,
+            "excise_rub": excise,
+            "vat_rub": vat,
+            "fee_rub": clearance_fee,
+            "util_rub": util_fee,
+            "recycling_rub": recycling_fee,
+            "total_rub": total_pay,
+        }
+        self._last_result = res
+        return res
 
     def calculate_etc(self) -> Dict[str, float]:
-        """Return customs payments including purchase price (ETC)."""
+        v = self._require_vehicle()
+        cfg = self.tariffs["age_groups"][v.age.value][v.engine_type.value]
+        rate_per_cc = cfg["rate_per_cc"]
+        min_duty = cfg.get("min_duty", 0)
+        duty_rub = max(rate_per_cc * v.engine_capacity, min_duty)
 
-        coeff = self.tariffs.get("etc_util_coeff_base", 1.0)
-        res = self._calculate(coeff)
-        res["vehicle_price_eur"] = res["price_eur"]
-        res["vehicle_price_rub"] = res["price_rub"]
-        res["etc_eur"] = res["price_eur"] + res["total_eur"]
-        res["etc_rub"] = res["price_rub"] + res["total_rub"]
+        clearance_fee = self.tariffs["base_clearance_fee"]
+        util_fee = self.tariffs["base_util_fee"]
+        recycling_fee = self.calculate_recycling_fee()
+
+        total_pay = duty_rub + clearance_fee + util_fee + recycling_fee
+        res = {
+            "duty_rub": duty_rub,
+            "fee_rub": clearance_fee,
+            "util_rub": util_fee,
+            "recycling_rub": recycling_fee,
+            "total_rub": total_pay,
+            "vehicle_price_rub": v.price_rub,
+            "etc_rub": v.price_rub + total_pay,
+        }
         self._last_result = res
         return res
 
     # ------------------------------------------------------------------
-    # Debug helpers
+    # Debug helper
     # ------------------------------------------------------------------
-    def print_table(self, data: Optional[Dict[str, float]] = None) -> str:
-        """Return a tabulated string of the calculation result.
+    def print_table(self, mode: str) -> str:
+        if mode.upper() == "ETC":
+            data = self.calculate_etc()
+        elif mode.upper() == "CTP":
+            data = self.calculate_ctp()
+        else:
+            raise WrongParamException("Invalid calculation mode")
 
-        If ``data`` is ``None`` the last calculation result is used.  The
-        function logs the table at ``DEBUG`` level and also returns it so tests
-        can assert on the formatted string if required.
-        """
-
-        result = data or self._last_result or {}
-        table = tabulate(sorted(result.items()), headers=["key", "value"], floatfmt=".2f")
-        logger.debug("\n%s", table)
-        return table
+        table = [
+            [k, f"{v:,.2f}" if isinstance(v, (int, float)) else v]
+            for k, v in data.items()
+        ]
+        formatted = tabulate(table, headers=["Description", "Amount"], tablefmt="psql")
+        logger.debug("\n%s", formatted)
+        return formatted
 
 
 __all__ = [
