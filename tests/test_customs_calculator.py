@@ -23,7 +23,7 @@ spec = importlib.util.spec_from_file_location(
 currency_mod = importlib.util.module_from_spec(spec)
 sys.modules["services.currency"] = currency_mod
 spec.loader.exec_module(currency_mod)  # type: ignore[attr-defined]
-to_eur = currency_mod.to_eur
+to_rub = currency_mod.to_rub
 
 spec = importlib.util.spec_from_file_location(
     "services.customs_calculator", SERVICES_PATH / "customs_calculator.py"
@@ -34,8 +34,8 @@ spec.loader.exec_module(cc_mod)  # type: ignore[attr-defined]
 
 CustomsCalculator = cc_mod.CustomsCalculator
 
-if hasattr(cc_mod, "AgeGroup"):
-    AgeGroup = cc_mod.AgeGroup
+if hasattr(cc_mod, "VehicleAge"):
+    AgeGroup = cc_mod.VehicleAge
 else:  # pragma: no cover - fallback
     class AgeGroup(str, Enum):
         NEW = "new"
@@ -47,8 +47,8 @@ else:  # pragma: no cover - fallback
     class EngineType(str, Enum):
         GASOLINE = "gasoline"
 
-if hasattr(cc_mod, "OwnerType"):
-    OwnerType = cc_mod.OwnerType
+if hasattr(cc_mod, "VehicleOwnerType"):
+    OwnerType = cc_mod.VehicleOwnerType
 else:  # pragma: no cover - fallback
     class OwnerType(str, Enum):
         INDIVIDUAL = "individual"
@@ -59,6 +59,8 @@ else:  # pragma: no cover - fallback for current implementation
     class WrongParamException(Exception):
         pass
 
+RECYCLING_FEE_BASE_RATE = getattr(cc_mod, "RECYCLING_FEE_BASE_RATE", 20000)
+
 CONFIG = ROOT / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
     TARIFFS = yaml.safe_load(fh)
@@ -67,7 +69,7 @@ with open(CONFIG, "r", encoding="utf-8") as fh:
 @pytest.fixture
 def calc() -> CustomsCalculator:
     """Return a calculator using the test exchange rate and tariffs."""
-    return CustomsCalculator(eur_rate=100.0, tariffs=TARIFFS)
+    return CustomsCalculator(tariffs=TARIFFS)
 
 
 @pytest.fixture
@@ -88,31 +90,23 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     calc.set_vehicle_details(**vehicle_usd)
     res = calc.calculate_ctp()
 
-    price_eur = to_eur(vehicle_usd["price"], "USD")
-    price_rub = price_eur * calc.eur_rate
+    price_rub = to_rub(vehicle_usd["price"], "USD")
 
     tariffs = TARIFFS
-    duty_rub = max(
-        vehicle_usd["engine_capacity"]
-        * tariffs["age_groups"]["5-7"]["gasoline"]["rate_per_cc"],
-        tariffs["age_groups"]["5-7"]["gasoline"]["min_duty"],
-    )
+    min_duty_rub = to_rub(0.44, "EUR") * vehicle_usd["engine_capacity"]
+    duty_rub = max(price_rub * 0.2, min_duty_rub)
     excise_rub = tariffs["excise_rates"]["gasoline"] * vehicle_usd["power"]
-    util_rub = (
-        tariffs["base_util_fee"]
-        * tariffs["ctp_util_coeff_base"]
-        * tariffs["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
-    )
+    util_rub = tariffs["base_util_fee"] * tariffs["ctp_util_coeff_base"]
+    recycling_rub = RECYCLING_FEE_BASE_RATE * tariffs["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
     fee_rub = tariffs["base_clearance_fee"]
-    vat_rub = tariffs["vat_rate"] * (
-        price_rub + duty_rub + excise_rub + util_rub + fee_rub
-    )
-    expected_total = duty_rub + excise_rub + util_rub + vat_rub + fee_rub
+    vat_rub = tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub)
+    expected_total = duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
 
     assert res["price_rub"] == pytest.approx(price_rub)
     assert res["duty_rub"] == pytest.approx(duty_rub)
     assert res["excise_rub"] == pytest.approx(excise_rub)
     assert res["util_rub"] == pytest.approx(util_rub)
+    assert res["recycling_rub"] == pytest.approx(recycling_rub)
     assert res["fee_rub"] == pytest.approx(fee_rub)
     assert res["vat_rub"] == pytest.approx(vat_rub)
     assert res["total_rub"] == pytest.approx(expected_total)
@@ -142,13 +136,8 @@ def test_state_reset_between_calls(calc: CustomsCalculator, vehicle_usd: dict):
     assert first["total_rub"] == pytest.approx(first["total_rub"])
 
 
-@pytest.mark.parametrize("currency, rate", [
-    ("USD", 0.9),
-    ("EUR", 1.0),
-    ("KRW", 0.0007),
-    ("RUB", 0.01),
-])
-def test_currency_conversion(calc: CustomsCalculator, currency: str, rate: float):
+@pytest.mark.parametrize("currency", ["USD", "EUR", "KRW", "RUB"])
+def test_currency_conversion(calc: CustomsCalculator, currency: str):
     amount = 10000
     calc.set_vehicle_details(
         age=AgeGroup("new"),
@@ -160,14 +149,12 @@ def test_currency_conversion(calc: CustomsCalculator, currency: str, rate: float
         currency=currency,
     )
     res = calc.calculate_ctp()
-    expected_eur = amount * rate
-    expected_rub = expected_eur * calc.eur_rate
-    assert res["price_eur"] == pytest.approx(expected_eur)
+    expected_rub = to_rub(amount, currency)
     assert res["price_rub"] == pytest.approx(expected_rub)
 
 
 def test_invalid_engine_capacity_low(calc: CustomsCalculator):
-    with pytest.raises(ValueError):
+    with pytest.raises(WrongParamException):
         calc.set_vehicle_details(
             age=AgeGroup("new"),
             engine_capacity=500,
@@ -180,7 +167,7 @@ def test_invalid_engine_capacity_low(calc: CustomsCalculator):
 
 
 def test_invalid_engine_capacity_high(calc: CustomsCalculator):
-    with pytest.raises(ValueError):
+    with pytest.raises(WrongParamException):
         calc.set_vehicle_details(
             age=AgeGroup("new"),
             engine_capacity=9000,

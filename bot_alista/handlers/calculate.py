@@ -358,7 +358,6 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         needed = {currency_code, "EUR"}
         try:
             rates = await get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
-            customs_value_rub = amount * rates[currency_code]
         except Exception:
             missing = [c for c in needed if c not in manual_rates]
             if missing:
@@ -370,9 +369,6 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
                 )
                 return
             rates = manual_rates
-            customs_value_rub = amount * rates[currency_code]
-        eur_rate = rates["EUR"]
-        customs_value_eur = round(customs_value_rub / eur_rate, 2)
 
         # translate Russian fuel type labels into tariff keys
         fuel_type = CAR_TYPE_MAP.get(car_type_ru, car_type_ru) 
@@ -391,37 +387,39 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         else:
             age_group = "over_7"
 
-        calc = CustomsCalculator(eur_rate=eur_rate)
+        calc = CustomsCalculator()
         calc.set_vehicle_details(
             age=age_group,
             engine_capacity=engine_cc,
             engine_type=fuel_type,
             power=engine_hp,
-            price=customs_value_eur,
+            price=amount,
             owner_type=person_type,
-            currency="EUR",
+            currency=currency_code,
         )
-        
+
         breakdown = calc.calculate_ctp()
+        customs_value_rub = breakdown["price_rub"]
         core = {
             "breakdown": {
                 "customs_value_rub": customs_value_rub,
-                "duty_rub": breakdown["duty_eur"] * eur_rate,
-                "excise_rub": breakdown["excise_eur"] * eur_rate,
-                "vat_rub": breakdown["vat_eur"] * eur_rate,
-                "clearance_fee_rub": breakdown["fee_eur"] * eur_rate,
-                "total_rub": breakdown["total_eur"] * eur_rate,
-                "util_rub": breakdown["util_eur"] * eur_rate,
+                "duty_rub": breakdown["duty_rub"],
+                "excise_rub": breakdown["excise_rub"],
+                "vat_rub": breakdown["vat_rub"],
+                "clearance_fee_rub": breakdown["fee_rub"],
+                "total_rub": breakdown["total_rub"],
+                "util_rub": breakdown["util_rub"],
+                "recycling_rub": breakdown["recycling_rub"],
             },
             "notes": [],
         }
 
-        duty_eur = breakdown.get("duty_eur")
+        duty_rub = breakdown.get("duty_rub")
         rate_line = ""
-        if duty_eur and engine_cc:
+        if duty_rub and engine_cc:
             try:
-                rate_eur_per_cc = round(float(duty_eur) / float(engine_cc), 2)
-                rate_line = f"{rate_eur_per_cc} €/см³ × {engine_cc} см³"
+                rate_rub_per_cc = round(float(duty_rub) / float(engine_cc), 2)
+                rate_line = f"{rate_rub_per_cc} ₽/см³ × {engine_cc} см³"
             except Exception:
                 rate_line = ""
 
