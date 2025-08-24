@@ -23,3 +23,14 @@ EMAIL_TO = os.getenv("EMAIL_TO")
 # misconfigured environments early.
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not configured. Check your .env file")
+
+# Ensure email configuration is fully specified to avoid runtime failures
+for var_name, value in [
+    ("SMTP_SERVER", SMTP_SERVER),
+    ("EMAIL_LOGIN", EMAIL_LOGIN),
+    ("EMAIL_PASSWORD", EMAIL_PASSWORD),
+    ("EMAIL_TO", EMAIL_TO),
+]:
+    if not value:
+        raise RuntimeError(f"{var_name} is not configured. Check your .env file")
+
