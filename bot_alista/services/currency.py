@@ -8,10 +8,12 @@ This module prefers the :mod:`currency_converter` library but falls back to
 
 import logging
 
+logger = logging.getLogger(__name__)
+
 try:
     from currency_converter import CurrencyConverter
 except Exception:  # pragma: no cover - fallback to free library
-    logging.getLogger(__name__).warning(
+    logger.warning(
         "currency_converter not available; using currency_converter_free instead"
     )
     from currency_converter_free import CurrencyConverter

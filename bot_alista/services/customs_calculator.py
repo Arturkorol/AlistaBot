@@ -225,10 +225,11 @@ class CustomsCalculator:
 
     def _duty(self, age: VehicleAge, engine_type: EngineType, engine_cc: int) -> float:
         cfg = self.tariffs["age_groups"][age.value][engine_type.value]
-        rate = cfg.get("rate_per_cc", 0)
-        min_duty = cfg.get("min_duty", 0)
+        rate_rub = cfg.get("rate_per_cc", 0)
+        min_duty_rub = cfg.get("min_duty", 0)
+        duty_rub = max(rate_rub * engine_cc, min_duty_rub)
         # Tariff values are expressed in RUB; convert to EUR for calculations
-        return float(max(rate * engine_cc, min_duty)) / self.eur_rate
+        return float(duty_rub) / self.eur_rate
 
     def _excise(self, engine_type: EngineType, power: int) -> float:
         rate_rub = self.tariffs["excise_rates"].get(engine_type.value, 0)
