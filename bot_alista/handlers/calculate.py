@@ -67,12 +67,12 @@ CAR_TYPE_MAP = {
 
 @router.message(F.text == BTN_CALC)
 async def start_calculation(message: types.Message, state: FSMContext) -> None:
-    nav = NavigationManager(total_steps=9)
+    nav = NavigationManager(total_steps=10)  # теперь 10 шагов
     await state.update_data(_nav=nav)
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.person_type, PROMPT_PERSON, person_type_kb()),
+        NavStep(CalculationStates.method_choice, PROMPT_METHOD, method_type_kb()),
     )
 
 
@@ -80,6 +80,20 @@ async def start_calculation(message: types.Message, state: FSMContext) -> None:
 async def customs_command(message: types.Message, state: FSMContext) -> None:
     await start_calculation(message, state)
 
+@router.message(CalculationStates.method_choice)
+async def get_method_choice(message: types.Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    nav: NavigationManager | None = data.get("_nav")
+    if message.text not in {BTN_METHOD_ETC, BTN_METHOD_CTP}:
+        await message.answer(PROMPT_METHOD)
+        return
+    method = "ETC" if message.text == BTN_METHOD_ETC else "CTP"
+    await state.update_data(method=method)
+    await nav.push(
+        message,
+        state,
+        NavStep(CalculationStates.person_type, PROMPT_PERSON, person_type_kb()),
+    )
 
 @router.message(CalculationStates.person_type)
 async def get_person_type(message: types.Message, state: FSMContext) -> None:
