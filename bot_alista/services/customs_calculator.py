@@ -19,6 +19,7 @@ from bot_alista.clearance_fee import (
     calc_clearance_fee_rub,
 )
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.rules.age import compute_actual_age_years
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ class _Vehicle:
     engine_capacity: int
     engine_type: EngineType
     power: int
+    production_year: int
     price_rub: float
     owner_type: VehicleOwnerType
     currency: str
@@ -102,6 +104,7 @@ class CustomsCalculator:
         engine_capacity: int,
         engine_type: str | EngineType,
         power: int,
+        production_year: int,
         price: float,
         owner_type: str | VehicleOwnerType,
         currency: str = "USD",
@@ -123,10 +126,10 @@ class CustomsCalculator:
         except ValueError as exc:
             raise WrongParamException(str(exc))
 
-        if engine_enum in (EngineType.ELECTRIC, EngineType.HYBRID):
+        if engine_enum is EngineType.ELECTRIC:
             if engine_capacity != 0:
                 raise WrongParamException(
-                    "engine_capacity must be 0 for electric/hybrid vehicles"
+                    "engine_capacity must be 0 for electric vehicles"
                 )
         elif engine_capacity < 800 or engine_capacity > 8000:
             raise WrongParamException("engine_capacity out of range")
@@ -141,6 +144,7 @@ class CustomsCalculator:
             engine_capacity=int(engine_capacity),
             engine_type=engine_enum,
             power=int(power),
+            production_year=int(production_year),
             price_rub=float(price_rub),
             owner_type=owner_enum,
             currency=currency.upper(),
@@ -161,7 +165,7 @@ class CustomsCalculator:
     # ------------------------------------------------------------------
     # Fee helpers
     # ------------------------------------------------------------------
-    def _calculate_util_fee(self, v: _Vehicle) -> float:
+    def _calculate_util_fee(self, v: _Vehicle, age_years: float, decl_date: date) -> float:
         fuel = (
             "ev"
             if v.engine_type is EngineType.ELECTRIC
@@ -175,18 +179,7 @@ class CustomsCalculator:
             if v.owner_type is VehicleOwnerType.INDIVIDUAL
             else "commercial"
         )
-        age_map = {
-            VehicleAge.NEW: 0.0,
-            VehicleAge.ONE_TO_THREE: 2.0,
-            VehicleAge.THREE_TO_FIVE: 4.0,
-            VehicleAge.FIVE_TO_SEVEN: 6.0,
-            VehicleAge.OVER_SEVEN: 8.0,
-        }
-        age_years = age_map.get(v.age, 0.0)
 
-        decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
-        if isinstance(decl_date, str):
-            decl_date = date.fromisoformat(decl_date)
         util_cfg = copy.deepcopy(UTIL_CONFIG)
         if self.tariffs.get("util_not_in_list"):
             util_cfg["not_in_list"] = True
@@ -244,8 +237,15 @@ class CustomsCalculator:
         price_rub = v.price_rub
         vat_rate = self.tariffs.get("vat_rate", BASE_VAT)
 
-        duty_rate = 0.2
-        min_duty_per_cc = to_rub(0.44, "EUR")
+        ctp_cfg = self.tariffs.get("ctp")
+        if not ctp_cfg:
+            raise WrongParamException("ctp tariffs not configured")
+        try:
+            duty_rate = ctp_cfg["duty_rate"]
+            min_cc_eur = ctp_cfg["min_per_cc_eur"]
+        except KeyError as exc:
+            raise WrongParamException(f"missing CTP tariff parameter: {exc}")
+        min_duty_per_cc = to_rub(min_cc_eur, "EUR")
         duty_rub = max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity)
 
         excise = self.calculate_excise()
@@ -253,7 +253,11 @@ class CustomsCalculator:
         vat = (price_rub + duty_rub + excise) * vat_rate
 
         clearance_fee = self.calculate_clearance_tax()
-        util_fee = self._calculate_util_fee(v)
+        decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
+        if isinstance(decl_date, str):
+            decl_date = date.fromisoformat(decl_date)
+        age_years = compute_actual_age_years(v.production_year, decl_date)
+        util_fee = self._calculate_util_fee(v, age_years, decl_date)
 
         total_pay = duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
         res = {
@@ -280,7 +284,11 @@ class CustomsCalculator:
         duty_rub = max(rate_per_cc * v.engine_capacity, min_duty_rub)
 
         clearance_fee = self.calculate_clearance_tax()
-        util_fee = self._calculate_util_fee(v)
+        decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
+        if isinstance(decl_date, str):
+            decl_date = date.fromisoformat(decl_date)
+        age_years = compute_actual_age_years(v.production_year, decl_date)
+        util_fee = self._calculate_util_fee(v, age_years, decl_date)
         recycling_fee = self.calculate_recycling_fee()
 
         total_pay = duty_rub + clearance_fee + util_fee + recycling_fee
@@ -304,18 +312,12 @@ class CustomsCalculator:
         v = self._require_vehicle()
         if v.owner_type is VehicleOwnerType.COMPANY:
             return self.calculate_ctp()
+        original = copy.deepcopy(v)
+        self.vehicle = copy.deepcopy(original)
         etc = self.calculate_etc()
-        self.set_vehicle_details(
-            age=v.age,
-            engine_capacity=v.engine_capacity,
-            engine_type=v.engine_type,
-            power=v.power,
-            price=v.price_rub,
-            owner_type=v.owner_type,
-            currency="RUB",
-            vehicle_type=v.vehicle_type,
-        )
+        self.vehicle = copy.deepcopy(original)
         ctp = self.calculate_ctp()
+        self.vehicle = original
         chosen = ctp if ctp["total_rub"] >= etc["total_rub"] else etc
         self._last_result = chosen
         return chosen

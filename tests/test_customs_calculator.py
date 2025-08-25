@@ -6,11 +6,15 @@ from enum import Enum
 from datetime import date
 import copy
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import pytest
 import yaml
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.rules.age import compute_actual_age_years
 
-ROOT = Path(__file__).resolve().parents[1]
 SERVICES_PATH = ROOT / "bot_alista" / "services"
 
 # Create a minimal ``services`` package without executing the real
@@ -80,6 +84,7 @@ def calc() -> CustomsCalculator:
     """Return a calculator using the test exchange rate and tariffs."""
     tariffs = copy.deepcopy(TARIFFS)
     tariffs["util_date"] = date(2024, 1, 1)
+    tariffs["ctp"] = {"duty_rate": 0.2, "min_per_cc_eur": 0.44}
     return CustomsCalculator(tariffs=tariffs)
 
 
@@ -91,6 +96,7 @@ def vehicle_usd() -> dict:
         "engine_capacity": 2000,
         "engine_type": EngineType("gasoline"),
         "power": 150,
+        "production_year": 2017,
         "price": 10000,
         "owner_type": OwnerType("individual"),
         "currency": "USD",
@@ -104,22 +110,22 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
 
     price_rub = to_rub(vehicle_usd["price"], "USD")
 
-    tariffs = TARIFFS
+    tariffs = calc.tariffs
     vt = tariffs["vehicle_types"]["passenger"]
-    min_duty_rub = to_rub(0.44, "EUR") * vehicle_usd["engine_capacity"]
-    duty_rub = max(price_rub * 0.2, min_duty_rub)
+    min_duty_rub = to_rub(tariffs["ctp"]["min_per_cc_eur"], "EUR") * vehicle_usd["engine_capacity"]
+    duty_rub = max(price_rub * tariffs["ctp"]["duty_rate"], min_duty_rub)
     excise_rub = vt["excise_rates"]["gasoline"] * vehicle_usd["power"]
     usage = "personal" if vehicle_usd["owner_type"].value == "individual" else "commercial"
     fuel = "ice"
     vehicle_kind = "passenger"
-    age_map = {"new": 0.0, "1-3": 2.0, "3-5": 4.0, "5-7": 6.0, "over_7": 8.0}
+    age_years = compute_actual_age_years(vehicle_usd["production_year"], calc.tariffs["util_date"])
     util_rub = calc_util_rub(
         person_type=vehicle_usd["owner_type"].value,
         usage=usage,
         engine_cc=vehicle_usd["engine_capacity"],
         fuel=fuel,
         vehicle_kind=vehicle_kind,
-        age_years=age_map[vehicle_usd["age"].value],
+        age_years=age_years,
         date_decl=calc.tariffs["util_date"],
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
@@ -181,6 +187,13 @@ def test_calculate_auto_selects_higher(calc: CustomsCalculator, vehicle_usd: dic
     assert auto == expected
 
 
+def test_calculate_auto_does_not_mutate_vehicle(calc: CustomsCalculator, vehicle_usd: dict):
+    calc.set_vehicle_details(**vehicle_usd)
+    before = copy.deepcopy(calc.vehicle)
+    calc.calculate_auto()
+    assert calc.vehicle == before
+
+
 def test_vehicle_type_truck(calc: CustomsCalculator, vehicle_usd: dict):
     params = dict(vehicle_usd)
     params["vehicle_type"] = VehicleType("truck")
@@ -212,6 +225,7 @@ def test_currency_conversion(calc: CustomsCalculator, currency: str):
         engine_capacity=1000,
         engine_type=EngineType("gasoline"),
         power=100,
+        production_year=2024,
         price=amount,
         owner_type=OwnerType("individual"),
         currency=currency,
@@ -228,6 +242,7 @@ def test_invalid_engine_capacity_low(calc: CustomsCalculator):
             engine_capacity=500,
             engine_type=EngineType("gasoline"),
             power=100,
+            production_year=2024,
             price=1000,
             owner_type=OwnerType("individual"),
             currency="EUR",
@@ -241,10 +256,25 @@ def test_invalid_engine_capacity_high(calc: CustomsCalculator):
             engine_capacity=9000,
             engine_type=EngineType("gasoline"),
             power=100,
+            production_year=2024,
             price=1000,
             owner_type=OwnerType("individual"),
             currency="EUR",
         )
+
+
+def test_hybrid_allows_non_zero_capacity(calc: CustomsCalculator):
+    calc.set_vehicle_details(
+        age=AgeGroup("new"),
+        engine_capacity=1600,
+        engine_type=EngineType("hybrid"),
+        power=100,
+        production_year=2023,
+        price=1000,
+        owner_type=OwnerType("individual"),
+        currency="EUR",
+    )
+    assert calc.vehicle.engine_capacity == 1600
 
 
 def test_unsupported_currency(calc: CustomsCalculator):
@@ -254,6 +284,7 @@ def test_unsupported_currency(calc: CustomsCalculator):
             engine_capacity=1000,
             engine_type=EngineType("gasoline"),
             power=100,
+            production_year=2024,
             price=1000,
             owner_type=OwnerType("individual"),
             currency="ABC",
@@ -267,6 +298,7 @@ def test_unsupported_age_group(calc: CustomsCalculator):
             engine_capacity=1000,
             engine_type=EngineType("gasoline"),
             power=100,
+            production_year=2010,
             price=1000,
             owner_type=OwnerType("individual"),
             currency="EUR",
@@ -280,6 +312,7 @@ def test_invalid_engine_type_enum(calc: CustomsCalculator):
             engine_capacity=2000,
             engine_type="rocket",
             power=100,
+            production_year=2018,
             price=1000,
             owner_type=OwnerType("individual"),
             currency="EUR",

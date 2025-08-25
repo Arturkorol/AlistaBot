@@ -422,11 +422,13 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             age_group = "over_7"
 
         calc = CustomsCalculator()
+        calc.tariffs.setdefault("ctp", {"duty_rate": 0.2, "min_per_cc_eur": 0.44})
         calc.set_vehicle_details(
             age=age_group,
             engine_capacity=engine_cc,
             engine_type=fuel_type,
             power=engine_hp,
+            production_year=year,
             price=amount,
             owner_type=person_type,
             currency=currency_code,
