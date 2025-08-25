@@ -114,9 +114,9 @@ def load_rules(path: str = str(DATA_PATH)) -> List[RuleRow]:
             # Individuals (FL), passenger, ≤3y, 2301–3000 cc: STP 5.0 €/cc min
             RuleRow("Легковой", "M1", "Бензин", "≤3", 2301, 3000, None, None, "СТП", None, None, None, None, 5.0, None, None),
             # Individuals (FL), passenger, 3–5y, 2301–3000 cc: STP 3.0 €/cc
-            RuleRow("Легковой", "M1", "Бензин", "3–5", 2301, 3000, None, None, "СТП", None, None, 3.0, None, None, None),
+            RuleRow("Легковой", "M1", "Бензин", "3–5", 2301, 3000, None, None, "СТП", None, None, 3.0, None, None, None, None),
             # Individuals (FL), >7y, >3000 cc: STP 5.7 €/cc
-            RuleRow("Легковой", "M1", "Бензин", ">7", 3001, 10000, None, None, "СТП", None, None, 5.7, None, None, None),
+            RuleRow("Легковой", "M1", "Бензин", ">7", 3001, 10000, None, None, "СТП", None, None, 5.7, None, None, None, None),
             # Companies (UL), 3–7y, 2301–3000 cc: 20% but ≥ 0.44 €/cc, VAT 20%, excise ladder must be supplied separately
             RuleRow("Легковой", "M1", "Бензин", "3–7", 2301, 3000, None, None, "Адвалор+Мин", 20.0, 0.44, None, None, None, 20.0, 0.0),
         ]

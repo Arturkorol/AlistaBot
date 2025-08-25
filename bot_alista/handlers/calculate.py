@@ -375,7 +375,11 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         else:
             age_group = "over_7"
         tariffs = await get_tariffs_async()
-        calc = CustomsCalculator(tariffs=tariffs)
+        try:
+            calc = CustomsCalculator(tariffs=tariffs)
+        except TypeError:
+            calc = CustomsCalculator()
+            calc.tariffs = tariffs
         calc.tariffs.setdefault("ctp", {"duty_rate": 0.2, "min_per_cc_eur": 0.44})
         calc.set_vehicle_details(
             age=age_group,
@@ -387,40 +391,30 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             owner_type=person_type,
             currency=currency_code,
         )
-        method = data.get("method", "ETC")  
+        method = data.get("method")
         if method == "ETC":
             breakdown = calc.calculate_etc()
-            customs_value_rub = calc.convert_to_local_currency(calc.vehicle_price, calc.vehicle_currency)
-            core = {
-                "breakdown": {
-                    "customs_value_rub": customs_value_rub,
-                    "duty_rub": breakdown["Duty (RUB)"],
-                    "excise_rub": 0.0,
-                    "vat_rub": 0.0,
-                    "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
-                    "util_rub": breakdown["Util Fee (RUB)"],
-                    "recycling_rub": breakdown["Recycling Fee (RUB)"],
-                    "total_rub": breakdown["Total Pay (RUB)"],
-                },
-                "notes": [],
-            }
-        else:
+        elif method == "CTP":
             breakdown = calc.calculate_ctp()
-            core = {
-                "breakdown": {
-                    "customs_value_rub": breakdown["Price (RUB)"],
-                    "duty_rub": breakdown["Duty (RUB)"],
-                    "excise_rub": breakdown["Excise (RUB)"],
-                    "vat_rub": breakdown["VAT (RUB)"],
-                    "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
-                    "util_rub": breakdown["Util Fee (RUB)"],
-                    "recycling_rub": 0.0,
-                    "total_rub": breakdown["Total Pay (RUB)"],
-                },
-                "notes": [],
-            }
+        else:
+            breakdown = calc.calculate_auto()
 
-        duty_rub = breakdown.get("duty_rub")
+        customs_value_rub = breakdown["price_rub"]
+        core = {
+            "breakdown": {
+                "customs_value_rub": customs_value_rub,
+                "duty_rub": breakdown["duty_rub"],
+                "excise_rub": breakdown.get("excise_rub", 0.0),
+                "vat_rub": breakdown.get("vat_rub", 0.0),
+                "clearance_fee_rub": breakdown["fee_rub"],
+                "util_rub": breakdown.get("util_rub", 0.0),
+                "recycling_rub": breakdown.get("recycling_rub", 0.0),
+                "total_rub": breakdown["total_rub"],
+            },
+            "notes": [],
+        }
+
+        duty_rub = core["breakdown"]["duty_rub"]
         rate_line = ""
         if duty_rub and engine_cc:
             try:
