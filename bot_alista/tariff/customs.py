@@ -1,36 +1,16 @@
-"""Customs duties calculator for vehicle imports into Russia.
-
-This module implements two calculation modes corresponding to
-ETC (Unified Rate) and CTP (Comprehensive Customs Payment).
-It mirrors the simplified logic of the Russian TKS system and
-can be easily integrated with the Telegram bot.
-"""
+"""Unified customs calculator supporting ETC and CTP modes."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Optional
 
 import yaml
-from currency_converter_free import CurrencyConverter
 
-# Clearance fee ladder used for CTP calculations.
-CUSTOMS_CLEARANCE_TAX_RANGES = [
-    (200_000, 775),
-    (450_000, 1_550),
-    (1_200_000, 3_100),
-    (2_700_000, 8_530),
-    (4_200_000, 12_000),
-    (5_500_000, 15_500),
-    (7_000_000, 20_000),
-    (8_000_000, 23_000),
-    (9_000_000, 25_000),
-    (10_000_000, 27_000),
-    (float("inf"), 30_000),
-]
+from bot_alista.clearance_fee import calc_clearance_fee_rub
 
 
 @dataclass
-class VehicleDetails:
+class Vehicle:
     age: str
     engine_capacity: int
     engine_type: str
@@ -46,12 +26,12 @@ class CustomsCalculator:
     def __init__(self, config_path: str) -> None:
         with open(config_path, "r", encoding="utf-8") as fh:
             self.config = yaml.safe_load(fh)
-        self.converter = CurrencyConverter()
-        self.vehicle: Optional[VehicleDetails] = None
+        self.vehicle: Optional[Vehicle] = None
 
     # ------------------------------------------------------------------
-    def set_vehicle_details(
+    def set_vehicle(
         self,
+        *,
         age: str,
         engine_capacity: int,
         engine_type: str,
@@ -62,7 +42,7 @@ class CustomsCalculator:
     ) -> None:
         """Store vehicle parameters for subsequent calculations."""
 
-        self.vehicle = VehicleDetails(
+        self.vehicle = Vehicle(
             age=age,
             engine_capacity=engine_capacity,
             engine_type=engine_type.lower(),
@@ -74,22 +54,17 @@ class CustomsCalculator:
 
     # ------------------------------------------------------------------
     # Helper methods
-    def _ensure_vehicle(self) -> VehicleDetails:
+    def _ensure_vehicle(self) -> Vehicle:
         if not self.vehicle:
             raise ValueError("Vehicle details have not been set")
         return self.vehicle
 
     def _price_rub(self, price: float, currency: str) -> float:
-        return float(self.converter.convert(price, currency, "RUB"))
+        rate = self.config["currency_rates"][currency.upper()]
+        return price * rate
 
     def _eur_to_rub(self) -> float:
-        return float(self.converter.convert(1, "EUR", "RUB"))
-
-    def _ctp_clearance_fee(self, price_rub: float) -> float:
-        for limit, fee in CUSTOMS_CLEARANCE_TAX_RANGES:
-            if price_rub <= limit:
-                return fee
-        return CUSTOMS_CLEARANCE_TAX_RANGES[-1][1]
+        return self.config["currency_rates"]["EUR"]
 
     # ------------------------------------------------------------------
     # Calculation methods
@@ -120,15 +95,14 @@ class CustomsCalculator:
         total = duty + clearance_fee + util_fee + recycling_fee
 
         return {
-            "Mode": "ETC",
-            "Price (RUB)": price_rub,
-            "Duty (RUB)": duty,
-            "Excise (RUB)": 0.0,
-            "VAT (RUB)": 0.0,
-            "Clearance Fee (RUB)": clearance_fee,
-            "Util Fee (RUB)": util_fee,
-            "Recycling Fee (RUB)": recycling_fee,
-            "Total Pay (RUB)": total,
+            "price_rub": price_rub,
+            "duty_rub": duty,
+            "excise_rub": 0.0,
+            "vat_rub": 0.0,
+            "clearance_rub": clearance_fee,
+            "util_rub": util_fee,
+            "recycling_rub": recycling_fee,
+            "total_rub": total,
         }
 
     def calculate_ctp(self) -> Dict[str, float]:
@@ -147,27 +121,31 @@ class CustomsCalculator:
         excise = v.power * excise_rate
         vat = 0.2 * (price_rub + duty + excise)
 
-        clearance_fee = self._ctp_clearance_fee(price_rub)
+        clearance_fee = calc_clearance_fee_rub(
+            price_rub, self.config.get("clearance_fee_ranges")
+        )
         util_fee = tariffs.get("base_util_fee", 0) * tariffs.get("ctp_util_coeff_base", 1)
 
         total = duty + excise + vat + clearance_fee + util_fee
 
         return {
-            "Mode": "CTP",
-            "Price (RUB)": price_rub,
-            "Duty (RUB)": duty,
-            "Excise (RUB)": excise,
-            "VAT (RUB)": vat,
-            "Clearance Fee (RUB)": clearance_fee,
-            "Util Fee (RUB)": util_fee,
-            "Recycling Fee (RUB)": 0.0,
-            "Total Pay (RUB)": total,
+            "price_rub": price_rub,
+            "duty_rub": duty,
+            "excise_rub": excise,
+            "vat_rub": vat,
+            "clearance_rub": clearance_fee,
+            "util_rub": util_fee,
+            "recycling_rub": 0.0,
+            "total_rub": total,
         }
 
-    def auto_calculate(self) -> Dict[str, float]:
+    def calculate_auto(self) -> Dict[str, float]:
         v = self._ensure_vehicle()
         if v.age in {"new", "1-3", "3-5"}:
             return self.calculate_ctp()
         if v.age in {"5-7", "over_7"}:
             return self.calculate_etc()
         raise ValueError(f"Unsupported age group: {v.age}")
+
+
+__all__ = ["CustomsCalculator"]

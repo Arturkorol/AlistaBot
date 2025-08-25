@@ -1,11 +1,12 @@
 import pytest
 from datetime import date
-import pytest
 
-tariff_engine = pytest.importorskip("tariff_engine")
-calc_import_breakdown = tariff_engine.calc_import_breakdown
-calc_breakdown_rules = tariff_engine.calc_breakdown_rules
-calc_breakdown_with_mode = tariff_engine.calc_breakdown_with_mode
+from bot_alista.tariff import (
+    calc_breakdown_rules,
+    calc_breakdown_with_mode,
+    calc_import_breakdown,
+    eur_to_rub,
+)
 
 
 def test_calc_import_breakdown_export_disabled_vehicle():
@@ -127,7 +128,7 @@ def test_calc_import_breakdown_validation_errors_engine_range():
 
 
 def test_decimal_rounding():
-    assert tariff_engine.eur_to_rub(0.005, 1) == 0.01
+    assert eur_to_rub(0.005, 1) == 0.01
 
 
 def test_personal_duty_loader():
