@@ -5,7 +5,7 @@ from bot_alista.keyboards.navigation import back_menu
 from bot_alista.services.email import send_email
 from bot_alista.services.pdf_report import generate_request_pdf
 from bot_alista.utils.reset import reset_to_menu
-from bot_alista.config import EMAIL_TO
+from bot_alista.settings import settings
 
 from bot_alista.constants import (
     BTN_LEAD,
@@ -149,7 +149,7 @@ async def get_comment(message: types.Message, state: FSMContext):
     # Отправляем на e-mail менеджера
     email_sent = await asyncio.to_thread(
         send_email,
-        EMAIL_TO,
+        settings.EMAIL_TO,
         "Заявка на растаможку",
         email_body,
         pdf_path,

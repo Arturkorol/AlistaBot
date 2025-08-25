@@ -12,7 +12,7 @@ import asyncio
 import json
 import xml.etree.ElementTree as ET
 
-import requests
+import aiohttp
 
 SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY")
 CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
@@ -48,13 +48,13 @@ async def _fetch_cbr_rates(
 
     for attempt in range(1, retries + 1):
         try:
-            resp = await asyncio.to_thread(
-                requests.get, CBR_URL, params=params, timeout=timeout
-            )
-            resp.raise_for_status()
-            resp.encoding = "windows-1251"
-            root = ET.fromstring(resp.text)
-        except (requests.RequestException, ET.ParseError) as exc:
+            timeout_cfg = aiohttp.ClientTimeout(total=timeout)
+            async with aiohttp.ClientSession(timeout=timeout_cfg) as session:
+                async with session.get(CBR_URL, params=params) as resp:
+                    resp.raise_for_status()
+                    text = await resp.text(encoding="windows-1251")
+            root = ET.fromstring(text)
+        except (aiohttp.ClientError, ET.ParseError) as exc:
             if attempt == retries:
                 raise RuntimeError("Ошибка получения данных ЦБ РФ") from exc
             await asyncio.sleep(attempt)
@@ -79,6 +79,7 @@ async def _fetch_cbr_rates(
             )
         return rates
     raise RuntimeError("Не удалось получить курсы валют ЦБ РФ")
+
 
 
 # ---------------------------------------------------------------------------
@@ -118,12 +119,12 @@ async def get_cached_rates(
     cached_rates: Dict[str, float] = {}
     if cache.exists():
         try:
-            with cache.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            cached_rates = data.get("rates", {})
+            content = await asyncio.to_thread(cache.read_text, encoding='utf-8')
+            data = json.loads(content)
+            cached_rates = data.get('rates', {})
             if all(code in cached_rates for code in codes):
                 return {code: cached_rates[code] for code in codes}
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, OSError):
             cached_rates = {}
 
     missing = [code for code in codes if code not in cached_rates]
@@ -133,15 +134,18 @@ async def get_cached_rates(
         )
         cached_rates.update(fresh)
         payload = {
-            "date": for_date.isoformat(),
-            "provider": "CBR",
-            "base": "RUB",
-            "rates": cached_rates,
+            'date': for_date.isoformat(),
+            'provider': 'CBR',
+            'base': 'RUB',
+            'rates': cached_rates,
         }
-        with cache.open("w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False)
-    return {code: cached_rates[code] for code in codes}
+        await asyncio.to_thread(
 
+            cache.write_text,
+            json.dumps(payload, ensure_ascii=False),
+            encoding='utf-8',
+        )
+    return {code: cached_rates[code] for code in codes}
 
 async def get_cached_rate(
     for_date: date,

@@ -7,7 +7,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from bot_alista.config import EMAIL_LOGIN, EMAIL_PASSWORD, SMTP_SERVER, SMTP_PORT
+from bot_alista.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def send_email(
 
     try:
         msg = MIMEMultipart()
-        msg["From"] = EMAIL_LOGIN
+        msg["From"] = settings.EMAIL_LOGIN
         msg["To"] = to_email
         msg["Subject"] = subject
 
@@ -39,8 +39,8 @@ def send_email(
                 msg.attach(attach)
 
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context) as server:
-            server.login(EMAIL_LOGIN, EMAIL_PASSWORD)
+        with smtplib.SMTP_SSL(settings.SMTP_SERVER, settings.SMTP_PORT, context=context) as server:
+            server.login(settings.EMAIL_LOGIN, settings.EMAIL_PASSWORD)
             server.send_message(msg)
 
         logger.info("Email отправлен на %s", to_email)
