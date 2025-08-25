@@ -47,7 +47,14 @@ from bot_alista.services.rates import (
 from bot_alista.formatting import format_result_message
 from bot_alista.services.customs_calculator import CustomsCalculator
 from bot_alista.services.tariffs import get_tariffs_async
-from .calc_ui import (person_type_kb, usage_type_kb, car_type_kb, currency_kb, age_over3_kb)
+from .calc_ui import (
+    person_type_kb,
+    usage_type_kb,
+    car_type_kb,
+    currency_kb,
+    age_over3_kb,
+    method_type_kb,
+)
 from bot_alista.rules.age import compute_actual_age_years
 from bot_alista.handlers.faq import show_faq
 
