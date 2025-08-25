@@ -17,18 +17,25 @@ vehicle_types:
       diesel: 58
       electric: 0
       hybrid: 58
-    recycling_factors:
-      default:
+    recycling_fee:
+      # Base recycling fee before multipliers
+      base_rate: 20000
+      # Engine type multipliers
+      engine_factors:
         gasoline: 1.0
         diesel: 1.1
         electric: 0.3
         hybrid: 1.0
-      adjustments:
+      # Age-specific multipliers applied on top of engine factors
+      age_adjustments:
         "5-7":
           gasoline: 0.26
           diesel: 0.26
           electric: 0.26
           hybrid: 0.26
+      # Optional owner-type multipliers
+      owner_multipliers:
+        company: 1.2
     age_groups:
       new:
         gasoline:

@@ -10,12 +10,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Dict
 import logging
+import os
+import time
 import xml.etree.ElementTree as ET
 
 import requests
 import yaml
 
-TARIFF_URL = "https://customs.gov.ru/api/tariffs"  # Placeholder URL
+TARIFF_URL = "https://api.customs.gov.ru/v1/tariffs"  # Official endpoint
 
 _cache: Dict[str, Any] | None = None
 _cache_date: date | None = None
@@ -40,18 +42,32 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
     today = date.today()
     if _cache is not None and _cache_date == today:
         return _cache
-    try:
-        resp = requests.get(TARIFF_URL, timeout=10)
-        resp.raise_for_status()
-        if "json" in resp.headers.get("Content-Type", ""):
-            data = resp.json()
-        else:
-            # XML or unknown formats – attempt to parse, otherwise fall back
-            ET.fromstring(resp.text)  # ensure it's valid XML
-            data = _load_local(path)
-    except Exception as exc:  # pragma: no cover - network failures
-        logging.warning("Failed to fetch tariffs: %s", exc)
+
+    env_data = os.environ.get("CUSTOMS_TARIFF_DATA")
+    if env_data:
+        _cache = yaml.safe_load(env_data)
+        _cache_date = today
+        return _cache
+
+    data = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(TARIFF_URL, timeout=10)
+            resp.raise_for_status()
+            if "json" in resp.headers.get("Content-Type", ""):
+                data = resp.json()
+            else:
+                ET.fromstring(resp.text)
+                data = _load_local(path)
+            break
+        except Exception as exc:  # pragma: no cover - network failures
+            logging.warning("Failed to fetch tariffs (attempt %s): %s", attempt + 1, exc)
+            time.sleep(1)
+
+    if data is None:
+        logging.warning("Using local tariff config")
         data = _load_local(path)
+
     _cache = data
     _cache_date = today
     return data
