@@ -78,4 +78,5 @@ __all__ = [
     "car_type_kb",
     "currency_kb",
     "age_over3_kb",
+    "method_type_kb",
 ]
