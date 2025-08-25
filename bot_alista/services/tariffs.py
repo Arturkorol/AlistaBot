@@ -36,6 +36,15 @@ def _load_local(path: str | Path | None = None) -> Dict[str, Any]:
         return yaml.safe_load(fh)
 
 
+def _validate(data: Dict[str, Any]) -> None:
+    required = {"clearance_tax_ranges", "vehicle_types"}
+    if not isinstance(data, dict):
+        raise ValueError("Tariff data must be a mapping")
+    missing = required - set(data.keys())
+    if missing:
+        raise ValueError(f"Missing keys: {', '.join(sorted(missing))}")
+
+
 def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
     """Return tariff configuration with caching and network fallback."""
     global _cache, _cache_date
@@ -45,7 +54,9 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
 
     env_data = os.environ.get("CUSTOMS_TARIFF_DATA")
     if env_data:
-        _cache = yaml.safe_load(env_data)
+        data = yaml.safe_load(env_data)
+        _validate(data)
+        _cache = data
         _cache_date = today
         return _cache
 
@@ -55,10 +66,12 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
             resp = requests.get(TARIFF_URL, timeout=10)
             resp.raise_for_status()
             if "json" in resp.headers.get("Content-Type", ""):
-                data = resp.json()
+                candidate = resp.json()
             else:
                 ET.fromstring(resp.text)
-                data = _load_local(path)
+                candidate = _load_local(path)
+            _validate(candidate)
+            data = candidate
             break
         except Exception as exc:  # pragma: no cover - network failures
             logging.warning("Failed to fetch tariffs (attempt %s): %s", attempt + 1, exc)
@@ -67,6 +80,12 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
     if data is None:
         logging.warning("Using local tariff config")
         data = _load_local(path)
+
+    try:
+        _validate(data)
+    except ValueError:
+        logging.warning("Local tariff config invalid; returning empty dict")
+        data = {}
 
     _cache = data
     _cache_date = today

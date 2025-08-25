@@ -29,6 +29,10 @@ for invalid inputs.
 from datetime import date
 from typing import Dict, Literal
 import copy
+from functools import lru_cache
+from pathlib import Path
+import os
+import yaml
 
 PersonType = Literal["individual", "company"]
 UsageType = Literal["personal", "commercial"]
@@ -196,7 +200,7 @@ def calc_util_rub(
     date_decl: date,
     avg_vehicle_cost_rub: float | None,
     actual_costs_rub: float | None,
-    config: Dict,
+    config: Dict | None = None,
 ) -> float:
     """Calculate final utilization fee (US) in rubles.
 
@@ -212,6 +216,8 @@ def calc_util_rub(
 
     Parameters are validated and the result is rounded to two decimals.
     """
+
+    config = config or load_util_config()
 
     us_ed = calc_util_ed_rub(
         person_type=person_type,
@@ -257,37 +263,22 @@ def calc_util_rub(
     return round(result, 2)
 
 
-UTIL_CONFIG: Dict = {
-    "base_rates_rub": {"passenger": 20000, "commercial": 150000},
-    "coefficients_personal": {
-        "<=3y": {
-            "ev": 0.17,
-            "hybrid": 0.17,
-            "cc<=1000": 0.17,
-            "cc1000_2000": 0.17,
-            "cc2000_3000": 0.17,
-            "cc3000_3500": 107.67,
-            "cc>3500": 137.11,
-        },
-        ">3y": {
-            "ev": 0.26,
-            "hybrid": 0.26,
-            "cc<=1000": 0.26,
-            "cc1000_2000": 0.26,
-            "cc2000_3000": 0.26,
-            "cc3000_3500": 164.84,
-            "cc>3500": 180.24,
-        },
-    },
-    "coefficients_commercial": {"ev_or_hybrid": 33.37, "default": 10.0},
-    "date_rules": {
-        "2025-05-01": {
-            "formula": "ed_plus_half_diff",
-            "half_diff_factor": 0.5,
-            "not_list_multiplier": 3.0,
-        }
-    },
-}
+DEFAULT_UTIL_CONFIG_PATH = (
+    Path(__file__).resolve().parents[1] / "data" / "util_fee.yaml"
+)
+
+
+@lru_cache(maxsize=1)
+def load_util_config(path: str | Path | None = None) -> Dict:
+    """Load utilization fee configuration from YAML.
+
+    The path can be overridden by ``UTIL_FEE_CONFIG`` environment variable.
+    """
+
+    env_path = os.environ.get("UTIL_FEE_CONFIG")
+    path = Path(env_path or path or DEFAULT_UTIL_CONFIG_PATH)
+    with path.open("r", encoding="utf-8") as fh:
+        return yaml.safe_load(fh)
 
 
 if __name__ == "__main__":
@@ -303,7 +294,7 @@ if __name__ == "__main__":
         date_decl=date(2024, 6, 1),
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
-        config=copy.deepcopy(UTIL_CONFIG),
+        config=copy.deepcopy(load_util_config()),
     )
     print(f"Example 1: {fee1} RUB")
 
@@ -318,12 +309,12 @@ if __name__ == "__main__":
         date_decl=date(2024, 6, 1),
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
-        config=copy.deepcopy(UTIL_CONFIG),
+        config=copy.deepcopy(load_util_config()),
     )
     print(f"Example 2: {fee2} RUB")
 
     # Example 3: post-2025 with cost difference and not-in-list multiplier
-    config3 = copy.deepcopy(UTIL_CONFIG)
+    config3 = copy.deepcopy(load_util_config())
     config3["not_in_list"] = True
     fee3 = calc_util_rub(
         person_type="individual",

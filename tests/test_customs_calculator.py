@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
 
 import pytest
 import yaml
-from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.tariff.util_fee import calc_util_rub, load_util_config
 from bot_alista.rules.age import compute_actual_age_years
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -129,7 +129,7 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
         date_decl=calc.tariffs["util_date"],
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
-        config=copy.deepcopy(UTIL_CONFIG),
+        config=copy.deepcopy(load_util_config()),
     ))
     rc = vt["recycling_fee"]
     recycling_rub = rnd(
