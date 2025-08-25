@@ -119,40 +119,35 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     fuel = "ice"
     vehicle_kind = "passenger"
     age_years = compute_actual_age_years(vehicle_usd["production_year"], calc.tariffs["util_date"])
-    util_rub = rnd(calc_util_rub(
-        person_type=vehicle_usd["owner_type"].value,
-        usage=usage,
-        engine_cc=vehicle_usd["engine_capacity"],
-        fuel=fuel,
-        vehicle_kind=vehicle_kind,
-        age_years=age_years,
-        date_decl=calc.tariffs["util_date"],
-        avg_vehicle_cost_rub=None,
-        actual_costs_rub=None,
-        config=copy.deepcopy(load_util_config()),
-    ))
-    rc = vt["recycling_fee"]
-    recycling_rub = rnd(
-        rc["base_rate"]
-        * rc["engine_factors"]["gasoline"]
-        * rc["age_adjustments"]["5-7"]["gasoline"]
+    util_rub = rnd(
+        calc_util_rub(
+            person_type=vehicle_usd["owner_type"].value,
+            usage=usage,
+            engine_cc=vehicle_usd["engine_capacity"],
+            fuel=fuel,
+            vehicle_kind=vehicle_kind,
+            age_years=age_years,
+            date_decl=calc.tariffs["util_date"],
+            avg_vehicle_cost_rub=None,
+            actual_costs_rub=None,
+            config=copy.deepcopy(load_util_config()),
+        )
+        * calc.tariffs.get("ctp_util_coeff_base", 1.0)
     )
     fee_rub = int(
         next(tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit)
     )
     vat_rub = rnd(tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub))
-    expected_total = rnd(
-        duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
-    )
+    expected_total = rnd(duty_rub + excise_rub + util_rub + vat_rub + fee_rub)
 
     assert res["price_rub"] == rnd(price_rub)
     assert res["duty_rub"] == duty_rub
     assert res["excise_rub"] == excise_rub
     assert res["util_rub"] == util_rub
-    assert res["recycling_rub"] == recycling_rub
     assert res["fee_rub"] == fee_rub
     assert res["vat_rub"] == vat_rub
     assert res["total_rub"] == expected_total
+    assert "recycling_rub" not in res
 
 
 def test_clearance_tax_uses_tariff_ranges(
@@ -372,14 +367,13 @@ def test_recycling_fee_owner_multiplier(calc: CustomsCalculator, vehicle_usd: di
     params["owner_type"] = OwnerType("company")
     params["age"] = AgeGroup("new")
     calc.set_vehicle_details(**params)
-    res = calc.calculate_ctp()
     rc = calc.tariffs["vehicle_types"]["passenger"]["recycling_fee"]
     expected = rnd(
         rc["base_rate"]
         * rc["engine_factors"]["gasoline"]
         * rc["owner_multipliers"]["company"]
     )
-    assert res["recycling_rub"] == expected
+    assert rnd(calc.calculate_recycling_fee()) == expected
 
 def rnd(val: float) -> float:
     return float(Decimal(str(val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
