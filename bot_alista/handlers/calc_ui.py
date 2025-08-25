@@ -60,6 +60,15 @@ def age_over3_kb() -> types.ReplyKeyboardMarkup:
     ]
     return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
+def method_type_kb():
+    return types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text=BTN_METHOD_ETC)],
+            [types.KeyboardButton(text=BTN_METHOD_CTP)],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
 
 __all__ = [
     "person_type_kb",
