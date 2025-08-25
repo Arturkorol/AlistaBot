@@ -400,21 +400,38 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             owner_type=person_type,
             currency=currency_code,
         )
-        breakdown = calc.calculate_auto()
-        customs_value_rub = breakdown["price_rub"]
-        core = {
-            "breakdown": {
-                "customs_value_rub": customs_value_rub,
-                "duty_rub": breakdown["duty_rub"],
-                "excise_rub": breakdown["excise_rub"],
-                "vat_rub": breakdown["vat_rub"],
-                "clearance_fee_rub": breakdown["fee_rub"],
-                "total_rub": breakdown["total_rub"],
-                "util_rub": breakdown["util_rub"],
-                "recycling_rub": breakdown.get("recycling_rub", 0.0),
-            },
-            "notes": [],
-        }
+        method = data.get("method", "ETC")  
+        if method == "ETC":
+            breakdown = calc.calculate_etc()
+            customs_value_rub = calc.convert_to_local_currency(calc.vehicle_price, calc.vehicle_currency)
+            core = {
+                "breakdown": {
+                    "customs_value_rub": customs_value_rub,
+                    "duty_rub": breakdown["Duty (RUB)"],
+                    "excise_rub": 0.0,
+                    "vat_rub": 0.0,
+                    "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
+                    "util_rub": breakdown["Util Fee (RUB)"],
+                    "recycling_rub": breakdown["Recycling Fee (RUB)"],
+                    "total_rub": breakdown["Total Pay (RUB)"],
+                },
+                "notes": [],
+            }
+        else:
+            breakdown = calc.calculate_ctp()
+            core = {
+                "breakdown": {
+                    "customs_value_rub": breakdown["Price (RUB)"],
+                    "duty_rub": breakdown["Duty (RUB)"],
+                    "excise_rub": breakdown["Excise (RUB)"],
+                    "vat_rub": breakdown["VAT (RUB)"],
+                    "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
+                    "util_rub": breakdown["Util Fee (RUB)"],
+                    "recycling_rub": 0.0,
+                    "total_rub": breakdown["Total Pay (RUB)"],
+                },
+                "notes": [],
+            }
 
         duty_rub = breakdown.get("duty_rub")
         rate_line = ""
