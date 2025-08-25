@@ -137,8 +137,10 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
         * rc["engine_factors"]["gasoline"]
         * rc["age_adjustments"]["5-7"]["gasoline"]
     )
-    fee_rub = next(
-        tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
+    fee_rub = int(
+        next(
+            tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
+        )
     )
     vat_rub = rnd(tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub))
     expected_total = rnd(
