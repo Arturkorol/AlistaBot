@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional
+from datetime import date
+import copy
 
 from tabulate import tabulate
 
@@ -16,6 +18,7 @@ from bot_alista.clearance_fee import (
     CLEARANCE_FEE_RANGES,
     calc_clearance_fee_rub,
 )
+from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +161,51 @@ class CustomsCalculator:
     # ------------------------------------------------------------------
     # Fee helpers
     # ------------------------------------------------------------------
+    def _calculate_util_fee(self, v: _Vehicle) -> float:
+        fuel = (
+            "ev"
+            if v.engine_type is EngineType.ELECTRIC
+            else "hybrid"
+            if v.engine_type is EngineType.HYBRID
+            else "ice"
+        )
+        vehicle_kind = "passenger"
+        usage = (
+            "personal"
+            if v.owner_type is VehicleOwnerType.INDIVIDUAL
+            else "commercial"
+        )
+        age_map = {
+            VehicleAge.NEW: 0.0,
+            VehicleAge.ONE_TO_THREE: 2.0,
+            VehicleAge.THREE_TO_FIVE: 4.0,
+            VehicleAge.FIVE_TO_SEVEN: 6.0,
+            VehicleAge.OVER_SEVEN: 8.0,
+        }
+        age_years = age_map.get(v.age, 0.0)
+
+        decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
+        if isinstance(decl_date, str):
+            decl_date = date.fromisoformat(decl_date)
+        util_cfg = copy.deepcopy(UTIL_CONFIG)
+        if self.tariffs.get("util_not_in_list"):
+            util_cfg["not_in_list"] = True
+        avg_cost = self.tariffs.get("avg_vehicle_cost_rub")
+        actual_cost = self.tariffs.get("actual_costs_rub")
+
+        return calc_util_rub(
+            person_type=v.owner_type.value,
+            usage=usage,
+            engine_cc=v.engine_capacity,
+            fuel=fuel,
+            vehicle_kind=vehicle_kind,
+            age_years=age_years,
+            date_decl=decl_date,
+            avg_vehicle_cost_rub=avg_cost,
+            actual_costs_rub=actual_cost,
+            config=util_cfg,
+        )
+
     def calculate_clearance_tax(self) -> float:
         """Return clearance tax based on price ranges defined in tariffs."""
         v = self._require_vehicle()
@@ -205,9 +253,7 @@ class CustomsCalculator:
         vat = (price_rub + duty_rub + excise) * vat_rate
 
         clearance_fee = self.calculate_clearance_tax()
-        util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
-            "ctp_util_coeff_base", 1.0
-        )
+        util_fee = self._calculate_util_fee(v)
 
         total_pay = duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
         res = {
@@ -234,9 +280,7 @@ class CustomsCalculator:
         duty_rub = max(rate_per_cc * v.engine_capacity, min_duty_rub)
 
         clearance_fee = self.calculate_clearance_tax()
-        util_fee = self.tariffs["base_util_fee"] * self.tariffs.get(
-            "etc_util_coeff_base", 1.0
-        )
+        util_fee = self._calculate_util_fee(v)
         recycling_fee = self.calculate_recycling_fee()
 
         total_pay = duty_rub + clearance_fee + util_fee + recycling_fee

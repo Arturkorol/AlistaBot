@@ -37,14 +37,17 @@ def format_result_message(
         rates: mapping like {"EUR": 92.86, "USD": 79.87, ...} (RUB per 1 unit)
         meta: extra info (e.g., person/usage, engine, age bucket info, notes)
         core: result from calc_breakdown_with_mode(...)
-        util_fee_rub: utilization fee in RUB
+        util_fee_rub: utilization fee in RUB (ignored if ``core`` contains it)
 
     Returns:
         A formatted Telegram message string.
     """
     br = core["breakdown"]
     total_no_util = br["total_rub"]
-    total_with_util = round(total_no_util + util_fee_rub, 2)
+    util_fee_rub = br.get("util_rub", util_fee_rub)
+    total_with_util = br.get(
+        "total_with_util_rub", round(total_no_util + util_fee_rub, 2)
+    )
 
     usd_rate = rates.get("USD")
     eur_rate = rates.get("EUR")
