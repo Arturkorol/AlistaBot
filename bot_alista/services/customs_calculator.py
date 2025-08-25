@@ -285,7 +285,7 @@ class CustomsCalculator:
         recycling_fee = _round2(self.calculate_recycling_fee())
         vat = _round2((price_rub + duty_rub + excise) * vat_rate)
 
-        clearance_fee = self.calculate_clearance_tax()
+        clearance_fee = int(self.calculate_clearance_tax())
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
@@ -320,7 +320,7 @@ class CustomsCalculator:
         )
         duty_rub = _round2(max(rate_per_cc * v.engine_capacity, min_duty_rub))
 
-        clearance_fee = self.calculate_clearance_tax()
+        clearance_fee = int(self.calculate_clearance_tax())
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
