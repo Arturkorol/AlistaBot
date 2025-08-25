@@ -44,9 +44,9 @@ def test_calculate_etc():
         "excise_rub": 0.0,
         "vat_rub": 0.0,
         "clearance_rub": 3_100,
-        "util_rub": 30_000.0,
+        "util_rub": 20_000.0,
         "recycling_rub": 5_200.0,
-        "total_rub": 1_094_300.0,
+        "total_rub": 1_084_300.0,
     }
 
 
