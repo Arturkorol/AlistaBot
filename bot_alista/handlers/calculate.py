@@ -450,7 +450,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
                 "clearance_fee_rub": breakdown["fee_rub"],
                 "total_rub": breakdown["total_rub"],
                 "util_rub": breakdown["util_rub"],
-                "recycling_rub": breakdown["recycling_rub"],
+                "recycling_rub": breakdown.get("recycling_rub", 0.0),
             },
             "notes": [],
         }

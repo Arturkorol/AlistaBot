@@ -11,7 +11,13 @@ except ImportError as exc:  # pragma: no cover - explicit error
     raise RuntimeError("currency_converter_free is required") from exc
 
 _converter: CurrencyConverter | None = None
-_FALLBACK_RATES = {"USD": 0.9, "KRW": 0.0007, "RUB": 0.01}
+_FALLBACK_RATES = {
+    "USD": 0.9,
+    "KRW": 0.0007,
+    "RUB": 0.01,
+    "JPY": 0.006,
+    "CNY": 0.13,
+}
 _EUR_TO_RUB = 1 / _FALLBACK_RATES["RUB"]
 
 
@@ -25,7 +31,7 @@ def _get_converter() -> CurrencyConverter:
 @lru_cache(maxsize=128)
 def _get_rate(code_from: str, code_to: str, day: date) -> float:
     converter = _get_converter()
-    return float(converter.convert(1, code_from, code_to))
+    return float(converter.convert(1, code_from, code_to, date=day))
 
 def to_eur(amount: float, currency: str, eur_rate: float | None = None) -> float:
     """Convert ``amount`` from ``currency`` to EUR.
