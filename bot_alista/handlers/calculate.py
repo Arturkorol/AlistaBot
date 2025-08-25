@@ -68,7 +68,7 @@ CAR_TYPE_MAP = {
 # ---------------------------------------------------------------------------
 
 
-@router.message(F.text == BTN_CALC)
+@router.message(lambda msg: msg.text.casefold() == BTN_CALC.casefold())
 async def start_calculation(message: types.Message, state: FSMContext) -> None:
     nav = NavigationManager(total_steps=10)  # теперь 10 шагов
     await state.update_data(_nav=nav)
