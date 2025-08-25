@@ -14,6 +14,7 @@ import pytest
 import yaml
 from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 from bot_alista.rules.age import compute_actual_age_years
+from decimal import Decimal, ROUND_HALF_UP
 
 SERVICES_PATH = ROOT / "bot_alista" / "services"
 
@@ -72,11 +73,18 @@ else:  # pragma: no cover - fallback for current implementation
     class WrongParamException(Exception):
         pass
 
-RECYCLING_FEE_BASE_RATE = getattr(cc_mod, "RECYCLING_FEE_BASE_RATE", 20000)
 
 CONFIG = ROOT / "external" / "tks_api_official" / "config.yaml"
 with open(CONFIG, "r", encoding="utf-8") as fh:
     TARIFFS = yaml.safe_load(fh)
+
+
+@pytest.fixture(autouse=True)
+def mock_fts_rates(monkeypatch):
+    def fake_rates(_date):
+        return {"USD": 90.0, "EUR": 100.0, "KRW": 0.07, "RUB": 1.0}
+
+    monkeypatch.setattr(currency_mod, "_get_fts_rates", fake_rates)
 
 
 @pytest.fixture
@@ -85,7 +93,7 @@ def calc() -> CustomsCalculator:
     tariffs = copy.deepcopy(TARIFFS)
     tariffs["util_date"] = date(2024, 1, 1)
     tariffs["ctp"] = {"duty_rate": 0.2, "min_per_cc_eur": 0.44}
-    return CustomsCalculator(tariffs=tariffs)
+    return CustomsCalculator(tariffs=tariffs, rate_date=date(2024, 1, 1))
 
 
 @pytest.fixture
@@ -108,18 +116,20 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     calc.set_vehicle_details(**vehicle_usd)
     res = calc.calculate_ctp()
 
-    price_rub = to_rub(vehicle_usd["price"], "USD")
+    price_rub = to_rub(vehicle_usd["price"], "USD", rate_date=calc.rate_date)
 
     tariffs = calc.tariffs
     vt = tariffs["vehicle_types"]["passenger"]
-    min_duty_rub = to_rub(tariffs["ctp"]["min_per_cc_eur"], "EUR") * vehicle_usd["engine_capacity"]
-    duty_rub = max(price_rub * tariffs["ctp"]["duty_rate"], min_duty_rub)
-    excise_rub = vt["excise_rates"]["gasoline"] * vehicle_usd["power"]
+    min_duty_rub = to_rub(
+        tariffs["ctp"]["min_per_cc_eur"], "EUR", rate_date=calc.rate_date
+    ) * vehicle_usd["engine_capacity"]
+    duty_rub = rnd(max(price_rub * tariffs["ctp"]["duty_rate"], min_duty_rub))
+    excise_rub = rnd(vt["excise_rates"]["gasoline"] * vehicle_usd["power"])
     usage = "personal" if vehicle_usd["owner_type"].value == "individual" else "commercial"
     fuel = "ice"
     vehicle_kind = "passenger"
     age_years = compute_actual_age_years(vehicle_usd["production_year"], calc.tariffs["util_date"])
-    util_rub = calc_util_rub(
+    util_rub = rnd(calc_util_rub(
         person_type=vehicle_usd["owner_type"].value,
         usage=usage,
         engine_cc=vehicle_usd["engine_capacity"],
@@ -130,22 +140,31 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
         config=copy.deepcopy(UTIL_CONFIG),
+    ))
+    rc = vt["recycling_fee"]
+    recycling_rub = rnd(
+        rc["base_rate"]
+        * rc["engine_factors"]["gasoline"]
+        * rc["age_adjustments"]["5-7"]["gasoline"]
     )
-    recycling_rub = RECYCLING_FEE_BASE_RATE * vt["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
-    fee_rub = next(
-        tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
+    fee_rub = int(
+        next(
+            tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
+        )
     )
-    vat_rub = tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub)
-    expected_total = duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
+    vat_rub = rnd(tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub))
+    expected_total = rnd(
+        duty_rub + excise_rub + util_rub + recycling_rub + vat_rub + fee_rub
+    )
 
-    assert res["price_rub"] == pytest.approx(price_rub)
-    assert res["duty_rub"] == pytest.approx(duty_rub)
-    assert res["excise_rub"] == pytest.approx(excise_rub)
-    assert res["util_rub"] == pytest.approx(util_rub)
-    assert res["recycling_rub"] == pytest.approx(recycling_rub)
-    assert res["fee_rub"] == pytest.approx(fee_rub)
-    assert res["vat_rub"] == pytest.approx(vat_rub)
-    assert res["total_rub"] == pytest.approx(expected_total)
+    assert res["price_rub"] == rnd(price_rub)
+    assert res["duty_rub"] == duty_rub
+    assert res["excise_rub"] == excise_rub
+    assert res["util_rub"] == util_rub
+    assert res["recycling_rub"] == recycling_rub
+    assert res["fee_rub"] == fee_rub
+    assert res["vat_rub"] == vat_rub
+    assert res["total_rub"] == expected_total
 
 
 def test_clearance_tax_uses_tariff_ranges(
@@ -155,7 +174,7 @@ def test_clearance_tax_uses_tariff_ranges(
     calc.tariffs["clearance_tax_ranges"] = [(float("inf"), 12345)]
     calc.set_vehicle_details(**vehicle_usd)
     res = calc.calculate_ctp()
-    assert res["fee_rub"] == pytest.approx(12345)
+    assert res["fee_rub"] == 12345
 
 
 def test_calculate_etc_includes_vehicle_price(calc: CustomsCalculator, vehicle_usd: dict):
@@ -166,14 +185,15 @@ def test_calculate_etc_includes_vehicle_price(calc: CustomsCalculator, vehicle_u
     rate_rub = to_rub(
         TARIFFS["vehicle_types"]["passenger"]["age_groups"]["5-7"]["gasoline"]["rate_per_cc"],
         "EUR",
+        rate_date=calc.rate_date,
     )
-    expected_duty = max(rate_rub * vehicle_usd["engine_capacity"], 0)
-    assert etc["duty_rub"] == pytest.approx(expected_duty)
+    expected_duty = rnd(max(rate_rub * vehicle_usd["engine_capacity"], 0))
+    assert etc["duty_rub"] == expected_duty
     assert etc["excise_rub"] == 0.0
     assert etc["vat_rub"] == 0.0
-    assert etc["etc_rub"] == pytest.approx(etc["price_rub"] + etc["total_rub"])
+    assert etc["etc_rub"] == rnd(etc["price_rub"] + etc["total_rub"])
     # ensure previous result not mutated
-    assert ctp["total_rub"] == pytest.approx(ctp["total_rub"])
+    assert ctp["total_rub"] == ctp["total_rub"]
 
 
 def test_calculate_auto_selects_higher(calc: CustomsCalculator, vehicle_usd: dict):
@@ -214,7 +234,6 @@ def test_state_reset_between_calls(calc: CustomsCalculator, vehicle_usd: dict):
     second = calc.calculate_ctp()
 
     assert first["total_rub"] != second["total_rub"]
-    assert first["total_rub"] == pytest.approx(first["total_rub"])
 
 
 @pytest.mark.parametrize("currency", ["USD", "EUR", "KRW", "RUB"])
@@ -231,8 +250,8 @@ def test_currency_conversion(calc: CustomsCalculator, currency: str):
         currency=currency,
     )
     res = calc.calculate_ctp()
-    expected_rub = to_rub(amount, currency)
-    assert res["price_rub"] == pytest.approx(expected_rub)
+    expected_rub = rnd(to_rub(amount, currency, rate_date=calc.rate_date))
+    assert res["price_rub"] == expected_rub
 
 
 def test_invalid_engine_capacity_low(calc: CustomsCalculator):
@@ -318,3 +337,62 @@ def test_invalid_engine_type_enum(calc: CustomsCalculator):
             currency="EUR",
         )
 
+
+def test_invalid_power(calc: CustomsCalculator):
+    with pytest.raises(WrongParamException):
+        calc.set_vehicle_details(
+            age=AgeGroup("new"),
+            engine_capacity=1000,
+            engine_type=EngineType("gasoline"),
+            power=0,
+            production_year=2024,
+            price=1000,
+            owner_type=OwnerType("individual"),
+            currency="EUR",
+        )
+
+
+def test_invalid_price(calc: CustomsCalculator):
+    with pytest.raises(WrongParamException):
+        calc.set_vehicle_details(
+            age=AgeGroup("new"),
+            engine_capacity=1000,
+            engine_type=EngineType("gasoline"),
+            power=100,
+            production_year=2024,
+            price=0,
+            owner_type=OwnerType("individual"),
+            currency="EUR",
+        )
+
+
+def test_invalid_production_year(calc: CustomsCalculator):
+    with pytest.raises(WrongParamException):
+        calc.set_vehicle_details(
+            age=AgeGroup("new"),
+            engine_capacity=1000,
+            engine_type=EngineType("gasoline"),
+            power=100,
+            production_year=1800,
+            price=1000,
+            owner_type=OwnerType("individual"),
+            currency="EUR",
+        )
+
+
+def test_recycling_fee_owner_multiplier(calc: CustomsCalculator, vehicle_usd: dict):
+    params = dict(vehicle_usd)
+    params["owner_type"] = OwnerType("company")
+    params["age"] = AgeGroup("new")
+    calc.set_vehicle_details(**params)
+    res = calc.calculate_ctp()
+    rc = calc.tariffs["vehicle_types"]["passenger"]["recycling_fee"]
+    expected = rnd(
+        rc["base_rate"]
+        * rc["engine_factors"]["gasoline"]
+        * rc["owner_multipliers"]["company"]
+    )
+    assert res["recycling_rub"] == expected
+
+def rnd(val: float) -> float:
+    return float(Decimal(str(val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
