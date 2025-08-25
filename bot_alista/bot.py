@@ -1,10 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher
-from bot_alista.config import TOKEN
+from bot_alista.settings import settings
 from bot_alista.handlers import menu, calculate, cancel, menu_navigation, request, faq
 
 async def main():
-    bot = Bot(token=TOKEN)
+    bot = Bot(token=settings.BOT_TOKEN)
     dp = Dispatcher()
 
     dp.include_router(menu.router)

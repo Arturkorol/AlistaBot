@@ -45,6 +45,7 @@ from bot_alista.services.rates import (
 )
 from bot_alista.formatting import format_result_message
 from bot_alista.services.customs_calculator import CustomsCalculator
+from .calc_ui import (person_type_kb, usage_type_kb, car_type_kb, currency_kb, age_over3_kb)
 from bot_alista.rules.age import compute_actual_age_years
 from bot_alista.handlers.faq import show_faq
 
@@ -60,60 +61,6 @@ CAR_TYPE_MAP = {
 }
 
 # ---------------------------------------------------------------------------
-# Keyboards
-# ---------------------------------------------------------------------------
-
-
-def _person_type_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [
-            types.KeyboardButton(text="Физическое лицо"),
-            types.KeyboardButton(text="Юридическое лицо"),
-        ],
-        [types.KeyboardButton(text=BTN_MAIN_MENU), types.KeyboardButton(text=BTN_FAQ)],
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-def _usage_type_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [types.KeyboardButton(text="Личное"), types.KeyboardButton(text="Коммерческое")],
-        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
-        [types.KeyboardButton(text=BTN_FAQ)],
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-def _car_type_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [types.KeyboardButton(text="Бензин"), types.KeyboardButton(text="Дизель")],
-        [types.KeyboardButton(text="Гибрид"), types.KeyboardButton(text="Электро")],
-        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
-        [types.KeyboardButton(text=BTN_FAQ)],
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-def _currency_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [types.KeyboardButton(text=CURRENCY_CODES[0]), types.KeyboardButton(text=CURRENCY_CODES[1])],
-        [types.KeyboardButton(text=CURRENCY_CODES[2]), types.KeyboardButton(text=CURRENCY_CODES[3])],
-        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
-        [types.KeyboardButton(text=BTN_FAQ)],
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-def _age_over3_kb() -> types.ReplyKeyboardMarkup:
-    kb = [
-        [types.KeyboardButton(text=BTN_AGE_OVER3_YES), types.KeyboardButton(text=BTN_AGE_OVER3_NO)],
-        [types.KeyboardButton(text=BTN_BACK), types.KeyboardButton(text=BTN_MAIN_MENU)],
-        [types.KeyboardButton(text=BTN_FAQ)],
-    ]
-    return types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-
-
-# ---------------------------------------------------------------------------
 # Conversation steps
 # ---------------------------------------------------------------------------
 
@@ -125,7 +72,7 @@ async def start_calculation(message: types.Message, state: FSMContext) -> None:
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()),
+        NavStep(CalculationStates.person_type, PROMPT_PERSON, person_type_kb()),
     )
 
 
@@ -150,7 +97,7 @@ async def get_person_type(message: types.Message, state: FSMContext) -> None:
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.usage_type, PROMPT_USAGE, _usage_type_kb()),
+        NavStep(CalculationStates.usage_type, PROMPT_USAGE, usage_type_kb()),
     )
 
 
@@ -170,7 +117,7 @@ async def get_usage_type(message: types.Message, state: FSMContext) -> None:
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.calc_type, PROMPT_TYPE, _car_type_kb()),
+        NavStep(CalculationStates.calc_type, PROMPT_TYPE, car_type_kb()),
     )
 
 
@@ -194,7 +141,7 @@ async def get_car_type(message: types.Message, state: FSMContext) -> None:
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.currency_code, PROMPT_CURRENCY, _currency_kb()),
+        NavStep(CalculationStates.currency_code, PROMPT_CURRENCY, currency_kb()),
     )
 
 
@@ -317,7 +264,7 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
     await nav.push(
         message,
         state,
-        NavStep(CalculationStates.age_over_3, PROMPT_AGE_OVER3, _age_over3_kb()),
+        NavStep(CalculationStates.age_over_3, PROMPT_AGE_OVER3, age_over3_kb()),
     )
 
 
@@ -331,7 +278,7 @@ async def handle_age_over3(message: types.Message, state: FSMContext) -> None:
     if nav and await nav.handle_nav(message, state):
         return
     if message.text not in {BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO}:
-        await message.answer(PROMPT_AGE_OVER3, reply_markup=_age_over3_kb())
+        await message.answer(PROMPT_AGE_OVER3, reply_markup=age_over3_kb())
         return
     over3 = message.text == BTN_AGE_OVER3_YES
     age_years = 4.0 if over3 else 2.0
