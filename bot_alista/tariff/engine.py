@@ -458,15 +458,14 @@ def calc_breakdown_rules(
         fee_rub = calc_clearance_fee_rub(customs_value_rub)
         total_no_util = round(core["duty_rub"] + fee_rub, 2)
 
-        # UTIL uses factual age (not the user's button)
-        util_age_years = 4.0 if actual_age > 3.0 else 2.0
+        # UTIL uses factual age directly
         util_rub = calc_util_rub(
             person_type="individual",
             usage="personal",
             engine_cc=int(engine_cc or 0),
             fuel=util_fuel,
             vehicle_kind="passenger",
-            age_years=util_age_years,
+            age_years=actual_age,
             date_decl=decl_date,
             avg_vehicle_cost_rub=None,
             actual_costs_rub=None,

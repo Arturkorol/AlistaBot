@@ -1,4 +1,8 @@
-"""Shared customs clearance fee ladder and helpers."""
+"""Shared customs clearance fee ladder and helpers.
+
+All clearance fees are rounded to the nearest whole ruble as required by the
+official schedules.
+"""
 
 from __future__ import annotations
 
@@ -18,15 +22,15 @@ CLEARANCE_FEE_RANGES: Tuple[Tuple[float, float], ...] = (
 def calc_clearance_fee_rub(
     customs_value_rub: float,
     ranges: Sequence[Tuple[float, float]] = CLEARANCE_FEE_RANGES,
-) -> float:
-    """Return clearance fee based on customs value."""
+) -> int:
+    """Return clearance fee based on customs value as integer rubles."""
     v = float(customs_value_rub)
     if v <= 0:
         raise ValueError("Customs value must be positive")
     for limit, fee in ranges:
         if v <= limit:
-            return float(fee)
-    return float(ranges[-1][1])
+            return int(round(fee))
+    return int(round(ranges[-1][1]))
 
 
 __all__ = ["CLEARANCE_FEE_RANGES", "calc_clearance_fee_rub"]
