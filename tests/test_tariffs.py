@@ -23,9 +23,19 @@ def reset_cache():
 
 def test_get_tariffs_env_override(monkeypatch):
     reset_cache()
-    monkeypatch.setenv("CUSTOMS_TARIFF_DATA", "foo: 1")
+    monkeypatch.setenv(
+        "CUSTOMS_TARIFF_DATA", "clearance_tax_ranges: []\nvehicle_types: {}"
+    )
     data = get_tariffs(path=CONFIG)
-    assert data["foo"] == 1
+    assert data["clearance_tax_ranges"] == []
+    monkeypatch.delenv("CUSTOMS_TARIFF_DATA")
+
+
+def test_get_tariffs_env_override_invalid(monkeypatch):
+    reset_cache()
+    monkeypatch.setenv("CUSTOMS_TARIFF_DATA", "foo: 1")
+    with pytest.raises(ValueError):
+        get_tariffs(path=CONFIG)
     monkeypatch.delenv("CUSTOMS_TARIFF_DATA")
 
 
@@ -36,14 +46,31 @@ def test_get_tariffs_network_success(monkeypatch):
         headers = {"Content-Type": "application/json"}
 
         def json(self):
-            return {"bar": 2}
+            return {"clearance_tax_ranges": [], "vehicle_types": {}}
 
         def raise_for_status(self):
             pass
 
     monkeypatch.setattr(tariffs_mod.requests, "get", lambda *a, **kw: Resp())
     data = get_tariffs(path=CONFIG)
-    assert data == {"bar": 2}
+    assert data == {"clearance_tax_ranges": [], "vehicle_types": {}}
+
+
+def test_get_tariffs_network_invalid(monkeypatch):
+    reset_cache()
+
+    class Resp:
+        headers = {"Content-Type": "application/json"}
+
+        def json(self):
+            return {"foo": 1}
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(tariffs_mod.requests, "get", lambda *a, **kw: Resp())
+    data = get_tariffs(path=CONFIG)
+    assert "clearance_tax_ranges" in data
 
 
 def test_get_tariffs_network_failure(monkeypatch):

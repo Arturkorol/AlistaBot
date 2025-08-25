@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 from datetime import date
+from decimal import Decimal, ROUND_HALF_UP
 
 from bot_alista.clearance_fee import calc_clearance_fee_rub
 from bot_alista.rules.loader import (
@@ -26,13 +27,24 @@ from bot_alista.rules.age import (
     candidate_fl_labels,
 )
 from bot_alista.rules.engine import calc_fl_stp, calc_ul
-from .personal_rates import calc_individual_personal_duty_eur
-from .util_fee import calc_util_rub, UTIL_CONFIG
+from .util_fee import calc_util_rub, load_util_config
 
 ENGINE_CC_MIN = 2300
 ENGINE_CC_MAX = 3000
 AD_VALOREM_RATE = 0.20
 VAT_RATE = 0.20
+
+# Preferential duty rates by country of origin.
+# Values override the default ad valorem rate when applicable.
+PREFERENTIAL_RATES: dict[str, dict[str, float]] = {
+    "Belarus": {"ad_valorem": 0.15},
+    "Kazakhstan": {"ad_valorem": 0.15},
+}
+
+
+def _round_currency(value: float) -> float:
+    """Round monetary values using ``Decimal`` half-up to two decimals."""
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 @dataclass(frozen=True)
@@ -142,7 +154,7 @@ def calc_import_duty_eur(
     duty_cc = engine_cc * min_eur_per_cc
     duty_ad = customs_value_eur * ad_valorem
     duty = max(duty_cc, duty_ad)
-    return round(duty, 2)
+    return _round_currency(duty)
 
 
 def eur_to_rub(amount_eur: float, eur_rub_rate: float) -> float:
@@ -151,7 +163,7 @@ def eur_to_rub(amount_eur: float, eur_rub_rate: float) -> float:
     if amount_eur < 0:
         raise ValueError("Сумма в евро не может быть отрицательной")
     _validate_positive_float(eur_rub_rate, "Курс EUR/RUB")
-    return round(amount_eur * eur_rub_rate, 2)
+    return _round_currency(amount_eur * eur_rub_rate)
 
 
 def calc_excise_rub(engine_hp: int, rate: int | None = None) -> float:
@@ -159,7 +171,7 @@ def calc_excise_rub(engine_hp: int, rate: int | None = None) -> float:
 
     _validate_positive_int(engine_hp, "Мощность двигателя")
     rate = rate if rate is not None else get_excise_rate_rub_per_hp(engine_hp)
-    return round(rate * engine_hp, 2)
+    return _round_currency(rate * engine_hp)
 
 
 def calc_vat_rub(
@@ -183,7 +195,7 @@ def calc_vat_rub(
 
     vat_base = customs_value_rub + duty_rub + excise_rub
     vat = vat_base * VAT_RATE
-    return round(vat, 2)
+    return _round_currency(vat)
 
 
 def calc_import_breakdown(
@@ -219,6 +231,9 @@ def calc_import_breakdown(
 
     customs_value_rub = eur_to_rub(customs_value_eur, eur_rub_rate)
 
+    pref = PREFERENTIAL_RATES.get(country_origin or "")
+    ad_val = pref.get("ad_valorem", AD_VALOREM_RATE) if pref else AD_VALOREM_RATE
+
     if is_export:
         duty_eur = 0.0
         duty_rub = 0.0
@@ -227,7 +242,9 @@ def calc_import_breakdown(
         excise_rate = 0
         vat_rate = 0.0
     else:
-        duty_eur = calc_import_duty_eur(customs_value_eur, engine_cc)
+        duty_eur = calc_import_duty_eur(
+            customs_value_eur, engine_cc, ad_valorem=ad_val
+        )
         duty_rub = eur_to_rub(duty_eur, eur_rub_rate)
         excise_rate = get_excise_rate_rub_per_hp(engine_hp)
         excise_rub = calc_excise_rub(engine_hp, excise_rate)
@@ -236,7 +253,7 @@ def calc_import_breakdown(
             customs_value_rub, duty_rub, excise_rub, is_disabled_vehicle
         )
 
-    total_rub = round(duty_rub + excise_rub + vat_rub, 2)
+    total_rub = _round_currency(duty_rub + excise_rub + vat_rub)
 
     result: dict[str, Any] = {
         "inputs": {
@@ -259,7 +276,7 @@ def calc_import_breakdown(
         },
         "rates_used": {
             "duty_min_eur_per_cc": 0.44,
-            "duty_ad_valorem": AD_VALOREM_RATE,
+            "duty_ad_valorem": ad_val,
             "excise_rate_rub_per_hp": excise_rate,
             "vat_rate": vat_rate,
         },
@@ -271,6 +288,11 @@ def calc_import_breakdown(
             "Тип лица не влияет на ставки (кроме НДС 0% для спецавто для инвалидов).",
         ],
     }
+
+    if pref:
+        result["notes"].append(
+            f"Применена преференция для страны происхождения {country_origin}"
+        )
 
     return result
 
@@ -287,13 +309,15 @@ def calc_breakdown_with_mode(
     age_years: float,
     is_disabled_vehicle: bool,
     is_export: bool,
+    fuel_type: str,
+    decl_date: date,
 ) -> dict:
+    """Compatibility wrapper that delegates to :func:`calc_breakdown_rules`.
+
+    Previous versions implemented two separate calculation paths.  The logic
+    is now unified via the rule-based engine.
     """
-    Unified entry:
-    - Individuals + personal use -> per-cc table (no VAT, no excise) + clearance fee + util fee.
-    - Else (companies/commercial) -> Alta: duty = max(20% of EUR value, 0.44 EUR/cc) + excise + VAT + util fee.
-    Returns a dict like calc_import_breakdown with totals both with and without util fee.
-    """
+
     if is_export:
         core = calc_import_breakdown(
             customs_value_eur=customs_value_eur,
@@ -303,107 +327,39 @@ def calc_breakdown_with_mode(
             is_disabled_vehicle=is_disabled_vehicle,
             is_export=True,
             person_type=person_type,
+            country_origin=None,
         )
         core["breakdown"]["clearance_fee_rub"] = 0.0
         return core
 
-    if person_type == "individual" and usage_type == "personal":
-        customs_value_rub = eur_to_rub(customs_value_eur, eur_rub_rate)
-
-        core = {
-            "duty_eur": calc_individual_personal_duty_eur(engine_cc, age_years),
-        }
-        core["duty_rub"] = eur_to_rub(core["duty_eur"], eur_rub_rate)
-        core["excise_rub"] = 0.0
-        core["vat_rub"] = 0.0
-        core["clearance_fee_rub"] = calc_clearance_fee_rub(customs_value_rub)
-
-        total_rub = round(
-            core["duty_rub"]
-            + core["excise_rub"]
-            + core["vat_rub"]
-            + core["clearance_fee_rub"],
-            2,
-        )
-
-        util_rub = calc_util_rub(
-            person_type="individual",
-            usage="personal",
-            engine_cc=engine_cc,
-            fuel="ice",
-            vehicle_kind="passenger",
-            age_years=age_years,
-            date_decl=date.today(),
-            avg_vehicle_cost_rub=None,
-            actual_costs_rub=None,
-            config=UTIL_CONFIG,
-        )
-        total_with_util = round(total_rub + util_rub, 2)
-
-        return {
-            "inputs": {
-                "person_type": person_type,
-                "usage_type": usage_type,
-                "engine_cc": engine_cc,
-                "engine_hp": engine_hp,
-                "age_years": age_years,
-                "eur_rub_rate": eur_rub_rate,
-                "customs_value_eur": customs_value_eur,
-                "is_disabled_vehicle": is_disabled_vehicle,
-                "is_export": False,
-            },
-            "breakdown": {
-                "customs_value_rub": customs_value_rub,
-                **core,
-                "total_rub": total_rub,
-                "util_rub": util_rub,
-                "total_with_util_rub": total_with_util,
-            },
-            "rates_used": {
-                "mode": "individual_personal_rate_table",
-                "note": "No VAT/excise for individual/personal table; clearance fee is tiered.",
-            },
-            "notes": [
-                "Individual (personal use): duty by per-cc age×cc table (EUR/cc).",
-                "No VAT, no excise; tiered customs clearance fee applied.",
-            ],
-        }
-
-    corp = calc_import_breakdown(
+    production_year = decl_date.year - int(age_years)
+    result = calc_breakdown_rules(
+        person_type=person_type,
+        usage_type=usage_type,
         customs_value_eur=customs_value_eur,
         eur_rub_rate=eur_rub_rate,
         engine_cc=engine_cc,
         engine_hp=engine_hp,
-        is_disabled_vehicle=is_disabled_vehicle,
-        is_export=False,
-        person_type=person_type,
+        production_year=production_year,
+        age_choice_over3=age_years > 3,
+        fuel_type=fuel_type,
+        decl_date=decl_date,
     )
-    fee_rub = calc_clearance_fee_rub(corp["breakdown"]["customs_value_rub"])
-    corp["breakdown"]["clearance_fee_rub"] = fee_rub
-    corp["breakdown"]["total_rub"] = round(
-        corp["breakdown"]["total_rub"] + fee_rub, 2
-    )
-    util_rub = calc_util_rub(
-        person_type=person_type,
-        usage="personal" if usage_type == "personal" else "commercial",
-        engine_cc=engine_cc,
-        fuel="ice",
-        vehicle_kind="passenger",
-        age_years=age_years,
-        date_decl=date.today(),
-        avg_vehicle_cost_rub=None,
-        actual_costs_rub=None,
-        config=UTIL_CONFIG,
-    )
-    corp["breakdown"]["util_rub"] = util_rub
-    corp["breakdown"]["total_with_util_rub"] = round(
-        corp["breakdown"]["total_rub"] + util_rub, 2
-    )
-    corp.setdefault("rates_used", {}).update({"mode": "corporate_alta"})
-    corp.setdefault("notes", []).append(
-        "Company/commercial mode: Alta rules (20% vs ≥0.44 EUR/cc) + excise + VAT; tiered clearance fee applied."
-    )
-    return corp
+
+    if is_disabled_vehicle:
+        br = result["breakdown"]
+        removed = br.get("vat_rub", 0.0)
+        br["vat_rub"] = 0.0
+        br["total_rub"] = _round_currency(br["total_rub"] - removed)
+        if "total_with_util_rub" in br:
+            br["total_with_util_rub"] = _round_currency(
+                br["total_with_util_rub"] - removed
+            )
+        result.setdefault("notes", []).append(
+            "VAT waived for disabled vehicle."
+        )
+
+    return result
 
 
 def calc_breakdown_rules(
@@ -430,7 +386,7 @@ def calc_breakdown_rules(
         "ev" if fuel_norm == "Электро" else "hybrid" if fuel_norm == "Гибрид" else "ice"
     )
 
-    customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+    customs_value_rub = _round_currency(customs_value_eur * eur_rub_rate)
     actual_age = compute_actual_age_years(production_year, decl_date)
 
     if person_type == "individual" and usage_type == "personal":
@@ -439,6 +395,7 @@ def calc_breakdown_rules(
         last_exc: Exception | None = None
         core = None
         fl_age_label = fl_age_candidates[0]
+        fallback_used = False
         for label in fl_age_candidates:
             try:
                 core = calc_fl_stp(
@@ -450,13 +407,15 @@ def calc_breakdown_rules(
                     fuel=fuel_norm, age_bucket=label,
                 )
                 fl_age_label = label
+                if label != fl_age_candidates[0]:
+                    fallback_used = True
                 break
             except Exception as exc:
                 last_exc = exc
         if core is None:
             raise last_exc or ValueError("No applicable FL rule found")
         fee_rub = calc_clearance_fee_rub(customs_value_rub)
-        total_no_util = round(core["duty_rub"] + fee_rub, 2)
+        total_no_util = _round_currency(core["duty_rub"] + fee_rub)
 
         # UTIL uses factual age directly
         util_rub = calc_util_rub(
@@ -469,11 +428,11 @@ def calc_breakdown_rules(
             date_decl=decl_date,
             avg_vehicle_cost_rub=None,
             actual_costs_rub=None,
-            config=UTIL_CONFIG,
+            config=load_util_config(),
         )
-        total_with_util = round(total_no_util + util_rub, 2)
+        total_with_util = _round_currency(total_no_util + util_rub)
 
-        return {
+        result = {
             "inputs": {
                 "person_type": person_type, "usage_type": usage_type,
                 "engine_cc": engine_cc, "engine_hp": engine_hp,
@@ -502,11 +461,19 @@ def calc_breakdown_rules(
             ],
         }
 
+        if fallback_used:
+            result.setdefault("notes", []).append(
+                f"⚠️ age bucket fallback: {fl_age_candidates[0]}→{fl_age_label}"
+            )
+
+        return result
+
     # UL / commercial — always factual age mapping with fallback
     ul_age_candidates = candidate_ul_labels(actual_age, buckets)
     last_exc = None
     core = None
     ul_age_label = ul_age_candidates[0]
+    ul_fallback_used = False
     for label in ul_age_candidates:
         try:
             core = calc_ul(
@@ -519,6 +486,8 @@ def calc_breakdown_rules(
                 fuel=fuel_norm, age_bucket=label,
             )
             ul_age_label = label
+            if label != ul_age_candidates[0]:
+                ul_fallback_used = True
             break
         except Exception as exc:
             last_exc = exc
@@ -526,7 +495,7 @@ def calc_breakdown_rules(
         raise last_exc or ValueError("No applicable UL rule found")
 
     fee_rub = calc_clearance_fee_rub(customs_value_rub)
-    total_no_util = round(core["duty_rub"] + core["excise_rub"] + core["vat_rub"] + fee_rub, 2)
+    total_no_util = _round_currency(core["duty_rub"] + core["excise_rub"] + core["vat_rub"] + fee_rub)
 
     util_rub = calc_util_rub(
         person_type="company",
@@ -538,11 +507,11 @@ def calc_breakdown_rules(
         date_decl=decl_date,
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
-        config=UTIL_CONFIG,
+        config=load_util_config(),
     )
-    total_with_util = round(total_no_util + util_rub, 2)
+    total_with_util = _round_currency(total_no_util + util_rub)
 
-    return {
+    result = {
         "inputs": {
             "person_type": person_type, "usage_type": usage_type,
             "engine_cc": engine_cc, "engine_hp": engine_hp,
@@ -569,6 +538,13 @@ def calc_breakdown_rules(
             "Util fee per 2025 formula module.",
         ],
     }
+
+    if ul_fallback_used:
+        result.setdefault("notes", []).append(
+            f"⚠️ age bucket fallback: {ul_age_candidates[0]}→{ul_age_label}"
+        )
+
+    return result
 
 
 if __name__ == "__main__":

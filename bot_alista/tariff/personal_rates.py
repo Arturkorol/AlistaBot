@@ -2,64 +2,49 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Dict, Tuple
+from pathlib import Path
+from functools import lru_cache
+import csv
+from decimal import Decimal, ROUND_HALF_UP
 
 
 @dataclass(frozen=True)
 class PersonalDutyRate:
-    """
-    Per-cc duty rate (EUR/cc) for individuals (personal use), bucketed by age × engine cc.
-    EDIT THESE VALUES to match your reference calculator exactly.
-    """
+    """Per‑cc duty rate (EUR/cc) for individuals (personal use)."""
+
     min_cc: int
     max_cc: int
     rate_eur_per_cc: float
 
 
-# Full per-cc table for individuals (personal use).
-# Keys are age buckets; values are ordered tuples of engine-cc intervals.
-# IMPORTANT: Tune these to match your reference (vl.broker).
-PERSONAL_RATES: Dict[str, Tuple[PersonalDutyRate, ...]] = {
-    # 1–3 years
-    "1_3y": (
-        PersonalDutyRate(0, 1000, 3.5),
-        PersonalDutyRate(1001, 1500, 5.5),
-        PersonalDutyRate(1501, 1800, 5.5),
-        PersonalDutyRate(1801, 2300, 6.2),
-        PersonalDutyRate(2301, 3000, 5.5),   # was 8.4 → must be 5.5 €/cc
-        PersonalDutyRate(3001, 10000, 7.5),
-    ),
-    # 3–5 years
-    "3_5y": (
-        PersonalDutyRate(0, 1000, 1.5),
-        PersonalDutyRate(1001, 1500, 1.7),
-        PersonalDutyRate(1501, 1800, 2.5),
-        PersonalDutyRate(1801, 2300, 3.0),
-        PersonalDutyRate(2301, 3000, 3.0),   # was 3.5 → must be 3.0 €/cc
-        PersonalDutyRate(3001, 10000, 5.5),
-    ),
-    # 5–7 years
-    "5_7y": (
-        PersonalDutyRate(0, 1000, 3.0),
-        PersonalDutyRate(1001, 1500, 3.2),
-        PersonalDutyRate(1501, 1800, 3.5),
-        PersonalDutyRate(1801, 2300, 4.8),
-        PersonalDutyRate(2301, 3000, 5.7),
-        PersonalDutyRate(3001, 10000, 7.5),
-    ),
-    # > 7 years
-    "7p_y": (
-        PersonalDutyRate(0, 1000, 3.0),
-        PersonalDutyRate(1001, 1500, 3.2),
-        PersonalDutyRate(1501, 1800, 3.5),
-        PersonalDutyRate(1801, 2300, 5.0),
-        PersonalDutyRate(2301, 3000, 5.7),
-        PersonalDutyRate(3001, 10000, 5.7),  # was 7.5; must be 5.7
-    ),
-}
+DEFAULT_RATES_PATH = (
+    Path(__file__).resolve().parents[1] / "data" / "personal_rates.csv"
+)
 
-# Customs clearance fee (RUB) to display and add for individuals.
-# Adjust if your reference differs.
-CUSTOMS_CLEARANCE_FEE_RUB: float = 4269.0
+
+@lru_cache(maxsize=1)
+def load_personal_rates(path: str | Path | None = None) -> Dict[str, Tuple[PersonalDutyRate, ...]]:
+    """Load personal duty rates from ``CSV`` file.
+
+    The file must contain columns ``age_bucket``, ``min_cc``, ``max_cc`` and
+    ``rate_eur_per_cc``.  To refresh the rates, replace the CSV with the
+    latest official data.
+    """
+
+    path = Path(path or DEFAULT_RATES_PATH)
+    data: Dict[str, list[PersonalDutyRate]] = {}
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            bucket = row["age_bucket"]
+            data.setdefault(bucket, []).append(
+                PersonalDutyRate(
+                    int(row["min_cc"]),
+                    int(row["max_cc"]),
+                    float(row["rate_eur_per_cc"]),
+                )
+            )
+    return {k: tuple(v) for k, v in data.items()}
 
 
 def _age_bucket(age_years: float) -> str:
@@ -78,20 +63,24 @@ def _age_bucket(age_years: float) -> str:
     return "7p_y"
 
 
-def _find_rate_eur_per_cc(engine_cc: int, age_years: float) -> float:
+def _find_rate_eur_per_cc(
+    engine_cc: int, age_years: float, rates: Dict[str, Tuple[PersonalDutyRate, ...]]
+) -> float:
     if engine_cc <= 0:
         raise ValueError("Engine displacement must be > 0 cc.")
     bucket = _age_bucket(age_years)
-    for row in PERSONAL_RATES[bucket]:
+    for row in rates[bucket]:
         if row.min_cc <= engine_cc <= row.max_cc:
             return row.rate_eur_per_cc
     # Fallback to top range if nothing matched
-    return PERSONAL_RATES[bucket][-1].rate_eur_per_cc
+    return rates[bucket][-1].rate_eur_per_cc
 
 
-def calc_individual_personal_duty_eur(engine_cc: int, age_years: float) -> float:
-    """
-    Duty in EUR for individuals (personal use) = engine_cc × per-cc rate (EUR/cc).
-    """
-    rate = _find_rate_eur_per_cc(engine_cc, age_years)
-    return round(engine_cc * rate, 2)
+def calc_individual_personal_duty_eur(
+    engine_cc: int, age_years: float, *, path: str | Path | None = None
+) -> float:
+    """Duty in EUR for individuals (personal use)."""
+
+    rates = load_personal_rates(path)
+    rate = _find_rate_eur_per_cc(engine_cc, age_years, rates)
+    return float(Decimal(str(engine_cc * rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))

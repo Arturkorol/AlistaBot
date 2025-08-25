@@ -1,11 +1,11 @@
 from datetime import date
 import copy
 import pytest
-from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.tariff.util_fee import calc_util_rub, load_util_config
 
 
 def test_calc_util_rub_clamps_negative_diff():
-    cfg = copy.deepcopy(UTIL_CONFIG)
+    cfg = copy.deepcopy(load_util_config())
     res = calc_util_rub(
         person_type="individual",
         usage="personal",
@@ -22,7 +22,7 @@ def test_calc_util_rub_clamps_negative_diff():
 
 
 def test_calc_util_rub_requires_non_negative_costs():
-    cfg = copy.deepcopy(UTIL_CONFIG)
+    cfg = copy.deepcopy(load_util_config())
     with pytest.raises(ValueError):
         calc_util_rub(
             person_type="individual",

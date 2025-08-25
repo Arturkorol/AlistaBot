@@ -19,7 +19,7 @@ from bot_alista.clearance_fee import (
     CLEARANCE_FEE_RANGES,
     calc_clearance_fee_rub,
 )
-from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
+from bot_alista.tariff.util_fee import calc_util_rub, load_util_config
 from bot_alista.rules.age import compute_actual_age_years
 
 logger = logging.getLogger(__name__)
@@ -194,7 +194,7 @@ class CustomsCalculator:
             else "commercial"
         )
 
-        util_cfg = copy.deepcopy(UTIL_CONFIG)
+        util_cfg = copy.deepcopy(load_util_config())
         if self.tariffs.get("util_not_in_list"):
             util_cfg["not_in_list"] = True
         avg_cost = self.tariffs.get("avg_vehicle_cost_rub")
