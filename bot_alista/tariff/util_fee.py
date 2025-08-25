@@ -237,14 +237,14 @@ def calc_util_rub(
             applicable_rule = rule
             applicable_date = rule_date
 
-    if (
-        applicable_rule
-        and applicable_rule.get("formula") == "ed_plus_half_diff"
-        and avg_vehicle_cost_rub is not None
-        and actual_costs_rub is not None
-    ):
+    if applicable_rule and applicable_rule.get("formula") == "ed_plus_half_diff":
+        if avg_vehicle_cost_rub is None or actual_costs_rub is None:
+            raise ValueError("avg_vehicle_cost_rub and actual_costs_rub are required")
+        if avg_vehicle_cost_rub < 0 or actual_costs_rub < 0:
+            raise ValueError("Cost values must be non-negative")
+        diff = max(avg_vehicle_cost_rub - actual_costs_rub, 0)
         factor = float(applicable_rule.get("half_diff_factor", 0.5))
-        result = us_ed + (avg_vehicle_cost_rub - actual_costs_rub) * factor
+        result = us_ed + diff * factor
     else:
         result = us_ed
 

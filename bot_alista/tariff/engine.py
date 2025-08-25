@@ -326,6 +326,20 @@ def calc_breakdown_with_mode(
             2,
         )
 
+        util_rub = calc_util_rub(
+            person_type="individual",
+            usage="personal",
+            engine_cc=engine_cc,
+            fuel="ice",
+            vehicle_kind="passenger",
+            age_years=age_years,
+            date_decl=date.today(),
+            avg_vehicle_cost_rub=None,
+            actual_costs_rub=None,
+            config=UTIL_CONFIG,
+        )
+        total_with_util = round(total_rub + util_rub, 2)
+
         return {
             "inputs": {
                 "person_type": person_type,
@@ -342,6 +356,8 @@ def calc_breakdown_with_mode(
                 "customs_value_rub": customs_value_rub,
                 **core,
                 "total_rub": total_rub,
+                "util_rub": util_rub,
+                "total_with_util_rub": total_with_util,
             },
             "rates_used": {
                 "mode": "individual_personal_rate_table",
@@ -366,6 +382,22 @@ def calc_breakdown_with_mode(
     corp["breakdown"]["clearance_fee_rub"] = fee_rub
     corp["breakdown"]["total_rub"] = round(
         corp["breakdown"]["total_rub"] + fee_rub, 2
+    )
+    util_rub = calc_util_rub(
+        person_type=person_type,
+        usage="personal" if usage_type == "personal" else "commercial",
+        engine_cc=engine_cc,
+        fuel="ice",
+        vehicle_kind="passenger",
+        age_years=age_years,
+        date_decl=date.today(),
+        avg_vehicle_cost_rub=None,
+        actual_costs_rub=None,
+        config=UTIL_CONFIG,
+    )
+    corp["breakdown"]["util_rub"] = util_rub
+    corp["breakdown"]["total_with_util_rub"] = round(
+        corp["breakdown"]["total_rub"] + util_rub, 2
     )
     corp.setdefault("rates_used", {}).update({"mode": "corporate_alta"})
     corp.setdefault("notes", []).append(

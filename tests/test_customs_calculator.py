@@ -3,9 +3,12 @@ import types
 import importlib.util
 from pathlib import Path
 from enum import Enum
+from datetime import date
+import copy
 
 import pytest
 import yaml
+from bot_alista.tariff.util_fee import calc_util_rub, UTIL_CONFIG
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES_PATH = ROOT / "bot_alista" / "services"
@@ -75,7 +78,9 @@ with open(CONFIG, "r", encoding="utf-8") as fh:
 @pytest.fixture
 def calc() -> CustomsCalculator:
     """Return a calculator using the test exchange rate and tariffs."""
-    return CustomsCalculator(tariffs=TARIFFS)
+    tariffs = copy.deepcopy(TARIFFS)
+    tariffs["util_date"] = date(2024, 1, 1)
+    return CustomsCalculator(tariffs=tariffs)
 
 
 @pytest.fixture
@@ -104,7 +109,22 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     min_duty_rub = to_rub(0.44, "EUR") * vehicle_usd["engine_capacity"]
     duty_rub = max(price_rub * 0.2, min_duty_rub)
     excise_rub = vt["excise_rates"]["gasoline"] * vehicle_usd["power"]
-    util_rub = tariffs["base_util_fee"] * tariffs["ctp_util_coeff_base"]
+    usage = "personal" if vehicle_usd["owner_type"].value == "individual" else "commercial"
+    fuel = "ice"
+    vehicle_kind = "passenger"
+    age_map = {"new": 0.0, "1-3": 2.0, "3-5": 4.0, "5-7": 6.0, "over_7": 8.0}
+    util_rub = calc_util_rub(
+        person_type=vehicle_usd["owner_type"].value,
+        usage=usage,
+        engine_cc=vehicle_usd["engine_capacity"],
+        fuel=fuel,
+        vehicle_kind=vehicle_kind,
+        age_years=age_map[vehicle_usd["age"].value],
+        date_decl=calc.tariffs["util_date"],
+        avg_vehicle_cost_rub=None,
+        actual_costs_rub=None,
+        config=copy.deepcopy(UTIL_CONFIG),
+    )
     recycling_rub = RECYCLING_FEE_BASE_RATE * vt["recycling_factors"]["adjustments"]["5-7"]["gasoline"]
     fee_rub = next(
         tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit
