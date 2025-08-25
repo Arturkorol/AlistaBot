@@ -2,6 +2,7 @@ import os
 import smtplib
 import ssl
 import logging
+import asyncio
 
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -52,5 +53,14 @@ def send_email(
     except Exception as e:  # pragma: no cover - мы только логируем и возвращаем
         logger.error("Ошибка отправки письма: %s", e)
         return False
+
+
+async def send_email_async(
+    to_email: str, subject: str, body: str, attachment_path: str | None = None
+) -> bool:
+    """Asynchronously send an email using a background thread."""
+    return await asyncio.to_thread(
+        send_email, to_email, subject, body, attachment_path
+    )
 
 

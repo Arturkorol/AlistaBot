@@ -32,8 +32,6 @@ from bot_alista.constants import (
     PROMPT_AGE_OVER3,
     BTN_AGE_OVER3_YES,
     BTN_AGE_OVER3_NO,
-    BTN_BACK,
-    BTN_MAIN_MENU,
     BTN_FAQ,
     BTN_CALC,
     ERROR_RATE,
@@ -45,6 +43,7 @@ from bot_alista.services.rates import (
 )
 from bot_alista.formatting import format_result_message
 from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.services.tariffs import get_tariffs_async
 from .calc_ui import (person_type_kb, usage_type_kb, car_type_kb, currency_kb, age_over3_kb)
 from bot_alista.rules.age import compute_actual_age_years
 from bot_alista.handlers.faq import show_faq
@@ -59,6 +58,21 @@ CAR_TYPE_MAP = {
     "Гибрид": "hybrid",
     "Электро": "electric",
 }
+
+
+async def _handle_faq_and_nav(
+    message: types.Message, state: FSMContext, nav: NavigationManager | None
+) -> bool:
+    """Handle FAQ requests and navigation commands.
+
+    Returns ``True`` if the caller should exit early.
+    """
+    if message.text == BTN_FAQ:
+        await show_faq(message, state)
+        return True
+    if nav and await nav.handle_nav(message, state):
+        return True
+    return False
 
 # ---------------------------------------------------------------------------
 # Conversation steps
@@ -85,10 +99,7 @@ async def customs_command(message: types.Message, state: FSMContext) -> None:
 async def get_person_type(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     if message.text not in {"Физическое лицо", "Юридическое лицо"}:
         await message.answer(ERROR_PERSON)
@@ -105,10 +116,7 @@ async def get_person_type(message: types.Message, state: FSMContext) -> None:
 async def get_usage_type(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     if message.text not in {"Личное", "Коммерческое"}:
         await message.answer(ERROR_USAGE)
@@ -125,10 +133,7 @@ async def get_usage_type(message: types.Message, state: FSMContext) -> None:
 async def get_car_type(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     if message.text not in {"Бензин", "Дизель", "Гибрид", "Электро"}:
         await message.answer(ERROR_TYPE)
@@ -149,10 +154,7 @@ async def get_car_type(message: types.Message, state: FSMContext) -> None:
 async def choose_currency(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     if message.text not in CURRENCY_CODES:
         await message.answer(ERROR_CURRENCY)
@@ -169,10 +171,7 @@ async def choose_currency(message: types.Message, state: FSMContext) -> None:
 async def get_amount(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     try:
         amount = float(message.text.replace(",", "."))
@@ -199,10 +198,7 @@ async def get_amount(message: types.Message, state: FSMContext) -> None:
 async def get_engine(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     try:
         engine = int(message.text)
@@ -221,10 +217,7 @@ async def get_engine(message: types.Message, state: FSMContext) -> None:
 async def get_power(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     try:
         val = message.text.lower().replace(",", ".")
@@ -248,10 +241,7 @@ async def get_power(message: types.Message, state: FSMContext) -> None:
 async def get_year(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     try:
         year = int(message.text)
@@ -272,10 +262,7 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
 async def handle_age_over3(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     if message.text not in {BTN_AGE_OVER3_YES, BTN_AGE_OVER3_NO}:
         await message.answer(PROMPT_AGE_OVER3, reply_markup=age_over3_kb())
@@ -294,10 +281,7 @@ async def handle_age_over3(message: types.Message, state: FSMContext) -> None:
 async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text == BTN_FAQ:
-        await show_faq(message, state)
-        return
-    if nav and await nav.handle_nav(message, state):
+    if await _handle_faq_and_nav(message, state, nav):
         return
     code = data.get("pending_rate_code")
     try:
@@ -373,8 +357,8 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             age_group = "5-7"
         else:
             age_group = "over_7"
-
-        calc = CustomsCalculator()
+        tariffs = await get_tariffs_async()
+        calc = CustomsCalculator(tariffs=tariffs)
         calc.tariffs.setdefault("ctp", {"duty_rate": 0.2, "min_per_cc_eur": 0.44})
         calc.set_vehicle_details(
             age=age_group,

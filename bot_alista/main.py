@@ -2,8 +2,11 @@
 
 import asyncio
 import logging
+import os
 
-logging.basicConfig(level=logging.INFO)
+level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+level = getattr(logging, level_name, logging.INFO)
+logging.basicConfig(level=level)
 
 from bot_alista.bot import main as run_bot
 

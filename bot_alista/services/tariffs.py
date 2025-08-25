@@ -9,12 +9,12 @@ day to avoid repeated network requests."""
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict
+import asyncio
 import logging
 import os
-import time
 import xml.etree.ElementTree as ET
 
-import requests
+import aiohttp
 import yaml
 
 TARIFF_URL = "https://api.customs.gov.ru/v1/tariffs"  # Official endpoint
@@ -45,8 +45,8 @@ def _validate(data: Dict[str, Any]) -> None:
         raise ValueError(f"Missing keys: {', '.join(sorted(missing))}")
 
 
-def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
-    """Return tariff configuration with caching and network fallback."""
+async def get_tariffs_async(path: str | Path | None = None) -> Dict[str, Any]:
+    """Return tariff configuration asynchronously with caching and network fallback."""
     global _cache, _cache_date
     today = date.today()
     if _cache is not None and _cache_date == today:
@@ -63,19 +63,22 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
     data = None
     for attempt in range(3):
         try:
-            resp = requests.get(TARIFF_URL, timeout=10)
-            resp.raise_for_status()
-            if "json" in resp.headers.get("Content-Type", ""):
-                candidate = resp.json()
-            else:
-                ET.fromstring(resp.text)
-                candidate = _load_local(path)
+            timeout_cfg = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout_cfg) as session:
+                async with session.get(TARIFF_URL) as resp:
+                    resp.raise_for_status()
+                    if "json" in resp.headers.get("Content-Type", ""):
+                        candidate = await resp.json()
+                    else:
+                        text = await resp.text()
+                        ET.fromstring(text)
+                        candidate = _load_local(path)
             _validate(candidate)
             data = candidate
             break
         except Exception as exc:  # pragma: no cover - network failures
             logging.warning("Failed to fetch tariffs (attempt %s): %s", attempt + 1, exc)
-            time.sleep(1)
+            await asyncio.sleep(1)
 
     if data is None:
         logging.warning("Using local tariff config")
@@ -92,4 +95,9 @@ def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
     return data
 
 
-__all__ = ["get_tariffs"]
+def get_tariffs(path: str | Path | None = None) -> Dict[str, Any]:
+    """Synchronous wrapper around :func:`get_tariffs_async`."""
+    return asyncio.run(get_tariffs_async(path))
+
+
+__all__ = ["get_tariffs", "get_tariffs_async"]

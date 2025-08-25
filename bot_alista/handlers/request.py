@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from bot_alista.states import RequestStates
 from bot_alista.keyboards.navigation import back_menu
-from bot_alista.services.email import send_email
+from bot_alista.services.email import send_email_async
 from bot_alista.services.pdf_report import generate_request_pdf
 from bot_alista.utils.reset import reset_to_menu
 from bot_alista.settings import settings
@@ -21,7 +21,6 @@ from bot_alista.constants import (
 from bot_alista.handlers.faq import show_faq
 from bot_alista.utils.navigation import NavigationManager, NavStep
 
-import asyncio
 import os
 import uuid
 
@@ -147,8 +146,7 @@ async def get_comment(message: types.Message, state: FSMContext):
     generate_request_pdf(data, pdf_path)
 
     # Отправляем на e-mail менеджера
-    email_sent = await asyncio.to_thread(
-        send_email,
+    email_sent = await send_email_async(
         settings.EMAIL_TO,
         "Заявка на растаможку",
         email_body,
