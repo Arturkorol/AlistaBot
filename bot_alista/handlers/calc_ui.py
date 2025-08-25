@@ -9,6 +9,8 @@ from bot_alista.constants import (
     BTN_FAQ,
     BTN_MAIN_MENU,
     CURRENCY_CODES,
+    BTN_METHOD_ETC,
+    BTN_METHOD_CTP
 )
 
 
