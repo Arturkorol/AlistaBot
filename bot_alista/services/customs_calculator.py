@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from datetime import date
 import copy
+from decimal import Decimal, ROUND_HALF_UP
 
 from tabulate import tabulate
 
@@ -26,6 +27,11 @@ logger = logging.getLogger(__name__)
 
 BASE_VAT = 0.2
 RECYCLING_FEE_BASE_RATE = 20_000
+
+
+def _round2(value: float) -> float:
+    """Round monetary values to two decimals using bankers rounding."""
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 class WrongParamException(Exception):
@@ -87,8 +93,10 @@ class CustomsCalculator:
         config_path: str | Path | None = None,
         *,
         tariffs: Optional[Dict[str, Any]] = None,
+        rate_date: date | None = None,
     ) -> None:
         self.tariffs = tariffs or get_tariffs(config_path)
+        self.rate_date = rate_date
         self.reset_fields()
         self._last_result: Dict[str, float] | None = None
 
@@ -134,8 +142,16 @@ class CustomsCalculator:
         elif engine_capacity < 800 or engine_capacity > 8000:
             raise WrongParamException("engine_capacity out of range")
 
+        if power <= 0:
+            raise WrongParamException("power must be positive")
+        if price <= 0:
+            raise WrongParamException("price must be positive")
+        current_year = date.today().year
+        if production_year < 1900 or production_year > current_year:
+            raise WrongParamException("production_year out of range")
+
         try:
-            price_rub = to_rub(price, currency)
+            price_rub = to_rub(price, currency, rate_date=self.rate_date)
         except Exception as exc:
             raise WrongParamException(str(exc))
 
@@ -199,8 +215,8 @@ class CustomsCalculator:
             config=util_cfg,
         )
 
-    def calculate_clearance_tax(self) -> float:
-        """Return clearance tax based on price ranges defined in tariffs."""
+    def calculate_clearance_tax(self) -> int:
+        """Return clearance tax based on tariffs as whole rubles."""
         v = self._require_vehicle()
         price = v.price_rub
         ranges = self.tariffs.get("clearance_tax_ranges", CLEARANCE_FEE_RANGES)
@@ -211,13 +227,30 @@ class CustomsCalculator:
     def calculate_recycling_fee(self) -> float:
         v = self._require_vehicle()
         vt = self._vehicle_tariffs(v)
-        factors = vt["recycling_factors"]
-        default = factors.get("default", {})
-        adjustments = factors.get("adjustments", {}).get(v.age.value, {})
-        engine_factor = adjustments.get(
-            v.engine_type.value, default.get(v.engine_type.value, 1.0)
-        )
-        fee = RECYCLING_FEE_BASE_RATE * engine_factor
+        cfg = vt.get("recycling_fee")
+        if cfg:
+            base = cfg.get("base_rate", RECYCLING_FEE_BASE_RATE)
+            engine_factor = cfg.get("engine_factors", {}).get(
+                v.engine_type.value, 1.0
+            )
+            age_factor = (
+                cfg.get("age_adjustments", {})
+                .get(v.age.value, {})
+                .get(v.engine_type.value, 1.0)
+            )
+            owner_factor = cfg.get("owner_multipliers", {}).get(
+                v.owner_type.value, 1.0
+            )
+            fee = base * engine_factor * age_factor * owner_factor
+        else:  # backward compatibility with older configs
+            factors = vt.get("recycling_factors", {})
+            default = factors.get("default", {})
+            adjustments = factors.get("adjustments", {}).get(v.age.value, {})
+            engine_factor = adjustments.get(
+                v.engine_type.value, default.get(v.engine_type.value, 1.0)
+            )
+            fee = RECYCLING_FEE_BASE_RATE * engine_factor
+        fee = _round2(fee)
         logger.info("Recycling fee: %s RUB", fee)
         return float(fee)
 
@@ -245,24 +278,26 @@ class CustomsCalculator:
             min_cc_eur = ctp_cfg["min_per_cc_eur"]
         except KeyError as exc:
             raise WrongParamException(f"missing CTP tariff parameter: {exc}")
-        min_duty_per_cc = to_rub(min_cc_eur, "EUR")
-        duty_rub = max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity)
+        min_duty_per_cc = to_rub(min_cc_eur, "EUR", rate_date=self.rate_date)
+        duty_rub = _round2(max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity))
 
-        excise = self.calculate_excise()
-        recycling_fee = self.calculate_recycling_fee()
-        vat = (price_rub + duty_rub + excise) * vat_rate
+        excise = _round2(self.calculate_excise())
+        recycling_fee = _round2(self.calculate_recycling_fee())
+        vat = _round2((price_rub + duty_rub + excise) * vat_rate)
 
         clearance_fee = self.calculate_clearance_tax()
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        util_fee = self._calculate_util_fee(v, age_years, decl_date)
+        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date))
 
-        total_pay = duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
+        total_pay = _round2(
+            duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
+        )
         res = {
             "mode": "CTP",
-            "price_rub": price_rub,
+            "price_rub": _round2(price_rub),
             "duty_rub": duty_rub,
             "excise_rub": excise,
             "vat_rub": vat,
@@ -278,23 +313,25 @@ class CustomsCalculator:
         v = self._require_vehicle()
         vt = self._vehicle_tariffs(v)
         cfg = vt["age_groups"][v.age.value][v.engine_type.value]
-        rate_per_cc = to_rub(cfg["rate_per_cc"], "EUR")
+        rate_per_cc = to_rub(cfg["rate_per_cc"], "EUR", rate_date=self.rate_date)
         min_duty = cfg.get("min_duty", 0)
-        min_duty_rub = to_rub(min_duty, "EUR") if min_duty else 0
-        duty_rub = max(rate_per_cc * v.engine_capacity, min_duty_rub)
+        min_duty_rub = (
+            to_rub(min_duty, "EUR", rate_date=self.rate_date) if min_duty else 0
+        )
+        duty_rub = _round2(max(rate_per_cc * v.engine_capacity, min_duty_rub))
 
         clearance_fee = self.calculate_clearance_tax()
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        util_fee = self._calculate_util_fee(v, age_years, decl_date)
-        recycling_fee = self.calculate_recycling_fee()
+        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date))
+        recycling_fee = _round2(self.calculate_recycling_fee())
 
-        total_pay = duty_rub + clearance_fee + util_fee + recycling_fee
+        total_pay = _round2(duty_rub + clearance_fee + util_fee + recycling_fee)
         res = {
             "mode": "ETC",
-            "price_rub": v.price_rub,
+            "price_rub": _round2(v.price_rub),
             "duty_rub": duty_rub,
             "excise_rub": 0.0,
             "vat_rub": 0.0,
@@ -302,8 +339,8 @@ class CustomsCalculator:
             "util_rub": util_fee,
             "recycling_rub": recycling_fee,
             "total_rub": total_pay,
-            "vehicle_price_rub": v.price_rub,
-            "etc_rub": v.price_rub + total_pay,
+            "vehicle_price_rub": _round2(v.price_rub),
+            "etc_rub": _round2(v.price_rub + total_pay),
         }
         self._last_result = res
         return res
