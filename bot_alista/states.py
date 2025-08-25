@@ -16,6 +16,7 @@ class CalculationStates(StatesGroup):
     calc_year = State()
     age_over_3 = State()
     manual_rate = State()
+    method_choice = State()
 
 
 class RequestStates(StatesGroup):
