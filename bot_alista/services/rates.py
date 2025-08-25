@@ -18,6 +18,24 @@ SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY")
 CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
 
 
+_session: aiohttp.ClientSession | None = None
+
+
+async def init_rates_session() -> aiohttp.ClientSession:
+    """Initialize and return a shared aiohttp session for rate fetches."""
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
+
+
+async def close_rates_session() -> None:
+    """Close the shared aiohttp session used for rate fetches."""
+    global _session
+    if _session and not _session.closed:
+        await _session.close()
+    _session = None
+
 # ---------------------------------------------------------------------------
 # Вспомогательные функции
 # ---------------------------------------------------------------------------
@@ -48,11 +66,11 @@ async def _fetch_cbr_rates(
 
     for attempt in range(1, retries + 1):
         try:
+            session = await init_rates_session()
             timeout_cfg = aiohttp.ClientTimeout(total=timeout)
-            async with aiohttp.ClientSession(timeout=timeout_cfg) as session:
-                async with session.get(CBR_URL, params=params) as resp:
-                    resp.raise_for_status()
-                    text = await resp.text(encoding="windows-1251")
+            async with session.get(CBR_URL, params=params, timeout=timeout_cfg) as resp:
+                resp.raise_for_status()
+                text = await resp.text(encoding="windows-1251")
             root = ET.fromstring(text)
         except (aiohttp.ClientError, ET.ParseError) as exc:
             if attempt == retries:
