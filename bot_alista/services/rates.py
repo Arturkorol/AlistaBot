@@ -115,26 +115,32 @@ async def get_cached_rates(
     с последующим сохранением в кэш.
     """
     cache = _cache_file(for_date)
+    cached_rates: Dict[str, float] = {}
     if cache.exists():
         try:
             with cache.open("r", encoding="utf-8") as fh:
                 data = json.load(fh)
-            rates = data.get("rates", {})
-            if all(code in rates for code in codes):
-                return {code: rates[code] for code in codes}
+            cached_rates = data.get("rates", {})
+            if all(code in cached_rates for code in codes):
+                return {code: cached_rates[code] for code in codes}
         except json.JSONDecodeError:
-            pass  # повреждённый кэш – перезапишем ниже
+            cached_rates = {}
 
-    fresh = await _fetch_cbr_rates(for_date, SUPPORTED_CODES, retries=retries, timeout=timeout)
-    payload = {
-        "date": for_date.isoformat(),
-        "provider": "CBR",
-        "base": "RUB",
-        "rates": fresh,
-    }
-    with cache.open("w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False)
-    return {code: fresh[code] for code in codes}
+    missing = [code for code in codes if code not in cached_rates]
+    if missing:
+        fresh = await _fetch_cbr_rates(
+            for_date, missing, retries=retries, timeout=timeout
+        )
+        cached_rates.update(fresh)
+        payload = {
+            "date": for_date.isoformat(),
+            "provider": "CBR",
+            "base": "RUB",
+            "rates": cached_rates,
+        }
+        with cache.open("w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+    return {code: cached_rates[code] for code in codes}
 
 
 async def get_cached_rate(
