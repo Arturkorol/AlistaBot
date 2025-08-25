@@ -37,6 +37,9 @@ from bot_alista.constants import (
     BTN_FAQ,
     BTN_CALC,
     ERROR_RATE,
+    BTN_METHOD_ETC,
+    BTN_METHOD_CTP,
+    PROMPT_METHOD,
 )
 from bot_alista.utils.navigation import NavigationManager, NavStep
 from bot_alista.services.rates import (
