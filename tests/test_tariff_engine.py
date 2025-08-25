@@ -70,6 +70,36 @@ def test_calc_breakdown_rules_company_commercial():
     assert any("UL by CSV" in note for note in result["notes"])
 
 
+def test_util_fee_varies_with_age():
+    older = calc_breakdown_rules(
+        person_type="individual",
+        usage_type="personal",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=None,
+        production_year=2021,
+        age_choice_over3=True,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    newer = calc_breakdown_rules(
+        person_type="individual",
+        usage_type="personal",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=None,
+        production_year=2022,
+        age_choice_over3=True,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    util_old = older["breakdown"]["util_rub"]
+    util_new = newer["breakdown"]["util_rub"]
+    assert util_old > util_new
+
+
 def test_calc_import_breakdown_validation_errors_negative():
     with pytest.raises(ValueError):
         calc_import_breakdown(
