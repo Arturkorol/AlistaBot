@@ -5,11 +5,11 @@ from bot_alista.handlers import menu, calculate, cancel, menu_navigation, reques
 from bot_alista.services.rates import init_rates_session, close_rates_session
 
 
-async def on_startup(_):
+async def on_startup(bot):
     await init_rates_session()
 
 
-async def on_shutdown(_):
+async def on_shutdown(bot):
     await close_rates_session()
 
 
@@ -32,4 +32,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
