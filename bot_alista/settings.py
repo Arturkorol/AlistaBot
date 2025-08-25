@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import yaml
-from pydantic.settings import BaseSettings
+from pydantic_settings import BaseSettings
 from pydantic import Field
 
 
