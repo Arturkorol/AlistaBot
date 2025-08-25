@@ -6,6 +6,7 @@ import logging
 from datetime import date
 
 from aiogram import F, Router, types
+from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from bot_alista.states import CalculationStates
@@ -126,6 +127,11 @@ async def start_calculation(message: types.Message, state: FSMContext) -> None:
         state,
         NavStep(CalculationStates.person_type, PROMPT_PERSON, _person_type_kb()),
     )
+
+
+@router.message(Command("customs"))
+async def customs_command(message: types.Message, state: FSMContext) -> None:
+    await start_calculation(message, state)
 
 
 @router.message(CalculationStates.person_type)

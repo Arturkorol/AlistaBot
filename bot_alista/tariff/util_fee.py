@@ -267,12 +267,13 @@ DEFAULT_UTIL_CONFIG_PATH = (
     Path(__file__).resolve().parents[1] / "data" / "util_fee.yaml"
 )
 
-
 @lru_cache(maxsize=1)
 def load_util_config(path: str | Path | None = None) -> Dict:
     """Load utilization fee configuration from YAML.
 
     The path can be overridden by ``UTIL_FEE_CONFIG`` environment variable.
+    The result is cached to avoid repeated disk access. Call
+    ``load_util_config.cache_clear()`` to force reload when needed.
     """
 
     env_path = os.environ.get("UTIL_FEE_CONFIG")

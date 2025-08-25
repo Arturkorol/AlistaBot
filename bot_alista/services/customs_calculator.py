@@ -179,7 +179,13 @@ class CustomsCalculator:
     # ------------------------------------------------------------------
     # Fee helpers
     # ------------------------------------------------------------------
-    def _calculate_util_fee(self, v: _Vehicle, age_years: float, decl_date: date) -> float:
+    def _calculate_util_fee(
+        self,
+        v: _Vehicle,
+        age_years: float,
+        decl_date: date,
+        multiplier: float = 1.0,
+    ) -> float:
         fuel = (
             "ev"
             if v.engine_type is EngineType.ELECTRIC
@@ -200,7 +206,7 @@ class CustomsCalculator:
         avg_cost = self.tariffs.get("avg_vehicle_cost_rub")
         actual_cost = self.tariffs.get("actual_costs_rub")
 
-        return calc_util_rub(
+        fee = calc_util_rub(
             person_type=v.owner_type.value,
             usage=usage,
             engine_cc=v.engine_capacity,
@@ -212,6 +218,7 @@ class CustomsCalculator:
             actual_costs_rub=actual_cost,
             config=util_cfg,
         )
+        return fee * (multiplier or 1.0)
 
     def calculate_clearance_tax(self) -> float:
         """Return clearance tax based on price ranges defined in tariffs."""
@@ -280,7 +287,6 @@ class CustomsCalculator:
         duty_rub = _round2(max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity))
 
         excise = _round2(self.calculate_excise())
-        recycling_fee = _round2(self.calculate_recycling_fee())
         vat = _round2((price_rub + duty_rub + excise) * vat_rate)
 
         clearance_fee = int(self.calculate_clearance_tax())
@@ -288,11 +294,12 @@ class CustomsCalculator:
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date))
-
-        total_pay = _round2(
-            duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
+        coeff = self.tariffs.get("ctp_util_coeff_base", 1.0)
+        util_fee = _round2(
+            self._calculate_util_fee(v, age_years, decl_date, coeff)
         )
+
+        total_pay = _round2(duty_rub + excise + vat + clearance_fee + util_fee)
         res = {
             "mode": "CTP",
             "price_rub": _round2(price_rub),
@@ -301,7 +308,6 @@ class CustomsCalculator:
             "vat_rub": vat,
             "fee_rub": clearance_fee,
             "util_rub": util_fee,
-            "recycling_rub": recycling_fee,
             "total_rub": total_pay,
         }
         self._last_result = res
@@ -321,7 +327,10 @@ class CustomsCalculator:
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date))
+        coeff = self.tariffs.get("etc_util_coeff_base", 1.0)
+        util_fee = _round2(
+            self._calculate_util_fee(v, age_years, decl_date, coeff)
+        )
         recycling_fee = _round2(self.calculate_recycling_fee())
 
         total_pay = _round2(duty_rub + clearance_fee + util_fee + recycling_fee)

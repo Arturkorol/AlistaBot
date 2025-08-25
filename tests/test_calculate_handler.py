@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 calculate = pytest.importorskip("bot_alista.handlers.calculate")
 _run_calculation = calculate._run_calculation
+customs_command = calculate.customs_command
 
 from bot_alista.constants import BTN_BACK, BTN_MAIN_MENU
 
@@ -71,3 +72,16 @@ def test_run_calculation(monkeypatch):
     labels = [btn.text for row in markup.keyboard for btn in row]
     assert BTN_BACK in labels and BTN_MAIN_MENU in labels
     assert state.cleared
+
+
+def test_customs_command_triggers_start(monkeypatch):
+    called = {}
+
+    async def fake_start(message, state):
+        called["args"] = (message, state)
+
+    monkeypatch.setattr(calculate, "start_calculation", fake_start)
+    state = FakeState({})
+    msg = FakeMessage()
+    asyncio.run(customs_command(msg, state))
+    assert called["args"] == (msg, state)

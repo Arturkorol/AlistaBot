@@ -2,10 +2,13 @@ from __future__ import annotations
 
 """Utility helpers for currency conversion."""
 
+from datetime import date
+from functools import lru_cache
+
 try:
     from currency_converter_free import CurrencyConverter
-except Exception:  # pragma: no cover - fallback name
-    from currency_converter_free import CurrencyConverter
+except ImportError as exc:  # pragma: no cover - explicit error
+    raise RuntimeError("currency_converter_free is required") from exc
 
 _converter: CurrencyConverter | None = None
 _FALLBACK_RATES = {"USD": 0.9, "KRW": 0.0007, "RUB": 0.01}
@@ -17,6 +20,12 @@ def _get_converter() -> CurrencyConverter:
     if _converter is None:
         _converter = CurrencyConverter()
     return _converter
+
+
+@lru_cache(maxsize=128)
+def _get_rate(code_from: str, code_to: str, day: date) -> float:
+    converter = _get_converter()
+    return float(converter.convert(1, code_from, code_to))
 
 def to_eur(amount: float, currency: str, eur_rate: float | None = None) -> float:
     """Convert ``amount`` from ``currency`` to EUR.
@@ -36,12 +45,11 @@ def to_eur(amount: float, currency: str, eur_rate: float | None = None) -> float
     code = currency.upper()
     if code == "EUR":
         return float(amount)
-    if code == "RUB" and eur_rate is not None:
-        return float(amount) / eur_rate
-
     try:
-        converter = _get_converter()
-        return float(converter.convert(amount, code, "EUR"))
+        if code == "RUB" and eur_rate is not None:
+            return float(amount) / eur_rate
+        rate = _get_rate(code, "EUR", date.today())
+        return float(amount) * rate
     except Exception:
         if code == "RUB" and eur_rate is not None:
             return float(amount) / eur_rate
@@ -67,8 +75,8 @@ def to_rub(amount: float, currency: str) -> float:
     if code == "RUB":
         return float(amount)
     try:
-        converter = _get_converter()
-        return float(converter.convert(amount, code, "RUB"))
+        rate = _get_rate(code, "RUB", date.today())
+        return float(amount) * rate
     except Exception:
         if code == "EUR":
             return float(amount) * _EUR_TO_RUB
