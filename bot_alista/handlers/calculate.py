@@ -34,17 +34,13 @@ from bot_alista.constants import (
     BTN_AGE_OVER3_NO,
     BTN_FAQ,
     BTN_CALC,
-    ERROR_RATE,
     BTN_METHOD_ETC,
     BTN_METHOD_CTP,
     BTN_METHOD_AUTO,
     PROMPT_METHOD,
 )
 from bot_alista.utils.navigation import NavigationManager, NavStep
-from bot_alista.services.rates import (
-    get_cached_rates,
-    validate_or_prompt_rate,
-)
+from bot_alista.services.rates import get_cached_rates
 from bot_alista.formatting import format_result_message
 from bot_alista.services.customs_calculator import (
     CustomsCalculator,
@@ -310,34 +306,6 @@ async def handle_age_over3(message: types.Message, state: FSMContext) -> None:
 
     await _run_calculation(state, message)
 
-
-@router.message(CalculationStates.manual_rate)
-async def get_manual_rate(message: types.Message, state: FSMContext) -> None:
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if await _handle_faq_and_nav(message, state, nav):
-        return
-    code = data.get("pending_rate_code")
-    try:
-        rate = validate_or_prompt_rate(message.text)
-    except ValueError:
-        await message.answer(ERROR_RATE)
-        return
-    manual_rates = data.get("manual_rates", {})
-    manual_rates[code] = rate
-    await state.update_data(manual_rates=manual_rates)
-    needed = {data.get("currency_code"), "EUR"}
-    missing = [c for c in needed if c not in manual_rates]
-    if missing:
-        next_code = missing[0]
-        await state.update_data(pending_rate_code=next_code)
-        await message.answer(
-            f"📥 Введите курс {next_code} вручную (₽ за {next_code}):",
-            reply_markup=back_menu(),
-        )
-        return
-    await _run_calculation(state, message)
-
 # ---------------------------------------------------------------------------
 # Calculation
 # ---------------------------------------------------------------------------
@@ -359,21 +327,15 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         usage_type = "personal" if usage_ru == "Личное" else "commercial"
 
         decl_date = data.get("decl_date") or date.today()
-        manual_rates = data.get("manual_rates", {})
-        needed = {currency_code, "EUR"}
         try:
             rates = await get_cached_rates(decl_date, codes=CURRENCY_CODES)
         except Exception:
-            missing = [c for c in needed if c not in manual_rates]
-            if missing:
-                await state.update_data(pending_rate_code=missing[0])
-                await state.set_state(CalculationStates.manual_rate)
-                await message.answer(
-                    f"📥 Введите курс {missing[0]} вручную (₽ за {missing[0]}):",
-                    reply_markup=back_menu(),
-                )
-                return
-            rates = manual_rates
+            await message.answer(
+                "Не удалось получить курсы ЦБ РФ, попробуйте позже",
+                reply_markup=back_menu(),
+            )
+            await state.clear()
+            return
 
         engine_type = ENGINE_TYPE_LABELS.get(car_type_ru, EngineType.GASOLINE)
         age_over_3 = bool(data.get("age_over_3", False))
