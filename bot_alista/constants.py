@@ -20,14 +20,18 @@ FuelType = Literal["бензин", "дизель", "гибрид", "электр
 VehicleKind = Literal["легковой", "грузовой", "мототехника"]
 
 # Validation ranges
-ENGINE_CC_MIN = 800
-ENGINE_CC_MAX = 8000
+# Engine capacity may be any positive number for non‑electric vehicles.
+# ``ENGINE_CC_MIN`` is therefore 1 and ``ENGINE_CC_MAX`` is kept generous
+# only for UI validation purposes.
+ENGINE_CC_MIN = 1
+ENGINE_CC_MAX = 10000
 HP_MIN = 40
 HP_MAX = 1200
 AGE_MAX = 30
 
 # Currency codes
-CURRENCY_CODES = ("EUR", "USD", "JPY", "CNY")
+# Added support for South Korean Won and Russian Ruble.
+CURRENCY_CODES = ("EUR", "USD", "JPY", "CNY", "KRW", "RUB")
 
 # Prompts and error messages
 PROMPT_PERSON = "Выберите тип лица:"
@@ -61,5 +65,7 @@ ERROR_REQ_PRICE = "Введите корректную цену в евро."
 PROMPT_REQ_COMMENT = "Введите дополнительный комментарий (или напишите 'нет'):"
 BTN_METHOD_ETC = "📘 ETC (фикс. ставки)"
 BTN_METHOD_CTP = "📙 CTP (стоимость авто)"
+# Allow automatic comparison of ETC and CTP results
+BTN_METHOD_AUTO = "🤖 Авто выбор"
 PROMPT_METHOD = "Шаг 1/10: Выберите метод расчёта:"
 ERROR_METHOD = "❌ Пожалуйста, выберите один из предложенных методов расчёта."

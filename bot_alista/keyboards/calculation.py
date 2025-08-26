@@ -9,6 +9,7 @@ from bot_alista.constants import (
     BTN_AGE_OVER3_NO,
     BTN_METHOD_ETC,
     BTN_METHOD_CTP,
+    BTN_METHOD_AUTO,
 )
 
 
@@ -43,6 +44,7 @@ def currency_kb() -> ReplyKeyboardMarkup:
     kb = [
         [KeyboardButton(text=CURRENCY_CODES[0]), KeyboardButton(text=CURRENCY_CODES[1])],
         [KeyboardButton(text=CURRENCY_CODES[2]), KeyboardButton(text=CURRENCY_CODES[3])],
+        [KeyboardButton(text=CURRENCY_CODES[4]), KeyboardButton(text=CURRENCY_CODES[5])],
         [KeyboardButton(text=BTN_BACK), KeyboardButton(text=BTN_MAIN_MENU)],
         [KeyboardButton(text=BTN_FAQ)],
     ]
@@ -63,6 +65,7 @@ def method_type_kb() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text=BTN_METHOD_ETC)],
             [KeyboardButton(text=BTN_METHOD_CTP)],
+            [KeyboardButton(text=BTN_METHOD_AUTO)],
         ],
         resize_keyboard=True,
         one_time_keyboard=True,
