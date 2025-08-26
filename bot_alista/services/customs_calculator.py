@@ -25,13 +25,13 @@ from bot_alista.rules.age import compute_actual_age_years
 logger = logging.getLogger(__name__)
 
 
-BASE_VAT = 0.2
-RECYCLING_FEE_BASE_RATE = 20_000
+BASE_VAT = Decimal("0.2")
+RECYCLING_FEE_BASE_RATE = Decimal("20000")
 
 
-def _round2(value: float) -> float:
+def _round2(value: Decimal) -> Decimal:
     """Round monetary values to two decimals using bankers rounding."""
-    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class WrongParamException(Exception):
@@ -79,7 +79,7 @@ class _Vehicle:
     engine_type: EngineType
     power: int
     production_year: int
-    price_rub: float
+    price_rub: Decimal
     owner_type: VehicleOwnerType
     currency: str
     vehicle_type: VehicleType
@@ -96,7 +96,7 @@ class CustomsCalculator:
     ) -> None:
         self.tariffs = tariffs or get_tariffs(config_path)
         self.reset_fields()
-        self._last_result: Dict[str, float] | None = None
+        self._last_result: Dict[str, Decimal] | None = None
 
     # ------------------------------------------------------------------
     # Vehicle state
@@ -149,7 +149,7 @@ class CustomsCalculator:
             raise WrongParamException("production_year out of range")
 
         try:
-            price_rub = to_rub(price, currency)
+            price_rub = Decimal(str(to_rub(price, currency)))
         except Exception as exc:
             raise WrongParamException(str(exc))
 
@@ -159,7 +159,7 @@ class CustomsCalculator:
             engine_type=engine_enum,
             power=int(power),
             production_year=int(production_year),
-            price_rub=float(price_rub),
+            price_rub=price_rub,
             owner_type=owner_enum,
             currency=currency.upper(),
             vehicle_type=vehicle_type_enum,
@@ -184,8 +184,8 @@ class CustomsCalculator:
         v: _Vehicle,
         age_years: float,
         decl_date: date,
-        multiplier: float = 1.0,
-    ) -> float:
+        multiplier: Decimal = Decimal("1.0"),
+    ) -> Decimal:
         fuel = (
             "ev"
             if v.engine_type is EngineType.ELECTRIC
@@ -206,101 +206,106 @@ class CustomsCalculator:
         avg_cost = self.tariffs.get("avg_vehicle_cost_rub")
         actual_cost = self.tariffs.get("actual_costs_rub")
 
-        fee = calc_util_rub(
-            person_type=v.owner_type.value,
-            usage=usage,
-            engine_cc=v.engine_capacity,
-            fuel=fuel,
-            vehicle_kind=vehicle_kind,
-            age_years=age_years,
-            date_decl=decl_date,
-            avg_vehicle_cost_rub=avg_cost,
-            actual_costs_rub=actual_cost,
-            config=util_cfg,
+        fee = Decimal(
+            str(
+                calc_util_rub(
+                    person_type=v.owner_type.value,
+                    usage=usage,
+                    engine_cc=v.engine_capacity,
+                    fuel=fuel,
+                    vehicle_kind=vehicle_kind,
+                    age_years=age_years,
+                    date_decl=decl_date,
+                    avg_vehicle_cost_rub=avg_cost,
+                    actual_costs_rub=actual_cost,
+                    config=util_cfg,
+                )
+            )
         )
-        return fee * (multiplier or 1.0)
+        return fee * (multiplier or Decimal("1.0"))
 
-    def calculate_clearance_tax(self) -> float:
+    def calculate_clearance_tax(self, v: _Vehicle | None = None) -> Decimal:
         """Return clearance tax based on price ranges defined in tariffs."""
-        v = self._require_vehicle()
+        v = v or self._require_vehicle()
         price = v.price_rub
         ranges = self.tariffs.get("clearance_tax_ranges", CLEARANCE_FEE_RANGES)
-        fee = calc_clearance_fee_rub(price, ranges)
+        fee = Decimal(calc_clearance_fee_rub(float(price), ranges))
         logger.info("Customs clearance tax: %s RUB", fee)
         return fee
 
-    def calculate_recycling_fee(self) -> float:
-        v = self._require_vehicle()
+    def calculate_recycling_fee(self, v: _Vehicle | None = None) -> Decimal:
+        v = v or self._require_vehicle()
         vt = self._vehicle_tariffs(v)
         cfg = vt.get("recycling_fee")
         if cfg:
-            base = cfg.get("base_rate", RECYCLING_FEE_BASE_RATE)
-            engine_factor = cfg.get("engine_factors", {}).get(
-                v.engine_type.value, 1.0
+            base = Decimal(str(cfg.get("base_rate", RECYCLING_FEE_BASE_RATE)))
+            engine_factor = Decimal(
+                str(cfg.get("engine_factors", {}).get(v.engine_type.value, 1.0))
             )
-            age_factor = (
-                cfg.get("age_adjustments", {})
-                .get(v.age.value, {})
-                .get(v.engine_type.value, 1.0)
+            age_factor = Decimal(
+                str(
+                    cfg.get("age_adjustments", {})
+                    .get(v.age.value, {})
+                    .get(v.engine_type.value, 1.0)
+                )
             )
-            owner_factor = cfg.get("owner_multipliers", {}).get(
-                v.owner_type.value, 1.0
+            owner_factor = Decimal(
+                str(cfg.get("owner_multipliers", {}).get(v.owner_type.value, 1.0))
             )
             fee = base * engine_factor * age_factor * owner_factor
         else:  # backward compatibility with older configs
             factors = vt.get("recycling_factors", {})
             default = factors.get("default", {})
             adjustments = factors.get("adjustments", {}).get(v.age.value, {})
-            engine_factor = adjustments.get(
-                v.engine_type.value, default.get(v.engine_type.value, 1.0)
+            engine_factor = Decimal(
+                str(adjustments.get(v.engine_type.value, default.get(v.engine_type.value, 1.0)))
             )
             fee = RECYCLING_FEE_BASE_RATE * engine_factor
         fee = _round2(fee)
         logger.info("Recycling fee: %s RUB", fee)
-        return float(fee)
+        return fee
 
-    def calculate_excise(self) -> float:
-        v = self._require_vehicle()
+    def calculate_excise(self, v: _Vehicle | None = None) -> Decimal:
+        v = v or self._require_vehicle()
         vt = self._vehicle_tariffs(v)
-        rate = vt["excise_rates"].get(v.engine_type.value, 0)
-        excise = rate * v.power
+        rate = Decimal(str(vt["excise_rates"].get(v.engine_type.value, 0)))
+        excise = rate * Decimal(v.power)
         logger.info("Excise: %s RUB", excise)
-        return float(excise)
+        return _round2(excise)
 
     # ------------------------------------------------------------------
     # Calculation modes
     # ------------------------------------------------------------------
-    def calculate_ctp(self) -> Dict[str, float]:
-        v = self._require_vehicle()
+    def _calc_ctp(self, v: _Vehicle) -> Dict[str, Decimal]:
         price_rub = v.price_rub
-        vat_rate = self.tariffs.get("vat_rate", BASE_VAT)
+        vat_rate = Decimal(str(self.tariffs.get("vat_rate", BASE_VAT)))
 
         ctp_cfg = self.tariffs.get("ctp")
         if not ctp_cfg:
             raise WrongParamException("ctp tariffs not configured")
         try:
-            duty_rate = ctp_cfg["duty_rate"]
+            duty_rate = Decimal(str(ctp_cfg["duty_rate"]))
             min_cc_eur = ctp_cfg["min_per_cc_eur"]
         except KeyError as exc:
             raise WrongParamException(f"missing CTP tariff parameter: {exc}")
-        min_duty_per_cc = to_rub(min_cc_eur, "EUR")
-        duty_rub = _round2(max(price_rub * duty_rate, min_duty_per_cc * v.engine_capacity))
+        min_duty_per_cc = Decimal(str(to_rub(min_cc_eur, "EUR")))
+        duty_rub = _round2(
+            max(price_rub * duty_rate, min_duty_per_cc * Decimal(v.engine_capacity))
+        )
 
-        excise = _round2(self.calculate_excise())
+        excise = self.calculate_excise(v)
         vat = _round2((price_rub + duty_rub + excise) * vat_rate)
 
-        clearance_fee = int(self.calculate_clearance_tax())
+        clearance_fee = _round2(self.calculate_clearance_tax(v))
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        coeff = self.tariffs.get("ctp_util_coeff_base", 1.0)
-        util_fee = _round2(
-            self._calculate_util_fee(v, age_years, decl_date, coeff)
-        )
+        coeff = Decimal(str(self.tariffs.get("ctp_util_coeff_base", 1.0)))
+        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date, coeff))
 
         total_pay = _round2(duty_rub + excise + vat + clearance_fee + util_fee)
-        res = {
+        return {
             "mode": "CTP",
             "price_rub": _round2(price_rub),
             "duty_rub": duty_rub,
@@ -310,36 +315,35 @@ class CustomsCalculator:
             "util_rub": util_fee,
             "total_rub": total_pay,
         }
-        self._last_result = res
-        return res
 
-    def calculate_etc(self) -> Dict[str, float]:
-        v = self._require_vehicle()
+    def _calc_etc(self, v: _Vehicle) -> Dict[str, Decimal]:
         vt = self._vehicle_tariffs(v)
         cfg = vt["age_groups"][v.age.value][v.engine_type.value]
-        rate_per_cc = to_rub(cfg["rate_per_cc"], "EUR")
+        rate_per_cc = Decimal(str(to_rub(cfg["rate_per_cc"], "EUR")))
         min_duty = cfg.get("min_duty", 0)
-        min_duty_rub = to_rub(min_duty, "EUR") if min_duty else 0
-        duty_rub = _round2(max(rate_per_cc * v.engine_capacity, min_duty_rub))
+        min_duty_rub = (
+            Decimal(str(to_rub(min_duty, "EUR"))) if min_duty else Decimal("0")
+        )
+        duty_rub = _round2(
+            max(rate_per_cc * Decimal(v.engine_capacity), min_duty_rub)
+        )
 
-        clearance_fee = int(self.calculate_clearance_tax())
+        clearance_fee = _round2(self.calculate_clearance_tax(v))
         decl_date = self.tariffs.get("util_date", date(2024, 1, 1))
         if isinstance(decl_date, str):
             decl_date = date.fromisoformat(decl_date)
         age_years = compute_actual_age_years(v.production_year, decl_date)
-        coeff = self.tariffs.get("etc_util_coeff_base", 1.0)
-        util_fee = _round2(
-            self._calculate_util_fee(v, age_years, decl_date, coeff)
-        )
-        recycling_fee = _round2(self.calculate_recycling_fee())
+        coeff = Decimal(str(self.tariffs.get("etc_util_coeff_base", 1.0)))
+        util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date, coeff))
+        recycling_fee = self.calculate_recycling_fee(v)
 
         total_pay = _round2(duty_rub + clearance_fee + util_fee + recycling_fee)
-        res = {
+        return {
             "mode": "ETC",
             "price_rub": _round2(v.price_rub),
             "duty_rub": duty_rub,
-            "excise_rub": 0.0,
-            "vat_rub": 0.0,
+            "excise_rub": Decimal("0"),
+            "vat_rub": Decimal("0"),
             "fee_rub": clearance_fee,
             "util_rub": util_fee,
             "recycling_rub": recycling_fee,
@@ -347,19 +351,25 @@ class CustomsCalculator:
             "vehicle_price_rub": _round2(v.price_rub),
             "etc_rub": _round2(v.price_rub + total_pay),
         }
+
+    def calculate_ctp(self) -> Dict[str, Decimal]:
+        v = self._require_vehicle()
+        res = self._calc_ctp(v)
         self._last_result = res
         return res
 
-    def calculate_auto(self) -> Dict[str, float]:
+    def calculate_etc(self) -> Dict[str, Decimal]:
+        v = self._require_vehicle()
+        res = self._calc_etc(v)
+        self._last_result = res
+        return res
+
+    def calculate_auto(self) -> Dict[str, Decimal]:
         v = self._require_vehicle()
         if v.owner_type is VehicleOwnerType.COMPANY:
             return self.calculate_ctp()
-        original = copy.deepcopy(v)
-        self.vehicle = copy.deepcopy(original)
-        etc = self.calculate_etc()
-        self.vehicle = copy.deepcopy(original)
-        ctp = self.calculate_ctp()
-        self.vehicle = original
+        etc = self._calc_etc(v)
+        ctp = self._calc_ctp(v)
         chosen = ctp if ctp["total_rub"] >= etc["total_rub"] else etc
         self._last_result = chosen
         return chosen
@@ -376,7 +386,7 @@ class CustomsCalculator:
             raise WrongParamException("Invalid calculation mode")
 
         table = [
-            [k, f"{v:,.2f}" if isinstance(v, (int, float)) else v]
+            [k, f"{float(v):,.2f}" if isinstance(v, (int, float, Decimal)) else v]
             for k, v in data.items()
         ]
         formatted = tabulate(table, headers=["Description", "Amount"], tablefmt="psql")

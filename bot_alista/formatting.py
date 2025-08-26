@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Dict, Any, Union
+from decimal import Decimal
+
+Number = Union[float, Decimal]
 
 
-def _fmt_money_rub(v: float) -> str:
-    """
-    Format RUB with thin spaces and 2 decimals.
-    """
-    s = f"{v:,.2f}"
+def _fmt_money_rub(v: Number) -> str:
+    """Format RUB with thin spaces and 2 decimals."""
+    s = f"{float(v):,.2f}"
     return s.replace(",", " ").replace(".00", "") + " ₽"
 
 
-def _fmt_money_generic(v: float, suffix: str) -> str:
-    s = f"{v:,.2f}"
+def _fmt_money_generic(v: Number, suffix: str) -> str:
+    s = f"{float(v):,.2f}"
     s = s.replace(",", " ")
     if suffix:
         return f"{s} {suffix}"
@@ -26,7 +27,7 @@ def format_result_message(
     rates: Dict[str, float],
     meta: Dict[str, Any],
     core: Dict[str, Any],
-    util_fee_rub: float,
+    util_fee_rub: Number,
 ) -> str:
     """
     Build a user-friendly Telegram message with emojis and clear sections.
@@ -45,9 +46,7 @@ def format_result_message(
     br = core["breakdown"]
     total_no_util = br["total_rub"]
     util_fee_rub = br.get("util_rub", util_fee_rub)
-    total_with_util = br.get(
-        "total_with_util_rub", round(total_no_util + util_fee_rub, 2)
-    )
+    total_with_util = br.get("total_with_util_rub", total_no_util + util_fee_rub)
 
     usd_rate = rates.get("USD")
     eur_rate = rates.get("EUR")
