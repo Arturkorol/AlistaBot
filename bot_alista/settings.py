@@ -9,7 +9,7 @@ from pydantic import Field
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from .env and config.yaml."""
+    """Application settings loaded from .env and external tariff config."""
 
     BOT_TOKEN: str = Field(..., env="BOT_TOKEN")
     SMTP_SERVER: str
@@ -26,7 +26,12 @@ class Settings(BaseSettings):
 
 def load_settings() -> Settings:
     settings = Settings()
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    config_path = (
+        Path(__file__).resolve().parent.parent
+        / "external"
+        / "tks_api_official"
+        / "config.yaml"
+    )
     if config_path.exists():
         with config_path.open("r", encoding="utf-8") as fh:
             settings.tariff_config = yaml.safe_load(fh)

@@ -13,7 +13,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from tabulate import tabulate
 
-from .currency import to_rub
+from .rates import to_rub
 from .tariffs import get_tariffs
 from bot_alista.clearance_fee import (
     CLEARANCE_FEE_RANGES,
