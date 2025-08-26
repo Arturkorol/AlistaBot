@@ -28,6 +28,9 @@ def format_result_message(
     meta: Dict[str, Any],
     core: Dict[str, Any],
     util_fee_rub: Number,
+    country_origin: str | None = None,
+    avg_vehicle_cost_rub: Number | None = None,
+    actual_costs_rub: Number | None = None,
 ) -> str:
     """
     Build a user-friendly Telegram message with emojis and clear sections.
@@ -64,6 +67,8 @@ def format_result_message(
         lines.append(f"💱 Курс USD: {_fmt_money_generic(usd_rate, '₽')}")
     if eur_rate is not None:
         lines.append(f"💱 Курс EUR: {_fmt_money_generic(eur_rate, '₽')}")
+    if country_origin:
+        lines.append(f"🌍 Страна происхождения: {country_origin}")
     lines.append(f"💰 Таможенная стоимость: {_fmt_money_rub(br['customs_value_rub'])}\n")
 
     lines.append(f"🛃 Пошлина: {_fmt_money_rub(br['duty_rub'])}")
@@ -86,6 +91,14 @@ def format_result_message(
         lines.append(f"• {age_info}")
     if duty_rate_info:
         lines.append(f"• Ставка пошлины: {duty_rate_info}")
+    if avg_vehicle_cost_rub is not None:
+        lines.append(
+            f"• Средняя стоимость (РС): {_fmt_money_rub(avg_vehicle_cost_rub)}"
+        )
+    if actual_costs_rub is not None:
+        lines.append(
+            f"• Фактические затраты (СЗ): {_fmt_money_rub(actual_costs_rub)}"
+        )
     for n in extra_notes:
         lines.append(f"• {n}")
 
