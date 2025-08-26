@@ -7,6 +7,10 @@ from bot_alista.tariff import (
     calc_import_breakdown,
     eur_to_rub,
 )
+from bot_alista.clearance_fee import calc_clearance_fee_rub
+from bot_alista.tariff.util_fee import calc_util_rub, load_util_config
+from bot_alista.rules.loader import RuleRow
+from bot_alista.rules.engine import calc_ul
 
 
 def test_calc_import_breakdown_export_disabled_vehicle():
@@ -23,7 +27,44 @@ def test_calc_import_breakdown_export_disabled_vehicle():
     assert breakdown["duty_eur"] == 0.0
     assert breakdown["excise_rub"] == 0.0
     assert breakdown["vat_rub"] == 0.0
+    assert breakdown["clearance_fee_rub"] == 0.0
+    assert breakdown["util_rub"] == 0.0
     assert any("экспорт" in note.lower() for note in result["notes"])
+
+
+def test_calc_import_breakdown_includes_fees(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    fixed_date = date(2025, 1, 1)
+    monkeypatch.setattr(engine_mod, "date", type("d", (), {"today": staticmethod(lambda: fixed_date)}))
+
+    res = calc_import_breakdown(
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        is_disabled_vehicle=False,
+        is_export=False,
+    )
+    b = res["breakdown"]
+    customs_value_rub = eur_to_rub(10000, 100.0)
+    fee_expected = calc_clearance_fee_rub(customs_value_rub)
+    util_expected = calc_util_rub(
+        person_type="individual",
+        usage="personal",
+        engine_cc=2500,
+        fuel="ice",
+        vehicle_kind="passenger",
+        age_years=0.0,
+        date_decl=fixed_date,
+        avg_vehicle_cost_rub=None,
+        actual_costs_rub=None,
+        config=load_util_config(),
+    )
+    total_expected = b["duty_rub"] + b["excise_rub"] + b["vat_rub"] + fee_expected + util_expected
+    assert b["clearance_fee_rub"] == fee_expected
+    assert b["util_rub"] == util_expected
+    assert b["total_rub"] == total_expected
 
 
 def test_calc_breakdown_rules_individual_personal():
@@ -48,7 +89,17 @@ def test_calc_breakdown_rules_individual_personal():
     assert any("FL STP" in note for note in result["notes"])
 
 
-def test_calc_breakdown_rules_company_commercial():
+def test_calc_breakdown_rules_company_commercial(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    orig_calc_ul = engine_mod.calc_ul
+
+    def wrapped_calc_ul(*args, **kwargs):
+        kwargs.setdefault("vat_override_pct", 20.0)
+        return orig_calc_ul(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "calc_ul", wrapped_calc_ul)
+
     result = calc_breakdown_rules(
         person_type="company",
         usage_type="commercial",
@@ -56,7 +107,7 @@ def test_calc_breakdown_rules_company_commercial():
         eur_rub_rate=100.0,
         engine_cc=2500,
         engine_hp=150,
-        production_year=2023,
+        production_year=2021,
         age_choice_over3=False,
         fuel_type="Бензин",
         decl_date=date(2025, 1, 1),
@@ -71,6 +122,38 @@ def test_calc_breakdown_rules_company_commercial():
     assert b["total_rub"] == expected_total
     assert b["total_with_util_rub"] == expected_total + b["util_rub"]
     assert any("UL by CSV" in note for note in result["notes"])
+
+
+def test_calc_breakdown_rules_requires_engine_cc():
+    with pytest.raises(ValueError):
+        calc_breakdown_rules(
+            person_type="individual",
+            usage_type="personal",
+            customs_value_eur=10000,
+            eur_rub_rate=100.0,
+            engine_cc=None,
+            engine_hp=None,
+            production_year=2023,
+            age_choice_over3=False,
+            fuel_type="Бензин",
+            decl_date=date(2025, 1, 1),
+        )
+
+
+def test_calc_breakdown_rules_requires_engine_hp_for_ul():
+    with pytest.raises(ValueError):
+        calc_breakdown_rules(
+            person_type="company",
+            usage_type="commercial",
+            customs_value_eur=10000,
+            eur_rub_rate=100.0,
+            engine_cc=2500,
+            engine_hp=None,
+            production_year=2023,
+            age_choice_over3=False,
+            fuel_type="Бензин",
+            decl_date=date(2025, 1, 1),
+        )
 
 
 def test_util_fee_varies_with_age():
@@ -101,6 +184,73 @@ def test_util_fee_varies_with_age():
     util_old = older["breakdown"]["util_rub"]
     util_new = newer["breakdown"]["util_rub"]
     assert util_old > util_new
+
+
+def test_calc_ul_requires_vat():
+    rule = RuleRow(
+        segment="S",
+        category="C",
+        fuel="F",
+        age_bucket="A",
+        cc_from=None,
+        cc_to=None,
+        hp_from=None,
+        hp_to=None,
+        duty_type="Адвалор",
+        duty_pct=10.0,
+        min_eur_cc=None,
+        spec_eur_cc=None,
+        stp_pct=None,
+        stp_min_eur_cc=None,
+        vat_pct=None,
+        excise_rub_hp=0.0,
+    )
+    with pytest.raises(ValueError):
+        calc_ul(
+            rules=[rule],
+            customs_value_eur=1000,
+            eur_rub_rate=100.0,
+            engine_cc=2000,
+            engine_hp=100,
+            segment="S",
+            category="C",
+            fuel="F",
+            age_bucket="A",
+        )
+
+
+def test_calc_ul_vat_override():
+    rule = RuleRow(
+        segment="S",
+        category="C",
+        fuel="F",
+        age_bucket="A",
+        cc_from=None,
+        cc_to=None,
+        hp_from=None,
+        hp_to=None,
+        duty_type="Адвалор",
+        duty_pct=10.0,
+        min_eur_cc=None,
+        spec_eur_cc=None,
+        stp_pct=None,
+        stp_min_eur_cc=None,
+        vat_pct=None,
+        excise_rub_hp=0.0,
+    )
+    res = calc_ul(
+        rules=[rule],
+        customs_value_eur=1000,
+        eur_rub_rate=100.0,
+        engine_cc=2000,
+        engine_hp=100,
+        segment="S",
+        category="C",
+        fuel="F",
+        age_bucket="A",
+        vat_override_pct=18.0,
+    )
+    assert res["vat_rub"] == 19800.0
 
 
 def test_calc_import_breakdown_validation_errors_negative():
@@ -186,6 +336,46 @@ def test_calc_breakdown_with_mode_uses_fuel_and_date():
         decl_date=date(2025, 1, 1),
     )
     assert res["breakdown"]["util_rub"] == expected["breakdown"]["util_rub"]
+
+
+def test_calc_breakdown_with_mode_fractional_age(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    orig_calc_ul = engine_mod.calc_ul
+
+    def wrapped_calc_ul(*args, **kwargs):
+        kwargs.setdefault("vat_override_pct", 20.0)
+        return orig_calc_ul(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "calc_ul", wrapped_calc_ul)
+
+    res = calc_breakdown_with_mode(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        age_years=3.2,
+        is_disabled_vehicle=False,
+        is_export=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    expected = calc_breakdown_rules(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        production_year=2021,
+        age_choice_over3=True,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    assert res["breakdown"]["util_rub"] == expected["breakdown"]["util_rub"]
+    assert any("age_bucket=3" in note or "age_bucket=3–5" in note for note in res["notes"])
 
 
 def test_rule_fallback_note(monkeypatch):

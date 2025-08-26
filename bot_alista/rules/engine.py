@@ -80,9 +80,17 @@ def calc_ul(
     excise_rub_hp = float(rule.excise_rub_hp or 0.0)
     excise_rub = round(excise_rub_hp * float(engine_hp or 0), 2)
 
-    # VAT
-    vat_pct = float(vat_override_pct if vat_override_pct is not None else (rule.vat_pct or 20.0))
-    vat_rub = round(( (customs_value_eur * eur_rub_rate) + duty_rub + excise_rub ) * (vat_pct / 100.0), 2)
+    # VAT base uses rounded customs value
+    customs_value_rub = round(customs_value_eur * eur_rub_rate, 2)
+
+    if vat_override_pct is not None:
+        vat_pct = float(vat_override_pct)
+    elif rule.vat_pct is not None:
+        vat_pct = float(rule.vat_pct)
+    else:
+        raise ValueError("VAT rate missing in rule and no override provided")
+
+    vat_rub = round((customs_value_rub + duty_rub + excise_rub) * (vat_pct / 100.0), 2)
 
     return {
         "mode": "UL",

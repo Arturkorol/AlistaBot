@@ -211,10 +211,13 @@ def calc_import_breakdown(
 ) -> dict[str, Any]:
     """Полный расчет таможенных платежей при импорте.
 
-    Returns словарь со структурой:
+    Возвращает словарь со структурой:
         {
             "inputs": {...},
-            "breakdown": {...},
+            "breakdown": {
+                ... duty/excise/vat ...,
+                "clearance_fee_rub": ..., "util_rub": ..., "total_rub": ...
+            },
             "rates_used": {...},
             "notes": [str, ...]
         }
@@ -234,6 +237,9 @@ def calc_import_breakdown(
     pref = PREFERENTIAL_RATES.get(country_origin or "")
     ad_val = pref.get("ad_valorem", AD_VALOREM_RATE) if pref else AD_VALOREM_RATE
 
+    clearance_fee_rub = 0.0
+    util_rub = 0.0
+
     if is_export:
         duty_eur = 0.0
         duty_rub = 0.0
@@ -252,8 +258,23 @@ def calc_import_breakdown(
         vat_rub = calc_vat_rub(
             customs_value_rub, duty_rub, excise_rub, is_disabled_vehicle
         )
+        clearance_fee_rub = calc_clearance_fee_rub(customs_value_rub)
+        util_rub = calc_util_rub(
+            person_type=person_type,
+            usage="personal" if person_type == "individual" else "commercial",
+            engine_cc=engine_cc,
+            fuel="ice",
+            vehicle_kind="passenger",
+            age_years=0.0,
+            date_decl=date.today(),
+            avg_vehicle_cost_rub=0.0,
+            actual_costs_rub=0.0,
+            config=load_util_config(),
+        )
 
-    total_rub = _round_currency(duty_rub + excise_rub + vat_rub)
+    total_rub = _round_currency(
+        duty_rub + excise_rub + vat_rub + clearance_fee_rub + util_rub
+    )
 
     result: dict[str, Any] = {
         "inputs": {
@@ -272,6 +293,8 @@ def calc_import_breakdown(
             "duty_rub": duty_rub,
             "excise_rub": excise_rub,
             "vat_rub": vat_rub,
+            "clearance_fee_rub": clearance_fee_rub,
+            "util_rub": util_rub,
             "total_rub": total_rub,
         },
         "rates_used": {
@@ -283,8 +306,9 @@ def calc_import_breakdown(
         "notes": [
             "Альта: пошлина — максимум 20% от стоимости или 0.44 EUR/см³; "
             "акциз — по шкале мощности; НДС — 20% от суммы, 0% для "
-            "авто, оборудованных для инвалидов.",
-            "При экспорте пошлина, акциз и НДС не начисляются.",
+            "авто, оборудованных для инвалидов; включены таможенный "
+            "сбор и утильсбор.",
+            "При экспорте пошлина, акциз, сборы и НДС не начисляются.",
             "Тип лица не влияет на ставки (кроме НДС 0% для спецавто для инвалидов).",
         ],
     }
@@ -329,10 +353,13 @@ def calc_breakdown_with_mode(
             person_type=person_type,
             country_origin=None,
         )
-        core["breakdown"]["clearance_fee_rub"] = 0.0
         return core
 
-    production_year = decl_date.year - int(age_years)
+    years = int(age_years)
+    months = int((age_years - years) * 12)
+    production_year = decl_date.year - years
+    if decl_date.month - months <= 0:
+        production_year -= 1
     result = calc_breakdown_rules(
         person_type=person_type,
         usage_type=usage_type,
@@ -379,6 +406,17 @@ def calc_breakdown_rules(
 ) -> dict:
 
     decl_date = decl_date or date.today()
+    if engine_cc is None:
+        raise ValueError("engine_cc is required")
+    _validate_positive_int(engine_cc, "Объем двигателя")
+
+    if person_type != "individual" or usage_type != "personal":
+        if engine_hp is None:
+            raise ValueError("engine_hp is required")
+        _validate_positive_int(engine_hp, "Мощность двигателя")
+    elif engine_hp is not None:
+        _validate_positive_int(engine_hp, "Мощность двигателя")
+
     fuel_norm = normalize_fuel_label(fuel_type)
     rules, labels, buckets = _get_rule_env()
 
@@ -402,7 +440,7 @@ def calc_breakdown_rules(
                     rules=rules,
                     customs_value_eur=customs_value_eur,
                     eur_rub_rate=eur_rub_rate,
-                    engine_cc=int(engine_cc or 0),
+                    engine_cc=engine_cc,
                     segment=segment, category=category,
                     fuel=fuel_norm, age_bucket=label,
                 )
@@ -421,7 +459,7 @@ def calc_breakdown_rules(
         util_rub = calc_util_rub(
             person_type="individual",
             usage="personal",
-            engine_cc=int(engine_cc or 0),
+            engine_cc=engine_cc,
             fuel=util_fuel,
             vehicle_kind="passenger",
             age_years=actual_age,
@@ -480,8 +518,8 @@ def calc_breakdown_rules(
                 rules=rules,
                 customs_value_eur=customs_value_eur,
                 eur_rub_rate=eur_rub_rate,
-                engine_cc=int(engine_cc or 0),
-                engine_hp=int(engine_hp or 0),
+                engine_cc=engine_cc,
+                engine_hp=engine_hp,
                 segment=segment, category=category,
                 fuel=fuel_norm, age_bucket=label,
             )
@@ -500,7 +538,7 @@ def calc_breakdown_rules(
     util_rub = calc_util_rub(
         person_type="company",
         usage="commercial",
-        engine_cc=int(engine_cc or 0),
+        engine_cc=engine_cc,
         fuel=util_fuel,
         vehicle_kind="passenger",
         age_years=actual_age,
