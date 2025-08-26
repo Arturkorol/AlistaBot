@@ -47,7 +47,6 @@ from bot_alista.services.customs_calculator import (
     EngineType,
     VehicleAge,
 )
-from bot_alista.services.tariffs import get_tariffs_async
 from bot_alista.keyboards.calculation import (
     person_type_kb,
     usage_type_kb,
@@ -352,19 +351,12 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         else:
             age_enum = VehicleAge.OVER_SEVEN
         age_group = age_enum.value
-        tariffs = await get_tariffs_async()
-        try:
-            calc = CustomsCalculator(tariffs=tariffs)
-        except TypeError:
-            calc = CustomsCalculator()
-            calc.tariffs = tariffs
-        calc.tariffs.setdefault("ctp", {"duty_rate": 0.2, "min_per_cc_eur": 0.44})
+        calc = CustomsCalculator("external/tks_api_official/config.yaml")
         calc.set_vehicle_details(
             age=age_group,
             engine_capacity=engine_cc,
             engine_type=engine_type,
             power=engine_hp,
-            production_year=year,
             price=amount,
             owner_type=person_type,
             currency=currency_code,
@@ -377,18 +369,31 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         else:  # AUTO or unspecified
             breakdown = calc.calculate_auto()
 
-        customs_value_rub = breakdown["price_rub"]
+        price_rub = calc.convert_to_local_currency(calc.vehicle_price, calc.vehicle_currency)
+        if "Price (RUB)" in breakdown:
+            core_breakdown = {
+                "customs_value_rub": breakdown["Price (RUB)"],
+                "duty_rub": breakdown["Duty (RUB)"],
+                "excise_rub": breakdown.get("Excise (RUB)", 0.0),
+                "vat_rub": breakdown.get("VAT (RUB)", 0.0),
+                "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
+                "util_rub": breakdown["Util Fee (RUB)"],
+                "recycling_rub": 0.0,
+                "total_rub": breakdown["Total Pay (RUB)"],
+            }
+        else:
+            core_breakdown = {
+                "customs_value_rub": price_rub,
+                "duty_rub": breakdown["Duty (RUB)"],
+                "excise_rub": 0.0,
+                "vat_rub": 0.0,
+                "clearance_fee_rub": breakdown["Clearance Fee (RUB)"],
+                "util_rub": breakdown["Util Fee (RUB)"],
+                "recycling_rub": breakdown["Recycling Fee (RUB)"],
+                "total_rub": breakdown["Total Pay (RUB)"],
+            }
         core = {
-            "breakdown": {
-                "customs_value_rub": customs_value_rub,
-                "duty_rub": breakdown["duty_rub"],
-                "excise_rub": breakdown.get("excise_rub", 0.0),
-                "vat_rub": breakdown.get("vat_rub", 0.0),
-                "clearance_fee_rub": breakdown["fee_rub"],
-                "util_rub": breakdown.get("util_rub", 0.0),
-                "recycling_rub": breakdown.get("recycling_rub", 0.0),
-                "total_rub": breakdown["total_rub"],
-            },
+            "breakdown": core_breakdown,
             "notes": [],
         }
 
