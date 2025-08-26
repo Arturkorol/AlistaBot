@@ -319,6 +319,117 @@ def test_preferential_country_reduces_duty():
     assert any("преференция" in n.lower() for n in pref["notes"])
 
 
+def test_calc_breakdown_rules_preferential_country(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    orig_calc_ul = engine_mod.calc_ul
+
+    def wrapped_calc_ul(*args, **kwargs):
+        kwargs.setdefault("vat_override_pct", 20.0)
+        return orig_calc_ul(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "calc_ul", wrapped_calc_ul)
+    monkeypatch.setattr(engine_mod, "candidate_ul_labels", lambda *a, **k: ["3–7"])
+
+    base = calc_breakdown_rules(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        production_year=2021,
+        age_choice_over3=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    pref = calc_breakdown_rules(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        production_year=2021,
+        age_choice_over3=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+        country_origin="Belarus",
+    )
+    assert pref["breakdown"]["duty_rub"] < base["breakdown"]["duty_rub"]
+    assert any("преференция" in n.lower() for n in pref["notes"])
+
+
+def test_calc_breakdown_with_mode_preferential_country(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    orig_calc_ul = engine_mod.calc_ul
+
+    def wrapped_calc_ul(*args, **kwargs):
+        kwargs.setdefault("vat_override_pct", 20.0)
+        return orig_calc_ul(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "calc_ul", wrapped_calc_ul)
+    monkeypatch.setattr(engine_mod, "candidate_ul_labels", lambda *a, **k: ["3–7"])
+
+    base = calc_breakdown_with_mode(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        age_years=4.0,
+        is_disabled_vehicle=False,
+        is_export=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+    )
+    pref = calc_breakdown_with_mode(
+        person_type="company",
+        usage_type="commercial",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        age_years=4.0,
+        is_disabled_vehicle=False,
+        is_export=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+        country_origin="Belarus",
+    )
+    assert pref["breakdown"]["duty_rub"] < base["breakdown"]["duty_rub"]
+    assert any("преференция" in n.lower() for n in pref.get("notes", []))
+
+
+def test_util_fee_uses_cost_params(monkeypatch):
+    import bot_alista.tariff.engine as engine_mod
+
+    def fake_util(*, avg_vehicle_cost_rub, actual_costs_rub, **kwargs):
+        return float(avg_vehicle_cost_rub or 0) + float(actual_costs_rub or 0)
+
+    monkeypatch.setattr(engine_mod, "calc_util_rub", fake_util)
+
+    res = calc_breakdown_with_mode(
+        person_type="individual",
+        usage_type="personal",
+        customs_value_eur=10000,
+        eur_rub_rate=100.0,
+        engine_cc=2500,
+        engine_hp=150,
+        age_years=4.0,
+        is_disabled_vehicle=False,
+        is_export=False,
+        fuel_type="Бензин",
+        decl_date=date(2025, 1, 1),
+        avg_vehicle_cost_rub=100.0,
+        actual_costs_rub=200.0,
+    )
+
+    assert res["breakdown"]["util_rub"] == 300.0
+
+
 def test_calc_breakdown_with_mode_uses_fuel_and_date():
     res = calc_breakdown_with_mode(
         person_type="individual",

@@ -436,6 +436,10 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             "extra_notes": core.get("notes", []),
         }
 
+        country_origin = data.get("country_origin")
+        avg_vehicle_cost_rub = data.get("avg_vehicle_cost_rub")
+        actual_costs_rub = data.get("actual_costs_rub")
+
         msg = format_result_message(
             currency_code=currency_code,
             price_amount=amount,
@@ -443,6 +447,9 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             meta=meta,
             core=core,
             util_fee_rub=core["breakdown"].get("util_rub", 0.0),
+            country_origin=country_origin,
+            avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+            actual_costs_rub=actual_costs_rub,
         )
         await message.answer(
             msg,

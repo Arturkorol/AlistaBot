@@ -338,6 +338,9 @@ def calc_breakdown_with_mode(
     is_export: bool,
     fuel_type: str,
     decl_date: date,
+    country_origin: str | None = None,
+    avg_vehicle_cost_rub: float | None = None,
+    actual_costs_rub: float | None = None,
 ) -> dict:
     """Compatibility wrapper that delegates to :func:`calc_breakdown_rules`.
 
@@ -354,10 +357,10 @@ def calc_breakdown_with_mode(
             is_disabled_vehicle=is_disabled_vehicle,
             is_export=True,
             person_type=person_type,
-            country_origin=None,
+            country_origin=country_origin,
             age_years=age_years,
-            avg_vehicle_cost_rub=None,
-            actual_costs_rub=None,
+            avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+            actual_costs_rub=actual_costs_rub,
         )
         return core
 
@@ -377,6 +380,9 @@ def calc_breakdown_with_mode(
         age_choice_over3=age_years > 3,
         fuel_type=fuel_type,
         decl_date=decl_date,
+        country_origin=country_origin,
+        avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+        actual_costs_rub=actual_costs_rub,
     )
 
     if is_disabled_vehicle:
@@ -409,6 +415,9 @@ def calc_breakdown_rules(
     decl_date: date | None,
     segment: str = "Легковой",
     category: str = "M1",
+    country_origin: str | None = None,
+    avg_vehicle_cost_rub: float | None = None,
+    actual_costs_rub: float | None = None,
 ) -> dict:
 
     decl_date = decl_date or date.today()
@@ -433,6 +442,11 @@ def calc_breakdown_rules(
     customs_value_rub = _round_currency(customs_value_eur * eur_rub_rate)
     actual_age = compute_actual_age_years(production_year, decl_date)
 
+    pref = PREFERENTIAL_RATES.get(country_origin or "")
+    ad_val_override_pct = (
+        pref.get("ad_valorem", 0.0) * 100 if pref and "ad_valorem" in pref else None
+    )
+
     if person_type == "individual" and usage_type == "personal":
         # Resolve FL age label with graceful fallback
         fl_age_candidates = candidate_fl_labels(age_choice_over3, actual_age, buckets)
@@ -447,8 +461,11 @@ def calc_breakdown_rules(
                     customs_value_eur=customs_value_eur,
                     eur_rub_rate=eur_rub_rate,
                     engine_cc=engine_cc,
-                    segment=segment, category=category,
-                    fuel=fuel_norm, age_bucket=label,
+                    segment=segment,
+                    category=category,
+                    fuel=fuel_norm,
+                    age_bucket=label,
+                    ad_val_override_pct=ad_val_override_pct,
                 )
                 fl_age_label = label
                 if label != fl_age_candidates[0]:
@@ -470,8 +487,8 @@ def calc_breakdown_rules(
             vehicle_kind="passenger",
             age_years=actual_age,
             date_decl=decl_date,
-            avg_vehicle_cost_rub=None,
-            actual_costs_rub=None,
+            avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+            actual_costs_rub=actual_costs_rub,
             config=load_util_config(),
         )
         total_with_util = _round_currency(total_no_util + util_rub)
@@ -481,13 +498,14 @@ def calc_breakdown_rules(
                 "person_type": person_type, "usage_type": usage_type,
                 "engine_cc": engine_cc, "engine_hp": engine_hp,
                 "production_year": production_year,
-                "age_choice_over3": age_choice_over3,
-                "fuel_type": fuel_norm,
-                "decl_date": decl_date.isoformat(),
-                "eur_rub_rate": eur_rub_rate,
-                "customs_value_eur": customs_value_eur,
-            },
-            "breakdown": {
+            "age_choice_over3": age_choice_over3,
+            "fuel_type": fuel_norm,
+            "decl_date": decl_date.isoformat(),
+            "eur_rub_rate": eur_rub_rate,
+            "customs_value_eur": customs_value_eur,
+            "country_origin": country_origin,
+        },
+        "breakdown": {
                 "customs_value_rub": customs_value_rub,
                 "duty_eur": core["duty_eur"],
                 "duty_rub": core["duty_rub"],
@@ -526,8 +544,11 @@ def calc_breakdown_rules(
                 eur_rub_rate=eur_rub_rate,
                 engine_cc=engine_cc,
                 engine_hp=engine_hp,
-                segment=segment, category=category,
-                fuel=fuel_norm, age_bucket=label,
+                segment=segment,
+                category=category,
+                fuel=fuel_norm,
+                age_bucket=label,
+                ad_val_override_pct=ad_val_override_pct,
             )
             ul_age_label = label
             if label != ul_age_candidates[0]:
@@ -549,8 +570,8 @@ def calc_breakdown_rules(
         vehicle_kind="passenger",
         age_years=actual_age,
         date_decl=decl_date,
-        avg_vehicle_cost_rub=None,
-        actual_costs_rub=None,
+        avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+        actual_costs_rub=actual_costs_rub,
         config=load_util_config(),
     )
     total_with_util = _round_currency(total_no_util + util_rub)
@@ -564,6 +585,7 @@ def calc_breakdown_rules(
             "decl_date": decl_date.isoformat(),
             "eur_rub_rate": eur_rub_rate,
             "customs_value_eur": customs_value_eur,
+            "country_origin": country_origin,
         },
         "breakdown": {
             "customs_value_rub": customs_value_rub,
@@ -586,6 +608,11 @@ def calc_breakdown_rules(
     if ul_fallback_used:
         result.setdefault("notes", []).append(
             f"⚠️ age bucket fallback: {ul_age_candidates[0]}→{ul_age_label}"
+        )
+
+    if pref:
+        result.setdefault("notes", []).append(
+            f"Применена преференция для страны происхождения {country_origin}"
         )
 
     return result

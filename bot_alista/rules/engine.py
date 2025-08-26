@@ -11,8 +11,16 @@ PersonType = Literal["individual", "company"]
 UsageType = Literal["personal", "commercial"]
 
 def calc_fl_stp(
-    *, rules: List[RuleRow], customs_value_eur: float, eur_rub_rate: float, engine_cc: int,
-    segment: str, category: str, fuel: str, age_bucket: str
+    *,
+    rules: List[RuleRow],
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    ad_val_override_pct: float | None = None,
 ) -> Dict[str, Any]:
     """
     Individuals (personal use) — STP unified payment from rules:
@@ -29,7 +37,8 @@ def calc_fl_stp(
     stp_eur = 0.0
     # Option A: percent of customs value (if present)
     if rule.stp_pct:
-        stp_eur = max(stp_eur, (customs_value_eur * (rule.stp_pct / 100.0)))
+        pct = ad_val_override_pct if ad_val_override_pct is not None else rule.stp_pct
+        stp_eur = max(stp_eur, (customs_value_eur * (pct / 100.0)))
     # Option B: min €/cc
     if rule.stp_min_eur_cc:
         stp_eur = max(stp_eur, engine_cc * rule.stp_min_eur_cc)
@@ -49,9 +58,18 @@ def calc_fl_stp(
     }
 
 def calc_ul(
-    *, rules: List[RuleRow], customs_value_eur: float, eur_rub_rate: float,
-    engine_cc: int, engine_hp: int, segment: str, category: str,
-    fuel: str, age_bucket: str, vat_override_pct: float | None = None
+    *,
+    rules: List[RuleRow],
+    customs_value_eur: float,
+    eur_rub_rate: float,
+    engine_cc: int,
+    engine_hp: int,
+    segment: str,
+    category: str,
+    fuel: str,
+    age_bucket: str,
+    ad_val_override_pct: float | None = None,
+    vat_override_pct: float | None = None,
 ) -> Dict[str, Any]:
     """
     Companies/commercial — ad valorem vs min €/cc vs specific €/cc + excise + VAT.
@@ -64,14 +82,16 @@ def calc_ul(
     duty_eur = 0.0
     # Case: ad valorem with minimum €/cc
     if rule.duty_type and "адвалор" in rule.duty_type.lower():
-        ad_valorem_eur = (customs_value_eur * (float(rule.duty_pct or 0.0) / 100.0))
+        pct = ad_val_override_pct if ad_val_override_pct is not None else float(rule.duty_pct or 0.0)
+        ad_valorem_eur = (customs_value_eur * (pct / 100.0))
         min_eur = engine_cc * float(rule.min_eur_cc or 0.0)
         duty_eur = max(ad_valorem_eur, min_eur)
     elif rule.spec_eur_cc:
         duty_eur = engine_cc * rule.spec_eur_cc
     else:
         # fallback: if only percent
-        duty_eur = customs_value_eur * (float(rule.duty_pct or 0.0) / 100.0)
+        pct = ad_val_override_pct if ad_val_override_pct is not None else float(rule.duty_pct or 0.0)
+        duty_eur = customs_value_eur * (pct / 100.0)
 
     duty_eur = round(duty_eur, 2)
     duty_rub = round(duty_eur * eur_rub_rate, 2)
