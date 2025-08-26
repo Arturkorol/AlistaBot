@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.services.customs_calculator import CustomsCalculator, WrongParamException
 import yaml
 
 
@@ -77,3 +77,40 @@ def test_calculate_auto_returns_one_of_methods(config_file):
     auto = calc.calculate_auto()
     assert auto["Mode"] in {"ETC", "CTP"}
     assert auto["Total Pay (RUB)"] > 0
+
+
+def test_convert_to_local_currency_error(config_file):
+    calc = _make_calc(config_file)
+
+    def bad_convert(amount, currency, target):
+        raise ValueError("fail")
+
+    calc.converter.convert = bad_convert
+    with pytest.raises(WrongParamException):
+        calc.convert_to_local_currency(1, "EUR")
+
+
+def test_calculate_methods_propagate_conversion_error(config_file):
+    calc = _make_calc(config_file)
+    calc.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=10000,
+        owner_type="individual",
+        currency="USD",
+    )
+
+    def bad(*args, **kwargs):
+        raise WrongParamException("boom")
+
+    calc.convert_to_local_currency = bad
+
+    with pytest.raises(WrongParamException) as exc:
+        calc.calculate_etc()
+    assert "ETC" in str(exc.value)
+
+    with pytest.raises(WrongParamException) as exc:
+        calc.calculate_ctp()
+    assert "CTP" in str(exc.value)

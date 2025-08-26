@@ -38,6 +38,11 @@ from bot_alista.constants import (
     BTN_METHOD_CTP,
     BTN_METHOD_AUTO,
     PROMPT_METHOD,
+    ENGINE_CC_MIN,
+    ENGINE_CC_MAX,
+    HP_MIN,
+    HP_MAX,
+    AGE_MAX,
 )
 from bot_alista.utils.navigation import NavigationManager, NavStep
 from bot_alista.services.rates import get_cached_rates
@@ -234,6 +239,9 @@ async def get_engine(message: types.Message, state: FSMContext) -> None:
     except Exception:
         await message.answer(ERROR_ENGINE)
         return
+    if not (ENGINE_CC_MIN <= engine <= ENGINE_CC_MAX):
+        await message.answer(ERROR_ENGINE)
+        return
     await state.update_data(engine=engine)
     await nav.push(
         message,
@@ -258,6 +266,9 @@ async def get_power(message: types.Message, state: FSMContext) -> None:
     except Exception:
         await message.answer(ERROR_POWER)
         return
+    if not (HP_MIN <= power_hp <= HP_MAX):
+        await message.answer(ERROR_POWER)
+        return
     await state.update_data(power_hp=round(power_hp, 1))
     await nav.push(
         message,
@@ -272,12 +283,14 @@ async def get_year(message: types.Message, state: FSMContext) -> None:
     nav: NavigationManager | None = data.get("_nav")
     if await _handle_faq_and_nav(message, state, nav):
         return
+    min_year = date.today().year - AGE_MAX
+    current_year = date.today().year
     try:
         year = int(message.text)
-        if year < 1980 or year > date.today().year:
+        if year < min_year or year > current_year:
             raise ValueError
     except Exception:
-        await message.answer(ERROR_YEAR)
+        await message.answer(f"{ERROR_YEAR} ({min_year}-{current_year}).")
         return
     await state.update_data(year=year)
     await nav.push(
