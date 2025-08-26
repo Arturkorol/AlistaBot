@@ -18,6 +18,8 @@ Required variables:
 - `EMAIL_PASSWORD` – SMTP account password.
 - `EMAIL_TO` – recipient email address.
 
+Tariff settings are read from `external/tks_api_official/config.yaml`.
+
 The application validates that `BOT_TOKEN`, `SMTP_SERVER`, `EMAIL_LOGIN`, `EMAIL_PASSWORD`, and `EMAIL_TO` are provided and
 will abort with a `RuntimeError` if any are missing.
 

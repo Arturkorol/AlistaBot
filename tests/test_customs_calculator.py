@@ -26,12 +26,12 @@ sys.modules.setdefault("services", services_pkg)
 
 # Load required submodules manually.
 spec = importlib.util.spec_from_file_location(
-    "services.currency", SERVICES_PATH / "currency.py"
+    "services.rates", SERVICES_PATH / "rates.py"
 )
-currency_mod = importlib.util.module_from_spec(spec)
-sys.modules["services.currency"] = currency_mod
-spec.loader.exec_module(currency_mod)  # type: ignore[attr-defined]
-to_rub = currency_mod.to_rub
+rates_mod = importlib.util.module_from_spec(spec)
+sys.modules["services.rates"] = rates_mod
+spec.loader.exec_module(rates_mod)  # type: ignore[attr-defined]
+to_rub = rates_mod.to_rub
 
 spec = importlib.util.spec_from_file_location(
     "services.customs_calculator", SERVICES_PATH / "customs_calculator.py"

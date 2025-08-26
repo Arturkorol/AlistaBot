@@ -51,7 +51,7 @@ from bot_alista.services.customs_calculator import (
     VehicleAge,
 )
 from bot_alista.services.tariffs import get_tariffs_async
-from .calc_ui import (
+from bot_alista.keyboards.calculation import (
     person_type_kb,
     usage_type_kb,
     car_type_kb,
