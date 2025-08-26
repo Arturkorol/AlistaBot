@@ -107,7 +107,10 @@ class CustomsCalculator:
             engine_tariffs = overrides.get(self.engine_type.value)
 
             rate_per_cc = engine_tariffs['rate_per_cc']
-            duty_rub = rate_per_cc * self.engine_capacity * self.convert_to_local_currency(1, "EUR")
+            try:
+                duty_rub = rate_per_cc * self.engine_capacity * self.convert_to_local_currency(1, "EUR")
+            except WrongParamException as e:
+                raise WrongParamException(f"Currency conversion failed during ETC calculation: {e}") from e
 
             clearance_fee = self.config['tariffs']['base_clearance_fee']
             util_fee = self.config['tariffs']['base_util_fee']
@@ -130,12 +133,15 @@ class CustomsCalculator:
         """Calculate customs duties using the CTP method."""
         try:
             # Convert price to RUB
-            price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
+            try:
+                price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
+                min_duty_per_cc = self.convert_to_local_currency(0.44, "EUR")
+            except WrongParamException as e:
+                raise WrongParamException(f"Currency conversion failed during CTP calculation: {e}") from e
             vat_rate = BASE_VAT
 
             # Calculate Duty: 20% of price or 0.44 EUR/cm³ minimum
             duty_rate = 0.2
-            min_duty_per_cc = self.convert_to_local_currency(0.44, "EUR")
             duty_rub = max(price_rub * duty_rate, min_duty_per_cc * self.engine_capacity)
 
             # Calculate Excise: Based on engine power
@@ -206,8 +212,7 @@ class CustomsCalculator:
             logger.info(f"Converted {amount} {currency} to {rate:.2f} RUB")
             return rate
         except Exception as e:
-            logger.error(f"Currency conversion error: {e}")
-            return None
+            raise WrongParamException(f"Currency conversion error: {e}")
 
     def print_table(self, mode):
         """Print the calculation results as a table."""
