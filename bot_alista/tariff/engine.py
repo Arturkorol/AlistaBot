@@ -208,6 +208,9 @@ def calc_import_breakdown(
     is_export: bool,
     person_type: str = "individual",
     country_origin: str | None = None,
+    age_years: float = 0.0,
+    avg_vehicle_cost_rub: float | None = None,
+    actual_costs_rub: float | None = None,
 ) -> dict[str, Any]:
     """Полный расчет таможенных платежей при импорте.
 
@@ -265,10 +268,10 @@ def calc_import_breakdown(
             engine_cc=engine_cc,
             fuel="ice",
             vehicle_kind="passenger",
-            age_years=0.0,
+            age_years=age_years,
             date_decl=date.today(),
-            avg_vehicle_cost_rub=0.0,
-            actual_costs_rub=0.0,
+            avg_vehicle_cost_rub=avg_vehicle_cost_rub,
+            actual_costs_rub=actual_costs_rub,
             config=load_util_config(),
         )
 
@@ -352,6 +355,9 @@ def calc_breakdown_with_mode(
             is_export=True,
             person_type=person_type,
             country_origin=None,
+            age_years=age_years,
+            avg_vehicle_cost_rub=None,
+            actual_costs_rub=None,
         )
         return core
 
@@ -593,6 +599,7 @@ if __name__ == "__main__":
         engine_hp=150,
         is_disabled_vehicle=False,
         is_export=False,
+        age_years=0.0,
     )
     print("Demo 1:", demo1)
 
@@ -603,6 +610,7 @@ if __name__ == "__main__":
         engine_hp=220,
         is_disabled_vehicle=True,
         is_export=False,
+        age_years=0.0,
     )
     print("Demo 2:", demo2)
 
@@ -613,5 +621,6 @@ if __name__ == "__main__":
         engine_hp=250,
         is_disabled_vehicle=False,
         is_export=True,
+        age_years=0.0,
     )
     print("Demo 3 (export):", demo3)

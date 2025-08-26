@@ -52,6 +52,8 @@ def _age_bucket(age_years: float) -> str:
     Returns one of: '1_3y', '3_5y', '5_7y', '7p_y'.
     0–1y falls into the nearest bucket '1_3y'.
     """
+    if age_years < 0:
+        raise ValueError("Age cannot be negative")
     if age_years < 1:
         return "1_3y"
     if 1 <= age_years < 3:

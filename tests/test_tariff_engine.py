@@ -21,6 +21,7 @@ def test_calc_import_breakdown_export_disabled_vehicle():
         engine_hp=150,
         is_disabled_vehicle=True,
         is_export=True,
+        age_years=0.0,
     )
     breakdown = result["breakdown"]
     assert breakdown["total_rub"] == 0.0
@@ -45,6 +46,7 @@ def test_calc_import_breakdown_includes_fees(monkeypatch):
         engine_hp=150,
         is_disabled_vehicle=False,
         is_export=False,
+        age_years=4.0,
     )
     b = res["breakdown"]
     customs_value_rub = eur_to_rub(10000, 100.0)
@@ -55,7 +57,7 @@ def test_calc_import_breakdown_includes_fees(monkeypatch):
         engine_cc=2500,
         fuel="ice",
         vehicle_kind="passenger",
-        age_years=0.0,
+        age_years=4.0,
         date_decl=fixed_date,
         avg_vehicle_cost_rub=None,
         actual_costs_rub=None,
@@ -262,6 +264,7 @@ def test_calc_import_breakdown_validation_errors_negative():
             engine_hp=150,
             is_disabled_vehicle=False,
             is_export=False,
+            age_years=0.0,
         )
 
 
@@ -274,6 +277,7 @@ def test_calc_import_breakdown_validation_errors_engine_range():
             engine_hp=150,
             is_disabled_vehicle=False,
             is_export=False,
+            age_years=0.0,
         )
 
 
@@ -295,6 +299,9 @@ def test_preferential_country_reduces_duty():
         engine_hp=150,
         is_disabled_vehicle=False,
         is_export=False,
+        age_years=0.0,
+        avg_vehicle_cost_rub=0.0,
+        actual_costs_rub=0.0,
     )
     pref = calc_import_breakdown(
         customs_value_eur=10000,
@@ -303,6 +310,9 @@ def test_preferential_country_reduces_duty():
         engine_hp=150,
         is_disabled_vehicle=False,
         is_export=False,
+        age_years=0.0,
+        avg_vehicle_cost_rub=0.0,
+        actual_costs_rub=0.0,
         country_origin="Belarus",
     )
     assert pref["breakdown"]["duty_eur"] < base["breakdown"]["duty_eur"]
