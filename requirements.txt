@@ -6,3 +6,4 @@ tabulate
 currency_converter_free
 pyyaml
 pydantic
+aiohttp

@@ -17,7 +17,7 @@ try:  # pragma: no cover - optional dependency check
 except ImportError as exc:  # pragma: no cover - explicit error
     raise RuntimeError("currency_converter_free is required") from exc
 
-SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY", "KRW", "RUB")
+SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY", "KRW")
 CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
 
 
@@ -50,6 +50,14 @@ class RatesClient:
         retries: int = 3,
         timeout: float = 5.0,
     ) -> Dict[str, float]:
+        codes = list(codes)
+        result: Dict[str, float] = {}
+        if "RUB" in codes:
+            result["RUB"] = 1.0
+            codes = [c for c in codes if c != "RUB"]
+        if not codes:
+            return result
+
         params = {"date_req": for_date.strftime("%d/%m/%Y")}
         for attempt in range(1, retries + 1):
             try:
@@ -81,7 +89,8 @@ class RatesClient:
                 raise RuntimeError(
                     "Отсутствуют курсы валют: " + ", ".join(sorted(missing))
                 )
-            return rates
+            result.update(rates)
+            return result
         raise RuntimeError("Не удалось получить курсы валют ЦБ РФ")
 
     async def get_cached(
@@ -92,6 +101,14 @@ class RatesClient:
         retries: int = 3,
         timeout: float = 5.0,
     ) -> Dict[str, float]:
+        codes = list(codes)
+        result: Dict[str, float] = {}
+        if "RUB" in codes:
+            result["RUB"] = 1.0
+            codes = [c for c in codes if c != "RUB"]
+        if not codes:
+            return result
+
         cache = self._cache_file(for_date)
         cached_rates: Dict[str, float] = {}
         if cache.exists():
@@ -100,7 +117,8 @@ class RatesClient:
                 data = json.loads(content)
                 cached_rates = data.get("rates", {})
                 if all(code in cached_rates for code in codes):
-                    return {code: cached_rates[code] for code in codes}
+                    result.update({code: cached_rates[code] for code in codes})
+                    return result
             except (json.JSONDecodeError, OSError):
                 cached_rates = {}
         missing = [c for c in codes if c not in cached_rates]
@@ -118,7 +136,8 @@ class RatesClient:
                 json.dumps(payload, ensure_ascii=False),
                 encoding="utf-8",
             )
-        return {code: cached_rates[code] for code in codes}
+        result.update({code: cached_rates[code] for code in codes})
+        return result
 
 
 _rates_client = RatesClient()
@@ -130,7 +149,17 @@ async def get_cached_rates(
     retries: int = 3,
     timeout: float = 5.0,
 ) -> Dict[str, float]:
-    return await _rates_client.get_cached(for_date, codes, retries=retries, timeout=timeout)
+    codes = list(codes)
+    result: Dict[str, float] = {}
+    if "RUB" in codes:
+        result["RUB"] = 1.0
+        codes = [c for c in codes if c != "RUB"]
+    if codes:
+        fetched = await _rates_client.get_cached(
+            for_date, codes, retries=retries, timeout=timeout
+        )
+        result.update(fetched)
+    return result
 
 
 async def get_cbr_rate(
@@ -139,6 +168,8 @@ async def get_cbr_rate(
     retries: int = 3,
     timeout: float = 5.0,
 ) -> float:
+    if code == "RUB":
+        return 1.0
     rates = await _rates_client.fetch(for_date, [code], retries=retries, timeout=timeout)
     return rates[code]
 

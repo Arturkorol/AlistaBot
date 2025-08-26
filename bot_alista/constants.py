@@ -30,7 +30,8 @@ HP_MAX = 1200
 AGE_MAX = 30
 
 # Currency codes
-# Added support for South Korean Won and Russian Ruble.
+# ``RUB`` is included for user input but is treated as a fixed 1:1 rate and
+# therefore never requested from the CBR service.
 CURRENCY_CODES = ("EUR", "USD", "JPY", "CNY", "KRW", "RUB")
 
 # Prompts and error messages
