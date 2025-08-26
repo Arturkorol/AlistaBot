@@ -1,7 +1,7 @@
 """PDF report generation utilities."""
 
 from fpdf import FPDF
-import re
+import unicodedata
 
 
 # Paths to system fonts that support Cyrillic characters. Using existing
@@ -28,20 +28,36 @@ class PDFReport(FPDF):
     def footer(self):
         self.set_y(-15)
         self.set_font("DejaVu", "", 8)
-        self.cell(0, 10, _sanitize(f"Стр. {self.page_no()}", strip_currency=False), align="C")
+        self.cell(0, 10, f"Стр. {self.page_no()}", align="C")
 
+    # --- Sanitized text helpers -------------------------------------------------
 
-_EMOJI_RE = re.compile("[\U00010000-\U0010FFFF]")
+    def cell(self, *args, **kwargs):  # type: ignore[override]
+        """Wrapper around :meth:`fpdf.FPDF.cell` applying :func:`_sanitize`."""
+        if len(args) >= 3:
+            args = list(args)
+            args[2] = _sanitize(args[2])
+        elif "txt" in kwargs:
+            kwargs["txt"] = _sanitize(kwargs["txt"])
+        return super().cell(*args, **kwargs)
+
+    def multi_cell(self, *args, **kwargs):  # type: ignore[override]
+        """Wrapper around :meth:`fpdf.FPDF.multi_cell` applying :func:`_sanitize`."""
+        if len(args) >= 3:
+            args = list(args)
+            args[2] = _sanitize(args[2])
+        elif "txt" in kwargs:
+            kwargs["txt"] = _sanitize(kwargs["txt"])
+        return super().multi_cell(*args, **kwargs)
 
 
 def _sanitize(text: str, *, strip_currency: bool = True) -> str:
-    """Remove characters unsupported by FPDF.
+    """Remove or replace characters unsupported by FPDF.
 
-    FPDF internally encodes page content using ``latin-1``. Characters
-    outside of the Basic Multilingual Plane (such as many emoji) or some
-    currency symbols can therefore trigger ``UnicodeEncodeError`` during
-    ``pdf.output``.  To prevent the bot from crashing when users include
-    such characters, we strip them or replace them with ASCII fallbacks.
+    Even with TrueType Unicode fonts FPDF cannot handle characters outside
+    of the Basic Multilingual Plane or control characters.  This helper
+    normalises the text and strips such glyphs so ``pdf.output`` will not
+    raise ``UnicodeEncodeError``.
 
     Args:
         text: Original text that may contain unsupported characters.
@@ -53,8 +69,18 @@ def _sanitize(text: str, *, strip_currency: bool = True) -> str:
         text = str(text)
     if strip_currency:
         text = text.replace("€", " EUR").replace("₽", " RUB")
-    # Remove characters outside the BMP (e.g. emoji)
-    return _EMOJI_RE.sub("", text)
+
+    normalized = unicodedata.normalize("NFKC", text)
+    sanitized: list[str] = []
+    for char in normalized:
+        code = ord(char)
+        # Drop non-BMP or non-printable characters
+        if code > 0xFFFF:
+            continue
+        if unicodedata.category(char).startswith("C"):
+            continue
+        sanitized.append(char)
+    return "".join(sanitized)
 
 
 def generate_request_pdf(data: dict, filename: str):
@@ -64,11 +90,11 @@ def generate_request_pdf(data: dict, filename: str):
     pdf.add_page()
 
     pdf.set_font("DejaVu", "", 12)
-    pdf.cell(0, 8, _sanitize(f"ФИО: {data.get('name', '')}"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Авто: {data.get('car', '')}"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Контакты: {data.get('contact', '')}"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Стоимость: {data.get('price', '')} €"), ln=True)
-    pdf.multi_cell(0, 8, _sanitize(f"Комментарий: {data.get('comment', '')}"))
+    pdf.cell(0, 8, f"ФИО: {data.get('name', '')}", ln=True)
+    pdf.cell(0, 8, f"Авто: {data.get('car', '')}", ln=True)
+    pdf.cell(0, 8, f"Контакты: {data.get('contact', '')}", ln=True)
+    pdf.cell(0, 8, f"Стоимость: {data.get('price', '')} €", ln=True)
+    pdf.multi_cell(0, 8, f"Комментарий: {data.get('comment', '')}")
 
     pdf.output(filename)
 
@@ -80,24 +106,24 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     pdf.add_page()
 
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 8, _sanitize(f"Тип авто: {user_info.get('car_type', '')}"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Год выпуска: {user_info.get('year', '')}"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Мощность: {user_info.get('power_hp', '')} л.с."), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Объём двигателя: {user_info.get('engine', '')} см³"), ln=True)
-    pdf.cell(0, 8, _sanitize(f"Масса: {user_info.get('weight', '')} кг"), ln=True)
+    pdf.cell(0, 8, f"Тип авто: {user_info.get('car_type', '')}", ln=True)
+    pdf.cell(0, 8, f"Год выпуска: {user_info.get('year', '')}", ln=True)
+    pdf.cell(0, 8, f"Мощность: {user_info.get('power_hp', '')} л.с.", ln=True)
+    pdf.cell(0, 8, f"Объём двигателя: {user_info.get('engine', '')} см³", ln=True)
+    pdf.cell(0, 8, f"Масса: {user_info.get('weight', '')} кг", ln=True)
     # some calculators may provide price under different keys
     price_eur = result.get("price_eur") or result.get("vehicle_price_eur", "")
-    pdf.cell(0, 8, _sanitize(f"Цена: {price_eur} €"), ln=True)
+    pdf.cell(0, 8, f"Цена: {price_eur} €", ln=True)
     pdf.ln(5)
 
     # Таблица расчёта
     pdf.set_font("DejaVu", "B", 12)
-    pdf.cell(0, 10, _sanitize("Результаты расчёта", strip_currency=False), ln=True)
+    pdf.cell(0, 10, "Результаты расчёта", ln=True)
     pdf.set_font("DejaVu", "", 11)
 
     def add_row(name, value):
-        pdf.cell(90, 8, _sanitize(name, strip_currency=False), border=1)
-        pdf.cell(0, 8, _sanitize(str(value)), border=1, ln=True)
+        pdf.cell(90, 8, name, border=1)
+        pdf.cell(0, 8, str(value), border=1, ln=True)
 
     eur_rate = result.get("eur_rate", 0)
     total_eur = result.get("total_eur", 0)
