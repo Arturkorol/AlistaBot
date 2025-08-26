@@ -39,20 +39,6 @@ class VehicleOwnerType(Enum):
 
 # Constants for Tariffs
 BASE_VAT = 0.2
-RECYCLING_FEE_BASE_RATE = 20000
-CUSTOMS_CLEARANCE_TAX_RANGES = [
-    (200000, 775),
-    (450000, 1550),
-    (1200000, 3100),
-    (2700000, 8530),
-    (4200000, 12000),
-    (5500000, 15500),
-    (7000000, 20000),
-    (8000000, 23000),
-    (9000000, 25000),
-    (10000000, 27000),
-    (float('inf'), 30000)
-]
 
 class CustomsCalculator:
     """
@@ -86,8 +72,9 @@ class CustomsCalculator:
         self.vehicle_price = None
         self.owner_type = None
         self.vehicle_currency = "USD"
+        self.vehicle_type = "passenger"
 
-    def set_vehicle_details(self, age, engine_capacity, engine_type, power, price, owner_type, currency="USD"):
+    def set_vehicle_details(self, age, engine_capacity, engine_type, power, price, owner_type, currency="USD", vehicle_type="passenger"):
         """Set the details of the vehicle."""
         try:
             self.vehicle_age = VehicleAge(age)
@@ -97,41 +84,54 @@ class CustomsCalculator:
             self.vehicle_price = price
             self.owner_type = VehicleOwnerType(owner_type)
             self.vehicle_currency = currency.upper()
+            self.vehicle_type = vehicle_type
         except ValueError as e:
             raise WrongParamException(f"Invalid parameter: {e}")
 
     def calculate_etc(self):
         """Calculate customs duties using the ETC method."""
         try:
-            overrides = self.config['tariffs']['age_groups']['overrides'].get(self.vehicle_age.value, {})
-            engine_tariffs = overrides.get(self.engine_type.value)
-            if engine_tariffs is None:
-                raise WrongParamException(
-                    f"Missing tariff overrides for age '{self.vehicle_age.value}' and engine type '{self.engine_type.value}'"
-                )
+            vehicle_cfg = self.config['tariffs']['vehicle_types'][self.vehicle_type]
+        except KeyError:
+            raise WrongParamException(f"Vehicle type '{self.vehicle_type}' is not supported")
+        try:
+            age_cfg = vehicle_cfg['age_groups'][self.vehicle_age.value]
+        except KeyError:
+            raise WrongParamException(
+                f"Age group '{self.vehicle_age.value}' not found for vehicle type '{self.vehicle_type}'"
+            )
+        try:
+            engine_tariffs = age_cfg[self.engine_type.value]
+        except KeyError:
+            raise WrongParamException(
+                f"Engine type '{self.engine_type.value}' not configured for age '{self.vehicle_age.value}'"
+            )
 
-            rate_per_cc = engine_tariffs['rate_per_cc']
-            try:
-                duty_rub = rate_per_cc * self.engine_capacity * self.convert_to_local_currency(1, "EUR")
-            except WrongParamException as e:
-                raise WrongParamException(f"Currency conversion failed during ETC calculation: {e}") from e
+        rate_per_cc = engine_tariffs.get('rate_per_cc')
+        if rate_per_cc is None:
+            raise WrongParamException(
+                f"Missing rate_per_cc for engine type '{self.engine_type.value}' and age '{self.vehicle_age.value}'"
+            )
+        try:
+            duty_rub = rate_per_cc * self.engine_capacity * self.convert_to_local_currency(1, "EUR")
+        except WrongParamException as e:
+            raise WrongParamException(f"Currency conversion failed during ETC calculation: {e}") from e
 
-            clearance_fee = self.config['tariffs']['base_clearance_fee']
-            util_fee = self.config['tariffs']['base_util_fee']
-            recycling_fee = self.calculate_recycling_fee()
+        clearance_fee = self.calculate_clearance_tax()
+        base_util_fee = self.config['tariffs']['base_util_fee']
+        etc_util_coeff = self.config['tariffs'].get('etc_util_coeff_base', 1.0)
+        util_fee = base_util_fee * etc_util_coeff
+        recycling_fee = self.calculate_recycling_fee()
 
-            total_pay = clearance_fee + duty_rub + util_fee + recycling_fee
-            return {
-                "Mode": "ETC",
-                "Clearance Fee (RUB)": clearance_fee,
-                "Duty (RUB)": duty_rub,
-                "Recycling Fee (RUB)": recycling_fee,
-                "Util Fee (RUB)": util_fee,
-                "Total Pay (RUB)": total_pay,
-            }
-        except KeyError as e:
-            logger.error(f"Missing tariff configuration: {e}")
-            raise
+        total_pay = clearance_fee + duty_rub + util_fee + recycling_fee
+        return {
+            "Mode": "ETC",
+            "Clearance Fee (RUB)": clearance_fee,
+            "Duty (RUB)": duty_rub,
+            "Recycling Fee (RUB)": recycling_fee,
+            "Util Fee (RUB)": util_fee,
+            "Total Pay (RUB)": total_pay,
+        }
 
     def calculate_ctp(self):
         """Calculate customs duties using the CTP method."""
@@ -142,7 +142,7 @@ class CustomsCalculator:
                 min_duty_per_cc = self.convert_to_local_currency(0.44, "EUR")
             except WrongParamException as e:
                 raise WrongParamException(f"Currency conversion failed during CTP calculation: {e}") from e
-            vat_rate = BASE_VAT
+            vat_rate = self.config['tariffs'].get('vat_rate', BASE_VAT)
 
             # Calculate Duty: 20% of price or 0.44 EUR/cm³ minimum
             duty_rate = 0.2
@@ -154,11 +154,13 @@ class CustomsCalculator:
             # Calculate VAT: Applied to price + duty + excise
             vat = (price_rub + duty_rub + excise) * vat_rate
 
-            # Clearance Fee: Fixed
-            clearance_fee = self.config['tariffs']['base_clearance_fee']
+            # Clearance Fee: Based on price
+            clearance_fee = self.calculate_clearance_tax()
 
             # Util Fee: Applied based on multiplier
-            util_fee = self.config['tariffs']['base_util_fee'] * self.config['tariffs']['ctp_util_coeff_base']
+            base_util_fee = self.config['tariffs']['base_util_fee']
+            ctp_util_coeff = self.config['tariffs'].get('ctp_util_coeff_base', 1.0)
+            util_fee = base_util_fee * ctp_util_coeff
 
             # Total Pay
             total_pay = duty_rub + excise + vat + clearance_fee + util_fee
@@ -195,25 +197,55 @@ class CustomsCalculator:
                 f"Currency conversion failed during clearance tax calculation: {e}"
             ) from e
 
-        for price_limit, tax in CUSTOMS_CLEARANCE_TAX_RANGES:
+        try:
+            ranges = self.config['tariffs']['clearance_tax_ranges']
+        except KeyError:
+            raise WrongParamException("Clearance tax ranges not defined in config")
+
+        for price_limit, tax in ranges:
             if price_rub <= price_limit:
                 logger.info(f"Customs clearance tax: {tax} RUB")
                 return tax
-        return CUSTOMS_CLEARANCE_TAX_RANGES[-1][1]  # Default to the last range
+        return ranges[-1][1]  # Default to the last range
 
     def calculate_recycling_fee(self):
         """Calculate recycling fee."""
-        factors = self.config['tariffs']['recycling_factors']
-        default_factors = factors.get('default', {})
-        adjustments = factors.get('adjustments', {}).get(self.vehicle_age.value, {})
-        engine_factor = adjustments.get(self.engine_type.value, default_factors.get(self.engine_type.value, 1.0))
-        fee = RECYCLING_FEE_BASE_RATE * engine_factor
+        try:
+            recycle_cfg = self.config['tariffs']['vehicle_types'][self.vehicle_type]['recycling_fee']
+        except KeyError:
+            raise WrongParamException(
+                f"Recycling fee configuration missing for vehicle type '{self.vehicle_type}'"
+            )
+
+        base_rate = recycle_cfg.get('base_rate')
+        if base_rate is None:
+            raise WrongParamException("Recycling fee base_rate not defined")
+
+        engine_factor = recycle_cfg.get('engine_factors', {}).get(self.engine_type.value)
+        if engine_factor is None:
+            raise WrongParamException(
+                f"Recycling engine factor missing for engine type '{self.engine_type.value}'"
+            )
+
+        age_factor = (
+            recycle_cfg.get('age_adjustments', {})
+            .get(self.vehicle_age.value, {})
+            .get(self.engine_type.value, 1)
+        )
+        owner_mult = recycle_cfg.get('owner_multipliers', {}).get(self.owner_type.value, 1)
+
+        fee = base_rate * engine_factor * age_factor * owner_mult
         logger.info(f"Recycling fee: {fee} RUB")
         return fee
 
     def calculate_excise(self):
         """Calculate excise based on engine power and engine type."""
-        excise_rate = self.config['tariffs']['excise_rates'][self.engine_type.value]
+        try:
+            excise_rate = self.config['tariffs']['vehicle_types'][self.vehicle_type]['excise_rates'][self.engine_type.value]
+        except KeyError:
+            raise WrongParamException(
+                f"Excise rate missing for engine type '{self.engine_type.value}'"
+            )
         excise = self.vehicle_power * excise_rate
         logger.info(f"Excise: {excise} RUB")
         return excise
