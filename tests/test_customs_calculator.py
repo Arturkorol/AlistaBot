@@ -151,7 +151,10 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     )
     vat_rate = Decimal(str(tariffs["vat_rate"]))
     vat_rub = rnd(vat_rate * (price_rub + duty_rub + excise_rub))
-    expected_total = rnd(duty_rub + excise_rub + util_rub + vat_rub + fee_rub)
+    recycling_rub = calc.calculate_recycling_fee()
+    expected_total = rnd(
+        duty_rub + excise_rub + util_rub + vat_rub + fee_rub + recycling_rub
+    )
 
     assert res["price_rub"] == rnd(price_rub)
     assert res["duty_rub"] == duty_rub
@@ -159,8 +162,10 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     assert res["util_rub"] == util_rub
     assert res["fee_rub"] == rnd(fee_rub)
     assert res["vat_rub"] == vat_rub
+    assert res["recycling_rub"] == rnd(recycling_rub)
     assert res["total_rub"] == expected_total
-    assert "recycling_rub" not in res
+    assert res["vehicle_price_rub"] == rnd(price_rub)
+    assert res["ctp_rub"] == rnd(price_rub + expected_total)
 
 
 def test_clearance_tax_uses_tariff_ranges(
@@ -253,11 +258,11 @@ def test_currency_conversion(calc: CustomsCalculator, currency: str):
     assert res["price_rub"] == expected_rub
 
 
-def test_invalid_engine_capacity_low(calc: CustomsCalculator):
+def test_engine_capacity_must_be_positive(calc: CustomsCalculator):
     with pytest.raises(WrongParamException):
         calc.set_vehicle_details(
             age=AgeGroup("new"),
-            engine_capacity=500,
+            engine_capacity=0,
             engine_type=EngineType("gasoline"),
             power=100,
             production_year=2024,
@@ -267,11 +272,11 @@ def test_invalid_engine_capacity_low(calc: CustomsCalculator):
         )
 
 
-def test_invalid_engine_capacity_high(calc: CustomsCalculator):
-    with pytest.raises(WrongParamException):
+def test_engine_capacity_allows_wide_range(calc: CustomsCalculator):
+    for cc in (500, 9000):
         calc.set_vehicle_details(
             age=AgeGroup("new"),
-            engine_capacity=9000,
+            engine_capacity=cc,
             engine_type=EngineType("gasoline"),
             power=100,
             production_year=2024,

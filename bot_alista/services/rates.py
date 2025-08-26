@@ -17,7 +17,7 @@ try:  # pragma: no cover - optional dependency check
 except ImportError as exc:  # pragma: no cover - explicit error
     raise RuntimeError("currency_converter_free is required") from exc
 
-SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY")
+SUPPORTED_CODES: tuple[str, ...] = ("EUR", "USD", "JPY", "CNY", "KRW", "RUB")
 CBR_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
 
 
@@ -135,7 +135,7 @@ async def get_cached_rates(
 
 async def get_cbr_rate(
     for_date: date,
-    code: Literal["EUR", "USD", "JPY", "CNY"],
+    code: Literal["EUR", "USD", "JPY", "CNY", "KRW", "RUB"],
     retries: int = 3,
     timeout: float = 5.0,
 ) -> float:
@@ -145,7 +145,7 @@ async def get_cbr_rate(
 
 async def currency_to_rub(
     amount: float,
-    code: Literal["EUR", "USD", "JPY", "CNY"],
+    code: Literal["EUR", "USD", "JPY", "CNY", "KRW", "RUB"],
     for_date: date | None = None,
 ) -> float:
     if for_date is None:

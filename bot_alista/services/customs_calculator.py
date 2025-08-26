@@ -137,8 +137,8 @@ class CustomsCalculator:
                 raise WrongParamException(
                     "engine_capacity must be 0 for electric vehicles"
                 )
-        elif engine_capacity < 800 or engine_capacity > 8000:
-            raise WrongParamException("engine_capacity out of range")
+        elif engine_capacity <= 0:
+            raise WrongParamException("engine_capacity must be positive")
 
         if power <= 0:
             raise WrongParamException("power must be positive")
@@ -303,8 +303,11 @@ class CustomsCalculator:
         age_years = compute_actual_age_years(v.production_year, decl_date)
         coeff = Decimal(str(self.tariffs.get("ctp_util_coeff_base", 1.0)))
         util_fee = _round2(self._calculate_util_fee(v, age_years, decl_date, coeff))
+        recycling_fee = self.calculate_recycling_fee(v)
 
-        total_pay = _round2(duty_rub + excise + vat + clearance_fee + util_fee)
+        total_pay = _round2(
+            duty_rub + excise + vat + clearance_fee + util_fee + recycling_fee
+        )
         return {
             "mode": "CTP",
             "price_rub": _round2(price_rub),
@@ -313,7 +316,10 @@ class CustomsCalculator:
             "vat_rub": vat,
             "fee_rub": clearance_fee,
             "util_rub": util_fee,
+            "recycling_rub": recycling_fee,
             "total_rub": total_pay,
+            "vehicle_price_rub": _round2(price_rub),
+            "ctp_rub": _round2(price_rub + total_pay),
         }
 
     def _calc_etc(self, v: _Vehicle) -> Dict[str, Decimal]:

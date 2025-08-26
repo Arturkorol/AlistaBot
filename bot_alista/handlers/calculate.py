@@ -37,6 +37,7 @@ from bot_alista.constants import (
     ERROR_RATE,
     BTN_METHOD_ETC,
     BTN_METHOD_CTP,
+    BTN_METHOD_AUTO,
     PROMPT_METHOD,
 )
 from bot_alista.utils.navigation import NavigationManager, NavStep
@@ -112,10 +113,15 @@ async def customs_command(message: types.Message, state: FSMContext) -> None:
 async def get_method_choice(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     nav: NavigationManager | None = data.get("_nav")
-    if message.text not in {BTN_METHOD_ETC, BTN_METHOD_CTP}:
+    if message.text not in {BTN_METHOD_ETC, BTN_METHOD_CTP, BTN_METHOD_AUTO}:
         await message.answer(PROMPT_METHOD)
         return
-    method = "ETC" if message.text == BTN_METHOD_ETC else "CTP"
+    if message.text == BTN_METHOD_ETC:
+        method = "ETC"
+    elif message.text == BTN_METHOD_CTP:
+        method = "CTP"
+    else:
+        method = "AUTO"
     await state.update_data(method=method)
     await nav.push(
         message,
@@ -356,7 +362,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         manual_rates = data.get("manual_rates", {})
         needed = {currency_code, "EUR"}
         try:
-            rates = await get_cached_rates(decl_date, codes=("EUR", "USD", "JPY", "CNY"))
+            rates = await get_cached_rates(decl_date, codes=CURRENCY_CODES)
         except Exception:
             missing = [c for c in needed if c not in manual_rates]
             if missing:
@@ -406,7 +412,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
             breakdown = calc.calculate_etc()
         elif method == "CTP":
             breakdown = calc.calculate_ctp()
-        else:
+        else:  # AUTO or unspecified
             breakdown = calc.calculate_auto()
 
         customs_value_rub = breakdown["price_rub"]
