@@ -15,6 +15,30 @@ customs_command = calculate.customs_command
 from bot_alista.constants import BTN_BACK, BTN_MAIN_MENU
 
 
+class FakeCalc:
+    def __init__(self, *args, **kwargs):
+        self.vehicle_price = 0.0
+        self.vehicle_currency = "EUR"
+
+    def set_vehicle_details(self, **kwargs):
+        self.vehicle_price = kwargs.get("price", 0.0)
+        self.vehicle_currency = kwargs.get("currency", "EUR")
+
+    def convert_to_local_currency(self, amount, currency="EUR"):
+        return float(amount)
+
+    def calculate_auto(self):
+        return {
+            "Price (RUB)": 100.0,
+            "Duty (RUB)": 10.0,
+            "Excise (RUB)": 0.0,
+            "VAT (RUB)": 0.0,
+            "Clearance Fee (RUB)": 5.0,
+            "Util Fee (RUB)": 2.0,
+            "Total Pay (RUB)": 17.0,
+        }
+
+
 class FakeState:
     def __init__(self, data):
         self.data = data
@@ -52,6 +76,8 @@ def test_run_calculation(monkeypatch):
 
     monkeypatch.setattr("bot_alista.handlers.calculate.format_result_message", fake_format)
 
+    monkeypatch.setattr("bot_alista.handlers.calculate.CustomsCalculator", FakeCalc)
+
     state = FakeState(
         {
             "car_type": "gasoline",
@@ -84,25 +110,6 @@ def test_run_calculation_ctp_without_recycling(monkeypatch):
         return "ok"
 
     monkeypatch.setattr("bot_alista.handlers.calculate.format_result_message", fake_format)
-
-    class FakeCalc:
-        def __init__(self):
-            self.tariffs = {}
-
-        def set_vehicle_details(self, **kwargs):
-            pass
-
-        def calculate_auto(self):
-            return {
-                "price_rub": 100.0,
-                "duty_rub": 10.0,
-                "excise_rub": 0.0,
-                "vat_rub": 0.0,
-                "fee_rub": 5.0,
-                "util_rub": 2.0,
-                "total_rub": 17.0,
-            }
-
     monkeypatch.setattr("bot_alista.handlers.calculate.CustomsCalculator", FakeCalc)
 
     state = FakeState(
