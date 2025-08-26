@@ -19,8 +19,12 @@ def test_get_cached_rates_partial(monkeypatch, tmp_path):
         mapping = {"USD": 1.0, "EUR": 2.0, "JPY": 3.0, "CNY": 4.0}
         return {code: mapping[code] for code in codes}
 
-    monkeypatch.setattr(rates, "_fetch_cbr_rates", fake_fetch)
-    monkeypatch.setattr(rates, "_cache_file", lambda d: tmp_path / f"{d.isoformat()}.json")
+    monkeypatch.setattr(rates._rates_client, "fetch", fake_fetch)
+    monkeypatch.setattr(
+        rates._rates_client,
+        "_cache_file",
+        lambda d: tmp_path / f"{d.isoformat()}.json",
+    )
 
     day = date(2024, 1, 1)
 

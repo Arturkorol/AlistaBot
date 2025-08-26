@@ -108,13 +108,19 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
     calc.set_vehicle_details(**vehicle_usd)
     res = calc.calculate_ctp()
 
-    price_rub = to_rub(vehicle_usd["price"], "USD")
+    price_rub = Decimal(str(to_rub(vehicle_usd["price"], "USD")))
 
     tariffs = calc.tariffs
     vt = tariffs["vehicle_types"]["passenger"]
-    min_duty_rub = to_rub(tariffs["ctp"]["min_per_cc_eur"], "EUR") * vehicle_usd["engine_capacity"]
-    duty_rub = rnd(max(price_rub * tariffs["ctp"]["duty_rate"], min_duty_rub))
-    excise_rub = rnd(vt["excise_rates"]["gasoline"] * vehicle_usd["power"])
+    min_duty_rub = Decimal(str(to_rub(tariffs["ctp"]["min_per_cc_eur"], "EUR"))) * Decimal(
+        vehicle_usd["engine_capacity"]
+    )
+    duty_rate = Decimal(str(tariffs["ctp"]["duty_rate"]))
+    duty_rub = rnd(max(price_rub * duty_rate, min_duty_rub))
+    excise_rub = rnd(
+        Decimal(str(vt["excise_rates"]["gasoline"]))
+        * Decimal(vehicle_usd["power"])
+    )
     usage = "personal" if vehicle_usd["owner_type"].value == "individual" else "commercial"
     fuel = "ice"
     vehicle_kind = "passenger"
@@ -134,17 +140,24 @@ def test_calculate_ctp_returns_expected_total(calc: CustomsCalculator, vehicle_u
         )
         * calc.tariffs.get("ctp_util_coeff_base", 1.0)
     )
-    fee_rub = int(
-        next(tax for limit, tax in TARIFFS["clearance_tax_ranges"] if price_rub <= limit)
+    fee_rub = Decimal(
+        str(
+            next(
+                tax
+                for limit, tax in TARIFFS["clearance_tax_ranges"]
+                if price_rub <= Decimal(str(limit))
+            )
+        )
     )
-    vat_rub = rnd(tariffs["vat_rate"] * (price_rub + duty_rub + excise_rub))
+    vat_rate = Decimal(str(tariffs["vat_rate"]))
+    vat_rub = rnd(vat_rate * (price_rub + duty_rub + excise_rub))
     expected_total = rnd(duty_rub + excise_rub + util_rub + vat_rub + fee_rub)
 
     assert res["price_rub"] == rnd(price_rub)
     assert res["duty_rub"] == duty_rub
     assert res["excise_rub"] == excise_rub
     assert res["util_rub"] == util_rub
-    assert res["fee_rub"] == fee_rub
+    assert res["fee_rub"] == rnd(fee_rub)
     assert res["vat_rub"] == vat_rub
     assert res["total_rub"] == expected_total
     assert "recycling_rub" not in res
@@ -157,7 +170,7 @@ def test_clearance_tax_uses_tariff_ranges(
     calc.tariffs["clearance_tax_ranges"] = [(float("inf"), 12345)]
     calc.set_vehicle_details(**vehicle_usd)
     res = calc.calculate_ctp()
-    assert res["fee_rub"] == 12345
+    assert res["fee_rub"] == Decimal("12345")
 
 
 def test_calculate_etc_includes_vehicle_price(calc: CustomsCalculator, vehicle_usd: dict):
@@ -165,14 +178,18 @@ def test_calculate_etc_includes_vehicle_price(calc: CustomsCalculator, vehicle_u
     ctp = calc.calculate_ctp()
     calc.set_vehicle_details(**vehicle_usd)
     etc = calc.calculate_etc()
-    rate_rub = to_rub(
-        TARIFFS["vehicle_types"]["passenger"]["age_groups"]["5-7"]["gasoline"]["rate_per_cc"],
-        "EUR",
+    rate_rub = Decimal(
+        str(
+            to_rub(
+                TARIFFS["vehicle_types"]["passenger"]["age_groups"]["5-7"]["gasoline"]["rate_per_cc"],
+                "EUR",
+            )
+        )
     )
-    expected_duty = rnd(max(rate_rub * vehicle_usd["engine_capacity"], 0))
+    expected_duty = rnd(max(rate_rub * Decimal(vehicle_usd["engine_capacity"]), Decimal("0")))
     assert etc["duty_rub"] == expected_duty
-    assert etc["excise_rub"] == 0.0
-    assert etc["vat_rub"] == 0.0
+    assert etc["excise_rub"] == Decimal("0")
+    assert etc["vat_rub"] == Decimal("0")
     assert etc["etc_rub"] == rnd(etc["price_rub"] + etc["total_rub"])
     # ensure previous result not mutated
     assert ctp["total_rub"] == ctp["total_rub"]
@@ -369,11 +386,11 @@ def test_recycling_fee_owner_multiplier(calc: CustomsCalculator, vehicle_usd: di
     calc.set_vehicle_details(**params)
     rc = calc.tariffs["vehicle_types"]["passenger"]["recycling_fee"]
     expected = rnd(
-        rc["base_rate"]
-        * rc["engine_factors"]["gasoline"]
-        * rc["owner_multipliers"]["company"]
+        Decimal(str(rc["base_rate"]))
+        * Decimal(str(rc["engine_factors"]["gasoline"]))
+        * Decimal(str(rc["owner_multipliers"]["company"]))
     )
-    assert rnd(calc.calculate_recycling_fee()) == expected
+    assert calc.calculate_recycling_fee() == expected
 
-def rnd(val: float) -> float:
-    return float(Decimal(str(val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+def rnd(val: float | Decimal) -> Decimal:
+    return Decimal(str(val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)

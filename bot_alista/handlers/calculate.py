@@ -45,7 +45,11 @@ from bot_alista.services.rates import (
     validate_or_prompt_rate,
 )
 from bot_alista.formatting import format_result_message
-from bot_alista.services.customs_calculator import CustomsCalculator
+from bot_alista.services.customs_calculator import (
+    CustomsCalculator,
+    EngineType,
+    VehicleAge,
+)
 from bot_alista.services.tariffs import get_tariffs_async
 from .calc_ui import (
     person_type_kb,
@@ -61,12 +65,12 @@ from bot_alista.handlers.faq import show_faq
 router = Router()
 
 
-# Map Russian fuel type labels to internal tariff keys used by CustomsCalculator
-CAR_TYPE_MAP = {
-    "Бензин": "gasoline",
-    "Дизель": "diesel",
-    "Гибрид": "hybrid",
-    "Электро": "electric",
+# Map Russian fuel type labels to EngineType enum
+ENGINE_TYPE_LABELS = {
+    "Бензин": EngineType.GASOLINE,
+    "Дизель": EngineType.DIESEL,
+    "Гибрид": EngineType.HYBRID,
+    "Электро": EngineType.ELECTRIC,
 }
 
 
@@ -365,22 +369,21 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
                 return
             rates = manual_rates
 
-        # translate Russian fuel type labels into tariff keys
-        fuel_type = CAR_TYPE_MAP.get(car_type_ru, car_type_ru) 
+        engine_type = ENGINE_TYPE_LABELS.get(car_type_ru, EngineType.GASOLINE)
         age_over_3 = bool(data.get("age_over_3", False))
 
-        current_year = decl_date.year if isinstance(decl_date, date) else date.today().year
-        vehicle_age = current_year - year
-        if vehicle_age < 1:
-            age_group = "new"
-        elif vehicle_age <= 3:
-            age_group = "1-3"
-        elif vehicle_age <= 5:
-            age_group = "3-5"
-        elif vehicle_age <= 7:
-            age_group = "5-7"
+        actual_age = compute_actual_age_years(year, decl_date)
+        if actual_age < 1:
+            age_enum = VehicleAge.NEW
+        elif actual_age <= 3:
+            age_enum = VehicleAge.ONE_TO_THREE
+        elif actual_age <= 5:
+            age_enum = VehicleAge.THREE_TO_FIVE
+        elif actual_age <= 7:
+            age_enum = VehicleAge.FIVE_TO_SEVEN
         else:
-            age_group = "over_7"
+            age_enum = VehicleAge.OVER_SEVEN
+        age_group = age_enum.value
         tariffs = await get_tariffs_async()
         try:
             calc = CustomsCalculator(tariffs=tariffs)
@@ -391,7 +394,7 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
         calc.set_vehicle_details(
             age=age_group,
             engine_capacity=engine_cc,
-            engine_type=fuel_type,
+            engine_type=engine_type,
             power=engine_hp,
             production_year=year,
             price=amount,
