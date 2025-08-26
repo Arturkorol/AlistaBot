@@ -105,6 +105,10 @@ class CustomsCalculator:
         try:
             overrides = self.config['tariffs']['age_groups']['overrides'].get(self.vehicle_age.value, {})
             engine_tariffs = overrides.get(self.engine_type.value)
+            if engine_tariffs is None:
+                raise WrongParamException(
+                    f"Missing tariff overrides for age '{self.vehicle_age.value}' and engine type '{self.engine_type.value}'"
+                )
 
             rate_per_cc = engine_tariffs['rate_per_cc']
             try:
@@ -178,12 +182,21 @@ class CustomsCalculator:
             return self.calculate_ctp()
         etc = self.calculate_etc()
         ctp = self.calculate_ctp()
-        return ctp if ctp["Total Pay (RUB)"] >= etc["Total Pay (RUB)"] else etc
+        return etc if etc["Total Pay (RUB)"] <= ctp["Total Pay (RUB)"] else ctp
 
     def calculate_clearance_tax(self):
         """Calculate customs clearance tax based on price."""
+        try:
+            price_rub = self.convert_to_local_currency(
+                self.vehicle_price, self.vehicle_currency
+            )
+        except WrongParamException as e:
+            raise WrongParamException(
+                f"Currency conversion failed during clearance tax calculation: {e}"
+            ) from e
+
         for price_limit, tax in CUSTOMS_CLEARANCE_TAX_RANGES:
-            if self.vehicle_price <= price_limit:
+            if price_rub <= price_limit:
                 logger.info(f"Customs clearance tax: {tax} RUB")
                 return tax
         return CUSTOMS_CLEARANCE_TAX_RANGES[-1][1]  # Default to the last range
