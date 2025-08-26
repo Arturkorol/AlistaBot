@@ -327,7 +327,9 @@ async def _run_calculation(state: FSMContext, message: types.Message) -> None:
 
         decl_date = data.get("decl_date") or date.today()
         try:
-            rates = await get_cached_rates(decl_date, codes=CURRENCY_CODES)
+            non_rub = [c for c in CURRENCY_CODES if c != "RUB"]
+            rates = await get_cached_rates(decl_date, codes=non_rub)
+            rates["RUB"] = 1.0
         except Exception:
             await message.answer(
                 "Не удалось получить курсы ЦБ РФ, попробуйте позже",
