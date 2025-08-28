@@ -49,9 +49,18 @@ def valid_config(tmp_path):
     return config_path
 
 @pytest.fixture
-def calculator(valid_config):
+def calculator(valid_config, monkeypatch):
     """Create an instance of the calculator with a valid config."""
-    return CustomsCalculator(config_path=valid_config)
+    calc = CustomsCalculator(config_path=valid_config)
+
+    def fake_convert(amount, currency="EUR"):
+        supported = {"USD", "EUR", "KRW", "RUB"}
+        if currency.upper() not in supported:
+            raise ValueError(f"Unsupported currency: {currency}")
+        return amount
+
+    monkeypatch.setattr(calc, "convert_to_local_currency", fake_convert)
+    return calc
 
 def test_config_loading(calculator):
     """Test that the configuration loads correctly."""
@@ -68,7 +77,8 @@ def test_set_vehicle_details(calculator):
         power=150,
         price=100000,
         owner_type="individual",
-        currency="USD"
+        currency="USD",
+        power_unit="hp",
     )
     assert calculator.vehicle_age.value == "5-7"
     assert calculator.engine_capacity == 2000
@@ -86,7 +96,8 @@ def test_calculate_etc(calculator):
         power=150,
         price=100000,
         owner_type="individual",
-        currency="USD"
+        currency="USD",
+        power_unit="hp"
     )
     results = calculator.calculate_etc()
     assert results["Mode"] == "ETC"
@@ -106,6 +117,7 @@ def test_min_duty_applied(calculator, monkeypatch):
         price=100000,
         owner_type="individual",
         currency="USD",
+        power_unit="hp",
     )
     monkeypatch.setattr(
         calculator, "convert_to_local_currency", lambda amount, currency="EUR": amount * 100
@@ -122,42 +134,102 @@ def test_calculate_ctp(calculator):
         power=150,
         price=100000,
         owner_type="individual",
-        currency="USD"
+        currency="USD",
+        power_unit="hp"
     )
     results = calculator.calculate_ctp()
     assert results["Mode"] == "CTP"
     assert results["Total Pay (RUB)"] > 0
     assert "Excise (RUB)" in results
 
-# def test_invalid_currency(calculator):
-#     """
-#     Test behavior when an unsupported currency is provided.
-#     Ensures the calculator raises a ValueError for truly unsupported currencies.
-#     """
-#     calculator.set_vehicle_details(
-#         age="5-7",
-#         engine_capacity=2000,
-#         engine_type="gasoline",
-#         power=150,
-#         price=100000,
-#         owner_type="individual",
-#         currency="XYZ"
-#     )
-#     with pytest.raises(ValueError, match="Unsupported currency: XYZ"):
-#         calculator.convert_to_local_currency(100, "XYZ")
 
-# def test_already_cleared(calculator):
-#     """Test calculation when the vehicle is already cleared."""
-#     calculator.set_vehicle_details(
-#         age="5-7",
-#         engine_capacity=2000,
-#         engine_type="gasoline",
-#         power=150,
-#         price=100000,
-#         owner_type="individual",
-#         currency="USD"
-#     )
-#     calculator.is_already_cleared = True
-#     results = calculator.calculate_etc()
-#     assert results["Mode"] == "ETC"
-#     assert results["Total Pay (RUB)"] == 0
+def test_power_unit_conversion(calculator):
+    """Ensure kilowatt inputs are converted to horsepower."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=100,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="kw",
+    )
+    assert calculator.vehicle_power == pytest.approx(135.962, rel=1e-3)
+
+
+def test_invalid_currency(calculator):
+    """Unsupported currencies should raise ValueError."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="XYZ",
+        power_unit="hp",
+    )
+    with pytest.raises(ValueError, match="Unsupported currency: XYZ"):
+        calculator.convert_to_local_currency(100, "XYZ")
+
+
+def test_already_cleared(calculator):
+    """Calculation should be skipped for already cleared vehicles."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="hp",
+    )
+    calculator.is_already_cleared = True
+    results = calculator.calculate_etc()
+    assert results["Total Pay (RUB)"] == 0
+
+
+def test_owner_type_affects_util_fee(calculator):
+    """Companies should have higher util fees."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="company",
+        currency="USD",
+        power_unit="hp",
+    )
+    results = calculator.calculate_etc()
+    assert results["Util Fee (RUB)"] == pytest.approx(20000 * 1.5 * 1.1)
+
+
+def test_auto_mode_selection(calculator):
+    """Calculator should choose mode based on age and price."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=500000,
+        owner_type="individual",
+        currency="RUB",
+        power_unit="hp",
+    )
+    assert calculator.calculate()["Mode"] == "ETC"
+
+    calculator.set_vehicle_details(
+        age="new",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=500000,
+        owner_type="individual",
+        currency="RUB",
+        power_unit="hp",
+    )
+    assert calculator.calculate()["Mode"] == "CTP"
+

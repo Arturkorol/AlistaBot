@@ -159,7 +159,7 @@ async def finish_calc(message: types.Message, state: FSMContext):
         owner_type=data["owner"],
         currency=currency,
     )
-    results = calc.calculate_etc()
+    results = calc.calculate()
     rates = await get_rates(["USD", "EUR"])
     customs_value = calc.convert_to_local_currency(data["price"], currency)
     breakdown = {

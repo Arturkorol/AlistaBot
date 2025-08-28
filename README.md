@@ -42,18 +42,15 @@ calculator.set_vehicle_details(
     engine_capacity=2000,       # Объём двигателя в см³
     engine_type="gasoline",     # Тип двигателя: "gasoline", "diesel", "electric", "hybrid"
     power=150,                  # Мощность двигателя в л.с.
+    power_unit="hp",           # Единицы мощности: "hp" или "kw"
     price=100000,               # Стоимость автомобиля
     owner_type="individual",    # Тип импортёра: "individual" или "company"
     currency="USD"              # Валюта стоимости автомобиля
 )
 
-# Расчёт платежей по ETC
-etc_results = calculator.calculate_etc()
-calculator.print_table("ETC")
-
-# Расчёт платежей по CTP
-ctp_results = calculator.calculate_ctp()
-calculator.print_table("CTP")
+# Автоматический выбор между ETC и CTP
+results = calculator.calculate()
+calculator.print_table(results["Mode"])
 ```
 
 ---
@@ -80,8 +77,11 @@ calculator.print_table("CTP")
   - `"electric"`: Электромобиль.
   - `"hybrid"`: Гибридный двигатель.
 
-- **`power`** (`int`)  
-  Мощность двигателя в лошадиных силах (л.с.).
+- **`power`** (`int`)
+  Мощность двигателя.
+
+- **`power_unit`** (`str`, по умолчанию `"hp"`)
+  Единица измерения мощности двигателя: `"hp"` для лошадиных сил или `"kw"` для киловатт. Значения в киловаттах автоматически конвертируются в лошадиные силы.
 
 - **`price`** (`float`)  
   Стоимость автомобиля.
@@ -91,12 +91,13 @@ calculator.print_table("CTP")
   - `"individual"`: Физическое лицо.
   - `"company"`: Юридическое лицо.
 
-- **`currency`** (`str`)  
+- **`currency`** (`str`)
   Код валюты стоимости автомобиля, например:
   - `"USD"`: Доллары США.
   - `"EUR"`: Евро.
   - `"KRW"`: Южнокорейская вона.
   - `"RUB"`: Российский рубль.
+  Неподдерживаемые валюты приводят к `ValueError`.
 
 ---
 

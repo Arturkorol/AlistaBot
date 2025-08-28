@@ -88,14 +88,43 @@ class CustomsCalculator:
         self.vehicle_price = None
         self.owner_type = None
         self.vehicle_currency = "USD"
+        self.is_already_cleared = False
 
-    def set_vehicle_details(self, age, engine_capacity, engine_type, power, price, owner_type, currency="USD"):
+    def set_vehicle_details(
+        self,
+        age,
+        engine_capacity,
+        engine_type,
+        power,
+        price,
+        owner_type,
+        currency="USD",
+        power_unit="hp",
+    ):
         """Set the details of the vehicle."""
         try:
             self.vehicle_age = VehicleAge(age)
             self.engine_capacity = engine_capacity
             self.engine_type = EngineType(engine_type)
-            self.vehicle_power = power
+
+            # Determine power unit and convert to HP if necessary
+            if isinstance(power_unit, str):
+                unit = power_unit.lower()
+                if unit in {"kw", "kilowatt"}:
+                    power_unit_enum = EnginePowerUnit.KW
+                elif unit in {"hp", "horsepower"}:
+                    power_unit_enum = EnginePowerUnit.HP
+                else:
+                    raise ValueError(f"Invalid power unit: {power_unit}")
+            else:
+                power_unit_enum = EnginePowerUnit(power_unit)
+
+            self.power_unit = EnginePowerUnit.HP
+            if power_unit_enum == EnginePowerUnit.KW:
+                self.vehicle_power = power * 1.35962  # Convert kW to HP
+            else:
+                self.vehicle_power = power
+
             self.vehicle_price = price
             self.owner_type = VehicleOwnerType(owner_type)
             self.vehicle_currency = currency.upper()
@@ -104,6 +133,15 @@ class CustomsCalculator:
 
     def calculate_etc(self):
         """Calculate customs duties using the ETC method."""
+        if self.is_already_cleared:
+            return {
+                "Mode": "ETC",
+                "Clearance Fee (RUB)": 0,
+                "Duty (RUB)": 0,
+                "Recycling Fee (RUB)": 0,
+                "Util Fee (RUB)": 0,
+                "Total Pay (RUB)": 0,
+            }
         try:
             overrides = self.config['tariffs']['age_groups']['overrides'].get(self.vehicle_age.value, {})
             engine_tariffs = overrides.get(self.engine_type.value)
@@ -113,9 +151,11 @@ class CustomsCalculator:
             duty_eur = max(rate_per_cc * self.engine_capacity, min_duty)
             duty_rub = self.convert_to_local_currency(duty_eur, "EUR")
 
-            clearance_fee = self.config['tariffs']['base_clearance_fee']
+            clearance_fee = self.calculate_clearance_tax()
             util_base = self.config['tariffs']['base_util_fee']
             util_coeff = self.config['tariffs'].get('etc_util_coeff_base', 1.0)
+            if self.owner_type == VehicleOwnerType.COMPANY:
+                util_coeff *= 1.1
             util_fee = util_base * util_coeff
             recycling_fee = self.calculate_recycling_fee()
 
@@ -134,6 +174,17 @@ class CustomsCalculator:
 
     def calculate_ctp(self):
         """Calculate customs duties using the CTP method."""
+        if self.is_already_cleared:
+            return {
+                "Mode": "CTP",
+                "Price (RUB)": 0,
+                "Duty (RUB)": 0,
+                "Excise (RUB)": 0,
+                "VAT (RUB)": 0,
+                "Clearance Fee (RUB)": 0,
+                "Util Fee (RUB)": 0,
+                "Total Pay (RUB)": 0,
+            }
         try:
             # Convert price to RUB
             price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
@@ -150,11 +201,13 @@ class CustomsCalculator:
             # Calculate VAT: Applied to price + duty + excise
             vat = (price_rub + duty_rub + excise) * vat_rate
 
-            # Clearance Fee: Fixed
-            clearance_fee = self.config['tariffs']['base_clearance_fee']
+            clearance_fee = self.calculate_clearance_tax()
 
             # Util Fee: Applied based on multiplier
-            util_fee = self.config['tariffs']['base_util_fee'] * self.config['tariffs']['ctp_util_coeff_base']
+            util_coeff = self.config['tariffs']['ctp_util_coeff_base']
+            if self.owner_type == VehicleOwnerType.COMPANY:
+                util_coeff *= 1.1
+            util_fee = self.config['tariffs']['base_util_fee'] * util_coeff
 
             # Total Pay
             total_pay = duty_rub + excise + vat + clearance_fee + util_fee
@@ -175,8 +228,9 @@ class CustomsCalculator:
 
     def calculate_clearance_tax(self):
         """Calculate customs clearance tax based on price."""
+        price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
         for price_limit, tax in CUSTOMS_CLEARANCE_TAX_RANGES:
-            if self.vehicle_price <= price_limit:
+            if price_rub <= price_limit:
                 logger.info(f"Customs clearance tax: {tax} RUB")
                 return tax
         return CUSTOMS_CLEARANCE_TAX_RANGES[-1][1]  # Default to the last range
@@ -209,7 +263,14 @@ class CustomsCalculator:
             return rate
         except Exception as e:
             logger.error(f"Currency conversion error: {e}")
-            return amount
+            raise ValueError(f"Unsupported currency: {currency}")
+
+    def calculate(self):
+        """Automatically choose calculation mode based on vehicle data."""
+        price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
+        if self.vehicle_age in {VehicleAge.NEW, VehicleAge.ONE_TO_THREE} or price_rub > 1_000_000:
+            return self.calculate_ctp()
+        return self.calculate_etc()
 
     def print_table(self, mode):
         """Print the calculation results as a table."""
