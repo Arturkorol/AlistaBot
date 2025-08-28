@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import wraps
 from typing import List
 
 from aiogram import types
@@ -56,6 +57,7 @@ class NavigationManager:
 
 
 def with_nav(handler):
+    @wraps(handler)
     async def wrapped(message: types.Message, state: FSMContext, *args, **kwargs):
         data = await state.get_data()
         nav: NavigationManager | None = data.get("_nav")
