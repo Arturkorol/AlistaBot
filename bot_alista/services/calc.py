@@ -138,7 +138,10 @@ class CustomsCalculator:
             else:
                 power_unit_enum = EnginePowerUnit(power_unit)
 
-            self.power_unit = EnginePowerUnit.HP
+            # Preserve the provided unit while converting power to HP for
+            # internal calculations.  This allows consumers to know which
+            # unit was originally supplied.
+            self.power_unit = power_unit_enum
             if power_unit_enum == EnginePowerUnit.KW:
                 self.vehicle_power = power * 1.35962  # Convert kW to HP
             else:
@@ -164,6 +167,10 @@ class CustomsCalculator:
         try:
             overrides = self.config['tariffs']['age_groups']['overrides'].get(self.vehicle_age.value, {})
             engine_tariffs = overrides.get(self.engine_type.value)
+            if engine_tariffs is None:
+                raise WrongParamException(
+                    f"No ETC tariff for engine type '{self.engine_type.value}' in age group '{self.vehicle_age.value}'"
+                )
 
             rate_per_cc = engine_tariffs['rate_per_cc']
             min_duty = engine_tariffs.get('min_duty', 0)
@@ -286,6 +293,21 @@ class CustomsCalculator:
 
     def calculate(self):
         """Automatically choose calculation mode based on vehicle data."""
+
+        required = {
+            "vehicle_age": self.vehicle_age,
+            "engine_capacity": self.engine_capacity,
+            "engine_type": self.engine_type,
+            "vehicle_power": self.vehicle_power,
+            "vehicle_price": self.vehicle_price,
+            "owner_type": self.owner_type,
+        }
+        missing = [name for name, value in required.items() if value is None]
+        if missing:
+            raise WrongParamException(
+                "Missing vehicle details: " + ", ".join(missing)
+            )
+
         price_rub = self.convert_to_local_currency(self.vehicle_price, self.vehicle_currency)
         if self.vehicle_age in {VehicleAge.NEW, VehicleAge.ONE_TO_THREE} or price_rub > 1_000_000:
             return self.calculate_ctp()

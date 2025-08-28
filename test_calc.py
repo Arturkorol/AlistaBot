@@ -1,6 +1,12 @@
 import pytest
 from pydantic import ValidationError
-from tks_api_official.calc import CustomsCalculator, WrongParamException
+from tks_api_official.calc import (
+    CustomsCalculator,
+    WrongParamException,
+    EnginePowerUnit,
+)
+from bot_alista.utils.navigation import with_nav
+from bot_alista.services.pdf_report import generate_calculation_pdf, PDFReport
 
 @pytest.fixture
 def valid_config(tmp_path):
@@ -202,6 +208,7 @@ def test_power_unit_conversion(calculator):
         power_unit="kw",
     )
     assert calculator.vehicle_power == pytest.approx(135.962, rel=1e-3)
+    assert calculator.power_unit is EnginePowerUnit.KW
 
 
 def test_invalid_currency(calculator):
@@ -218,6 +225,22 @@ def test_invalid_currency(calculator):
     )
     with pytest.raises(ValueError, match="Unsupported currency: XYZ"):
         calculator.convert_to_local_currency(100, "XYZ")
+
+
+def test_missing_engine_tariff(calculator):
+    """Missing tariff data should raise a clear error."""
+    calculator.set_vehicle_details(
+        age="1-3",  # age group not present in overrides
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="hp",
+    )
+    with pytest.raises(WrongParamException, match="No ETC tariff"):
+        calculator.calculate_etc()
 
 
 def test_invalid_enum_values(calculator):
@@ -254,6 +277,12 @@ def test_invalid_enum_values(calculator):
             currency="USD",
             power_unit="bad",
         )
+
+
+def test_calculate_requires_details(calculator):
+    """Calling calculate without vehicle data should fail."""
+    with pytest.raises(WrongParamException, match="Missing vehicle details"):
+        calculator.calculate()
 
 
 def test_already_cleared(calculator):
@@ -314,4 +343,57 @@ def test_auto_mode_selection(calculator):
         power_unit="hp",
     )
     assert calculator.calculate()["Mode"] == "CTP"
+
+
+def test_with_nav_preserves_metadata():
+    """Decorator should not strip function metadata."""
+
+    @with_nav
+    async def sample_handler(message, state):
+        """sample doc"""
+        return None
+
+    assert sample_handler.__name__ == "sample_handler"
+    assert sample_handler.__doc__ == "sample doc"
+
+
+def test_pdf_generation_values(tmp_path, calculator, monkeypatch):
+    calls: list[str] = []
+    orig_cell = PDFReport.cell
+
+    def record_cell(self, *args, **kwargs):
+        if len(args) >= 3:
+            calls.append(str(args[2]))
+        elif "txt" in kwargs:
+            calls.append(str(kwargs["txt"]))
+        return orig_cell(self, *args, **kwargs)
+
+    monkeypatch.setattr(PDFReport, "cell", record_cell)
+
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="hp",
+    )
+    result = calculator.calculate_ctp()
+    result["eur_rate"] = 1
+
+    filename = tmp_path / "report.pdf"
+    user_info = {
+        "car_type": "sedan",
+        "year": 2020,
+        "power_hp": 150,
+        "engine": 2000,
+        "weight": 1500,
+    }
+    generate_calculation_pdf(result, user_info, str(filename))
+    assert filename.exists()
+    assert f"{result['Duty (RUB)']} €" in calls
+    assert f"{result.get('VAT (RUB)', 0)} €" in calls
+    assert f"{result['Total Pay (RUB)']} ₽" in calls
 
