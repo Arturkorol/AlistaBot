@@ -8,6 +8,7 @@ def valid_config(tmp_path):
     tariffs:
       base_clearance_fee: 3100
       base_util_fee: 20000
+      base_recycling_fee: 20000
       etc_util_coeff_base: 1.5
       ctp_util_coeff_base: 1.2
       excise_rates:
@@ -56,6 +57,7 @@ def test_config_loading(calculator):
     """Test that the configuration loads correctly."""
     assert calculator.config['tariffs']['base_clearance_fee'] == 3100
     assert calculator.config['tariffs']['excise_rates']['gasoline'] == 58
+    assert calculator.config['tariffs']['base_recycling_fee'] == 20000
 
 def test_set_vehicle_details(calculator):
     """Test setting vehicle details."""
@@ -90,6 +92,26 @@ def test_calculate_etc(calculator):
     assert results["Mode"] == "ETC"
     assert results["Total Pay (RUB)"] > 0
     assert "Duty (RUB)" in results
+    assert results["Util Fee (RUB)"] == 20000 * 1.5
+    assert results["Recycling Fee (RUB)"] == 20000 * 0.26
+
+
+def test_min_duty_applied(calculator, monkeypatch):
+    """Ensure minimum duty from config is respected."""
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=1000,
+        engine_type="hybrid",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+    )
+    monkeypatch.setattr(
+        calculator, "convert_to_local_currency", lambda amount, currency="EUR": amount * 100
+    )
+    results = calculator.calculate_etc()
+    assert results["Duty (RUB)"] == 2500 * 100
 
 def test_calculate_ctp(calculator):
     """Test CTP calculation mode."""
