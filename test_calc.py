@@ -1,5 +1,6 @@
 import pytest
-from tks_api_official.calc import CustomsCalculator
+from pydantic import ValidationError
+from tks_api_official.calc import CustomsCalculator, WrongParamException
 
 @pytest.fixture
 def valid_config(tmp_path):
@@ -61,6 +62,17 @@ def calculator(valid_config, monkeypatch):
 
     monkeypatch.setattr(calc, "convert_to_local_currency", fake_convert)
     return calc
+
+
+def test_invalid_config_missing_field(tmp_path):
+    bad_config = """
+    tariffs:
+      base_clearance_fee: 3100
+    """
+    path = tmp_path / "config.yaml"
+    path.write_text(bad_config)
+    with pytest.raises(ValidationError):
+        CustomsCalculator(config_path=path)
 
 def test_config_loading(calculator):
     """Test that the configuration loads correctly."""
@@ -143,6 +155,40 @@ def test_calculate_ctp(calculator):
     assert "Excise (RUB)" in results
 
 
+def test_ctp_already_cleared(calculator):
+    calculator.set_vehicle_details(
+        age="1-3",
+        engine_capacity=2000,
+        engine_type="gasoline",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="hp",
+    )
+    calculator.is_already_cleared = True
+    results = calculator.calculate_ctp()
+    assert results["Total Pay (RUB)"] == 0
+
+
+def test_min_duty_boundary(calculator, monkeypatch):
+    calculator.set_vehicle_details(
+        age="5-7",
+        engine_capacity=1250,
+        engine_type="hybrid",
+        power=150,
+        price=100000,
+        owner_type="individual",
+        currency="USD",
+        power_unit="hp",
+    )
+    monkeypatch.setattr(
+        calculator, "convert_to_local_currency", lambda amount, currency="EUR": amount
+    )
+    results = calculator.calculate_etc()
+    assert results["Duty (RUB)"] == 2500
+
+
 def test_power_unit_conversion(calculator):
     """Ensure kilowatt inputs are converted to horsepower."""
     calculator.set_vehicle_details(
@@ -172,6 +218,42 @@ def test_invalid_currency(calculator):
     )
     with pytest.raises(ValueError, match="Unsupported currency: XYZ"):
         calculator.convert_to_local_currency(100, "XYZ")
+
+
+def test_invalid_enum_values(calculator):
+    with pytest.raises(WrongParamException):
+        calculator.set_vehicle_details(
+            age="bad",
+            engine_capacity=2000,
+            engine_type="gasoline",
+            power=150,
+            price=100000,
+            owner_type="individual",
+            currency="USD",
+            power_unit="hp",
+        )
+    with pytest.raises(WrongParamException):
+        calculator.set_vehicle_details(
+            age="5-7",
+            engine_capacity=2000,
+            engine_type="rocket",
+            power=150,
+            price=100000,
+            owner_type="individual",
+            currency="USD",
+            power_unit="hp",
+        )
+    with pytest.raises(WrongParamException):
+        calculator.set_vehicle_details(
+            age="5-7",
+            engine_capacity=2000,
+            engine_type="gasoline",
+            power=150,
+            price=100000,
+            owner_type="individual",
+            currency="USD",
+            power_unit="bad",
+        )
 
 
 def test_already_cleared(calculator):

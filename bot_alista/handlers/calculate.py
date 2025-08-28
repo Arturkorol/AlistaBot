@@ -10,12 +10,19 @@ from aiogram.types import FSInputFile
 from bot_alista.constants import BTN_CALC
 from bot_alista.utils.navigation import NavigationManager, NavStep
 from bot_alista.keyboards.navigation import back_menu
+from bot_alista.keyboards.calc import (
+    age_keyboard,
+    engine_keyboard,
+    owner_keyboard,
+    currency_keyboard,
+)
 from bot_alista.services.calc import CustomsCalculator
 from bot_alista.services.pdf_report import generate_calculation_pdf
 from bot_alista.services.rates import get_rates
 from bot_alista.utils.reset import reset_to_menu
 from bot_alista.utils.formatting import format_result_message
 from bot_alista.settings import settings
+from bot_alista.utils.navigation import with_nav
 
 router = Router()
 
@@ -37,31 +44,33 @@ async def start_calc(message: types.Message, state: FSMContext):
     await nav.push(
         message,
         state,
-        NavStep(CalcStates.age, "Возраст авто? (new, 1-3, 3-5, 5-7, over_7)", back_menu()),
+        NavStep(CalcStates.age, "Возраст авто?", age_keyboard()),
     )
 
 
 @router.message(CalcStates.age)
-async def get_age(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
+@with_nav
+async def get_age(message: types.Message, state: FSMContext, nav: NavigationManager | None):
+    choice = message.text.strip()
+    if choice not in {"new", "1-3", "3-5", "5-7", "over_7"}:
+        await message.answer("Выберите возраст из предложенных вариантов", reply_markup=age_keyboard())
         return
-    await state.update_data(age=message.text.strip())
+    await state.update_data(age=choice)
     await nav.push(
         message,
         state,
-        NavStep(CalcStates.engine_type, "Тип двигателя? (gasoline, diesel, electric, hybrid)", back_menu()),
+        NavStep(CalcStates.engine_type, "Тип двигателя?", engine_keyboard()),
     )
 
 
 @router.message(CalcStates.engine_type)
-async def get_engine(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
+@with_nav
+async def get_engine(message: types.Message, state: FSMContext, nav: NavigationManager | None):
+    choice = message.text.strip()
+    if choice not in {"gasoline", "diesel", "electric", "hybrid"}:
+        await message.answer("Выберите тип двигателя из предложенных", reply_markup=engine_keyboard())
         return
-    await state.update_data(engine=message.text.strip())
+    await state.update_data(engine=choice)
     await nav.push(
         message,
         state,
@@ -70,11 +79,8 @@ async def get_engine(message: types.Message, state: FSMContext):
 
 
 @router.message(CalcStates.engine_capacity)
-async def get_capacity(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
-        return
+@with_nav
+async def get_capacity(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     try:
         capacity = int(message.text)
     except ValueError:
@@ -89,11 +95,8 @@ async def get_capacity(message: types.Message, state: FSMContext):
 
 
 @router.message(CalcStates.power)
-async def get_power(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
-        return
+@with_nav
+async def get_power(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     try:
         power = int(message.text)
     except ValueError:
@@ -108,11 +111,8 @@ async def get_power(message: types.Message, state: FSMContext):
 
 
 @router.message(CalcStates.price)
-async def get_price(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
-        return
+@with_nav
+async def get_price(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     try:
         price = float(message.text.replace(",", "."))
     except ValueError:
@@ -122,31 +122,33 @@ async def get_price(message: types.Message, state: FSMContext):
     await nav.push(
         message,
         state,
-        NavStep(CalcStates.owner, "Импортёр? (individual/company)", back_menu()),
+        NavStep(CalcStates.owner, "Импортёр?", owner_keyboard()),
     )
 
 
 @router.message(CalcStates.owner)
-async def get_owner(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
+@with_nav
+async def get_owner(message: types.Message, state: FSMContext, nav: NavigationManager | None):
+    choice = message.text.strip()
+    if choice not in {"individual", "company"}:
+        await message.answer("Выберите импортёра из вариантов", reply_markup=owner_keyboard())
         return
-    await state.update_data(owner=message.text.strip())
+    await state.update_data(owner=choice)
     await nav.push(
         message,
         state,
-        NavStep(CalcStates.currency, "Валюта (USD/EUR)", back_menu()),
+        NavStep(CalcStates.currency, "Валюта?", currency_keyboard()),
     )
 
 
 @router.message(CalcStates.currency)
-async def finish_calc(message: types.Message, state: FSMContext):
+@with_nav
+async def finish_calc(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     data = await state.get_data()
-    nav: NavigationManager | None = data.get("_nav")
-    if nav and await nav.handle_nav(message, state):
-        return
     currency = message.text.strip().upper()
+    if currency not in {"USD", "EUR"}:
+        await message.answer("Выберите валюту из списка", reply_markup=currency_keyboard())
+        return
     data.update(currency=currency)
 
     calc = CustomsCalculator(config=settings.tariff_config)
