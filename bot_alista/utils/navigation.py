@@ -53,3 +53,15 @@ class NavigationManager:
             )
             return True
         return False
+
+
+def with_nav(handler):
+    async def wrapped(message: types.Message, state: FSMContext, *args, **kwargs):
+        data = await state.get_data()
+        nav: NavigationManager | None = data.get("_nav")
+        if nav and await nav.handle_nav(message, state):
+            return
+        return await handler(message, state, nav=nav, *args, **kwargs)
+
+    return wrapped
+

@@ -3,9 +3,16 @@ import yaml
 from enum import Enum
 from tabulate import tabulate
 from currency_converter_free import CurrencyConverter
+from pydantic import BaseModel, ValidationError
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+try:  # Configure logging based on settings
+    from bot_alista.settings import settings
+
+    level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
+except Exception:  # Fallback if settings unavailable
+    level = logging.INFO
+
+logging.basicConfig(level=level, format='[%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
 # Custom Exceptions
@@ -36,6 +43,17 @@ class VehicleAge(Enum):
 class VehicleOwnerType(Enum):
     INDIVIDUAL = "individual"
     COMPANY = "company"
+
+
+class TariffConfig(BaseModel):
+    base_clearance_fee: float
+    base_util_fee: float
+    base_recycling_fee: float
+    etc_util_coeff_base: float
+    ctp_util_coeff_base: float
+    excise_rates: dict[str, float]
+    recycling_factors: dict
+    age_groups: dict
 
 # Constants for Tariffs
 BASE_VAT = 0.2
@@ -73,9 +91,10 @@ class CustomsCalculator:
                 config = yaml.safe_load(file)
             if "tariffs" not in config:
                 raise KeyError("Configuration missing required 'tariffs' structure.")
+            TariffConfig.model_validate(config["tariffs"])
             logger.info("Configuration loaded.")
             return config
-        except Exception as e:
+        except (ValidationError, Exception) as e:
             logger.error(f"Error loading config: {e}")
             raise
 

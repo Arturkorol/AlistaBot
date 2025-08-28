@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     EMAIL_LOGIN: str
     EMAIL_PASSWORD: str
     EMAIL_TO: str
+    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
     tariff_config: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:
