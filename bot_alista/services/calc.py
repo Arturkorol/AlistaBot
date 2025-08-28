@@ -39,7 +39,6 @@ class VehicleOwnerType(Enum):
 
 # Constants for Tariffs
 BASE_VAT = 0.2
-RECYCLING_FEE_BASE_RATE = 20000
 CUSTOMS_CLEARANCE_TAX_RANGES = [
     (200000, 775),
     (450000, 1550),
@@ -110,10 +109,14 @@ class CustomsCalculator:
             engine_tariffs = overrides.get(self.engine_type.value)
 
             rate_per_cc = engine_tariffs['rate_per_cc']
-            duty_rub = rate_per_cc * self.engine_capacity * self.convert_to_local_currency(1, "EUR")
+            min_duty = engine_tariffs.get('min_duty', 0)
+            duty_eur = max(rate_per_cc * self.engine_capacity, min_duty)
+            duty_rub = self.convert_to_local_currency(duty_eur, "EUR")
 
             clearance_fee = self.config['tariffs']['base_clearance_fee']
-            util_fee = self.config['tariffs']['base_util_fee']
+            util_base = self.config['tariffs']['base_util_fee']
+            util_coeff = self.config['tariffs'].get('etc_util_coeff_base', 1.0)
+            util_fee = util_base * util_coeff
             recycling_fee = self.calculate_recycling_fee()
 
             total_pay = clearance_fee + duty_rub + util_fee + recycling_fee
@@ -183,8 +186,11 @@ class CustomsCalculator:
         factors = self.config['tariffs']['recycling_factors']
         default_factors = factors.get('default', {})
         adjustments = factors.get('adjustments', {}).get(self.vehicle_age.value, {})
-        engine_factor = adjustments.get(self.engine_type.value, default_factors.get(self.engine_type.value, 1.0))
-        fee = RECYCLING_FEE_BASE_RATE * engine_factor
+        engine_factor = adjustments.get(
+            self.engine_type.value, default_factors.get(self.engine_type.value, 1.0)
+        )
+        base_rate = self.config['tariffs']['base_recycling_fee']
+        fee = base_rate * engine_factor
         logger.info(f"Recycling fee: {fee} RUB")
         return fee
 
