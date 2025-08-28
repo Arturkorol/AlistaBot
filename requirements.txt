@@ -1,3 +1,8 @@
+aiogram
+pydantic
+pydantic-settings
+fpdf
+questionary
 currency-converter-free
 PyYAML
 tabulate
