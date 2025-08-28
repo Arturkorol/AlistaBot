@@ -59,8 +59,11 @@ class CustomsCalculator:
     Customs Calculator for vehicle import duties.
     """
 
-    def __init__(self, config_path="config.yaml"):
-        self.config = self._load_config(config_path)
+    def __init__(self, config_path="config.yaml", config: dict | None = None):
+        if config is not None:
+            self.config = config
+        else:
+            self.config = self._load_config(config_path)
         self.converter = CurrencyConverter(source="CBR")
         self.reset_fields()
 
@@ -200,7 +203,7 @@ class CustomsCalculator:
             return rate
         except Exception as e:
             logger.error(f"Currency conversion error: {e}")
-            return None
+            return amount
 
     def print_table(self, mode):
         """Print the calculation results as a table."""

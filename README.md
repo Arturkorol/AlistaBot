@@ -177,3 +177,11 @@ pytest tests
 
 Разработка: [Unrealos.com](https://unrealos.com)  
 Обратная связь: [m@unrealos.com](mailto:m@unrealos.com)  
+## Запуск бота
+
+Установите зависимости и запустите основную точку входа:
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
