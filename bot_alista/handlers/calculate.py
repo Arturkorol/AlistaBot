@@ -146,16 +146,16 @@ async def get_engine(message: types.Message, state: FSMContext, nav: NavigationM
     raw = (message.text or "").strip().lower()
     mapping = {
         "gasoline": "gasoline",
-        "\u26fd \u0431\u0435\u043d\u0437\u0438\u043d": "gasoline",  # ⛽ бензин
+        "\u26fd \u0431\u0435\u043d\u0437\u0438\u043d": "gasoline",  # ? бензин
         "\u0431\u0435\u043d\u0437\u0438\u043d": "gasoline",
         "diesel": "diesel",
-        "\ud83d\udee2\ufe0f \u0434\u0438\u0437\u0435\u043b\u044c": "diesel",  # 🛢️ дизель
+        "\\U0001F6E2\ufe0f \u0434\u0438\u0437\u0435\u043b\u044c": "diesel",  # ??? дизель
         "\u0434\u0438\u0437\u0435\u043b\u044c": "diesel",
         "electric": "electric",
-        "\ud83d\udd0c \u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",  # 🔌 электро
+        "\\U0001F50C \u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",  # ?? электро
         "\u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",
         "hybrid": "hybrid",
-        "\u267b\ufe0f \u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",  # ♻️ гибрид
+        "\u267b\ufe0f \u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",  # ?? гибрид
         "\u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",
     }
     choice = mapping.get(raw)
@@ -224,20 +224,18 @@ async def get_price(message: types.Message, state: FSMContext, nav: NavigationMa
 @router.message(CalcStates.owner)
 @with_nav
 async def get_owner(message: types.Message, state: FSMContext, nav: NavigationManager | None):
-    raw = (message.text or "").strip().lower()
-    mapping = {
-        "individual": "individual",
-        "\ud83d\udc64 \u0444\u0438\u0437\u043b\u0438\u0446\u043e": "individual",
-        "\u0444\u0438\u0437\u043b\u0438\u0446\u043e": "individual",
-        "company": "company",
-        "\ud83c\udfe2 \u044e\u0440\u043b\u0438\u0446\u043e": "company",
-        "\u044e\u0440\u043b\u0438\u0446\u043e": "company",
-    }
-    choice = mapping.get(raw)
-    if not choice:
+    text = (message.text or "").strip().lower()
+    # Accept Russian labels with emojis or plain English codes
+    if "\u0444\u0438\u0437" in text:  # "физ"
+        owner = "individual"
+    elif "\u044e\u0440" in text:  # "юр"
+        owner = "company"
+    elif text in {"individual", "company"}:
+        owner = text
+    else:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=owner_keyboard())
         return
-    await state.update_data(owner=choice)
+    await state.update_data(owner=owner)
     await nav.push(message, state, NavStep(CalcStates.currency, PROMPT_CURRENCY, currency_keyboard()))
 
 
@@ -250,6 +248,10 @@ async def finish_calc(message: types.Message, state: FSMContext, nav: Navigation
         currency = "USD"
     elif "EUR" in raw:
         currency = "EUR"
+    elif "JPY" in raw:
+        currency = "JPY"
+    elif "CNY" in raw:
+        currency = "CNY"
     else:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=currency_keyboard())
         return
@@ -257,7 +259,7 @@ async def finish_calc(message: types.Message, state: FSMContext, nav: Navigation
 
     tariffs = (settings.tariff_config or {}).get("tariffs", {})
     base_cur = str(tariffs.get("currency", "EUR")).upper()
-    wanted = sorted({currency, base_cur, "USD", "EUR"})
+    wanted = sorted({currency, base_cur, "USD", "EUR", "JPY", "CNY"})
     rates = await get_rates(wanted)
     calc = CustomsCalculator(config=settings.tariff_config, rates_snapshot=rates)
     calc.set_vehicle_details(
@@ -326,8 +328,8 @@ async def confirm_older3(message: types.Message, state: FSMContext, nav: Navigat
         ans = "yes"
     elif ans == "\u043d\u0435\u0442":
         ans = "no"
-    valid_yes = {"yes", "da", "да"}
-    valid_no = {"no", "net", "нет"}
+    valid_yes = {"yes", "da", "\u0434\u0430"}
+    valid_no = {"no", "net", "\u043d\u0435\u0442"}
     if ans not in (valid_yes | valid_no):
         await message.answer(ERROR_SELECT_YES_NO, reply_markup=yes_no_keyboard())
         return
@@ -344,12 +346,11 @@ async def confirm_older5(message: types.Message, state: FSMContext, nav: Navigat
         ans = "yes"
     elif ans == "\u043d\u0435\u0442":
         ans = "no"
-    valid_yes = {"yes", "da", "да"}
-    valid_no = {"no", "net", "нет"}
+    valid_yes = {"yes", "da", "\u0434\u0430"}
+    valid_no = {"no", "net", "\u043d\u0435\u0442"}
     if ans not in (valid_yes | valid_no):
         await message.answer(ERROR_SELECT_YES_NO, reply_markup=yes_no_keyboard())
         return
     age_bucket = "5-7" if ans in valid_yes else "3-5"
     await state.update_data(age=age_bucket)
     await nav.push(message, state, NavStep(CalcStates.engine_type, PROMPT_ENGINE_TYPE, engine_keyboard()))
-
