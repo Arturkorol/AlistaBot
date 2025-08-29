@@ -224,15 +224,18 @@ async def get_price(message: types.Message, state: FSMContext, nav: NavigationMa
 @router.message(CalcStates.owner)
 @with_nav
 async def get_owner(message: types.Message, state: FSMContext, nav: NavigationManager | None):
-    text = (message.text or "").strip().lower()
-    # Accept Russian labels with emojis or plain English codes
-    if "\u0444\u0438\u0437" in text:  # "физ"
+    import re
+    raw = (message.text or "").strip().lower()
+    # Strip emojis/punctuation to improve matching
+    norm = re.sub(r"[^a-zа-яё]+", " ", raw, flags=re.IGNORECASE).strip()
+    owner = None
+    if "физ" in norm:
         owner = "individual"
-    elif "\u044e\u0440" in text:  # "юр"
+    elif "юр" in norm:
         owner = "company"
-    elif text in {"individual", "company"}:
-        owner = text
-    else:
+    elif norm in {"individual", "company"}:
+        owner = norm
+    if not owner:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=owner_keyboard())
         return
     await state.update_data(owner=owner)
@@ -242,19 +245,14 @@ async def get_owner(message: types.Message, state: FSMContext, nav: NavigationMa
 @router.message(CalcStates.currency)
 @with_nav
 async def finish_calc(message: types.Message, state: FSMContext, nav: NavigationManager | None):
+    import re
     data = await state.get_data()
-    raw = (message.text or "").strip().upper()
-    if "USD" in raw:
-        currency = "USD"
-    elif "EUR" in raw:
-        currency = "EUR"
-    elif "JPY" in raw:
-        currency = "JPY"
-    elif "CNY" in raw:
-        currency = "CNY"
-    else:
+    raw = (message.text or "").upper()
+    m = re.search(r"USD|EUR|JPY|CNY", raw)
+    if not m:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=currency_keyboard())
         return
+    currency = m.group(0)
     data.update(currency=currency)
 
     tariffs = (settings.tariff_config or {}).get("tariffs", {})
