@@ -116,6 +116,8 @@ async def get_comment(message: types.Message, state: FSMContext):
     if nav and await nav.handle_nav(message, state):
         return
     comment = message.text.strip()
+    if comment.lower() == "\u043f\u0440\u043e\u043f\u0443\u0441\u0442\u0438\u0442\u044c":
+        comment = ""
     if comment.lower() in {"пропустить", "skip"}:
         comment = ""
     await state.update_data(comment=comment)
