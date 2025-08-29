@@ -1,0 +1,196 @@
+tariffs:
+  # Валюта минимальных ставок пошлины (см³) и ценовых порогов
+  currency: EUR
+
+  # НДС: используй в расчёте VAT = vat.rate * vat_base
+  # Обычно база НДС: (customs_value + duty + excise), без утильсбора и без сбора за оформление.
+  vat:
+    rate: 0.20
+    include_clearance_fee_in_vat_base: false
+    include_util_fee_in_vat_base: false
+
+  # Сбор за таможенное оформление (руб.)
+  clearance_fee:
+    base_rub: 3100
+
+  # Акциз (руб./л.с.) по ступеням мощности
+  excise:
+    unit: rub_per_hp
+    brackets:
+      - { hp_max: 90,   rate: 0 }
+      - { hp_max: 150,  rate: 61 }
+      - { hp_max: 200,  rate: 583 }
+      - { hp_max: 300,  rate: 955 }
+      - { hp_max: 400,  rate: 1628 }
+      - { hp_max: 500,  rate: 1685 }
+      - { hp_max: null, rate: 1740 }
+
+  # Утильсбор: базовая ставка и коэффициенты
+  util_fee:
+    base_rub: 20000
+    owner_coeff:
+      individual: 1.0
+      company: 1.2
+    engine_coeff:        # тип двигателя
+      gasoline: 1.0
+      diesel: 1.0
+      hybrid: 1.0
+      electric: 0.3
+    age_adjustments:     # при отсутствии — берётся 1.0
+      "5-7":
+        gasoline: 0.26
+        diesel: 0.26
+        hybrid: 0.26
+        electric: 0.26
+      "over_7":
+        gasoline: 0.26
+        diesel: 0.26
+        hybrid: 0.26
+        electric: 0.26
+
+  # Пошлина (duty) по возрастным группам
+  age_groups:
+    # НОВЫЕ (условно: моложе 3 лет) — смешанный режим по цене/см³
+    new:
+      gasoline:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      diesel:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      hybrid:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      electric:
+        flat: { rate_per_cc: 0, min_duty: 0 }
+
+    # 1–3 ГОДА — тот же режим, что и «new»
+    "1-3":
+      gasoline:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      diesel:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      hybrid:
+        price_brackets:
+          - { price_max: 8500,   percent: 54, min_rate_per_cc: 2.5 }
+          - { price_max: 16700,  percent: 48, min_rate_per_cc: 3.5 }
+          - { price_max: 42300,  percent: 48, min_rate_per_cc: 5.5 }
+          - { price_max: 84500,  percent: 48, min_rate_per_cc: 7.5 }
+          - { price_max: 169000, percent: 48, min_rate_per_cc: 15.0 }
+          - { price_max: null,   percent: 48, min_rate_per_cc: 20.0 }
+      electric:
+        flat: { rate_per_cc: 0, min_duty: 0 }
+
+    # 3–5 ЛЕТ — €/см³ по объёму
+    "3-5":
+      gasoline:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 1.5 }
+          - { cc_max: 1500,  rate_per_cc: 1.7 }
+          - { cc_max: 1800,  rate_per_cc: 2.5 }
+          - { cc_max: 2300,  rate_per_cc: 2.7 }
+          - { cc_max: 3000,  rate_per_cc: 3.0 }
+          - { cc_max: null,  rate_per_cc: 3.6 }
+      diesel:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 1.5 }
+          - { cc_max: 1500,  rate_per_cc: 1.7 }
+          - { cc_max: 1800,  rate_per_cc: 2.5 }
+          - { cc_max: 2300,  rate_per_cc: 2.7 }
+          - { cc_max: 3000,  rate_per_cc: 3.0 }
+          - { cc_max: null,  rate_per_cc: 3.6 }
+      hybrid:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 1.5 }
+          - { cc_max: 1500,  rate_per_cc: 1.7 }
+          - { cc_max: 1800,  rate_per_cc: 2.5 }
+          - { cc_max: 2300,  rate_per_cc: 2.7 }
+          - { cc_max: 3000,  rate_per_cc: 3.0 }
+          - { cc_max: null,  rate_per_cc: 3.6 }
+      electric:
+        flat: { rate_per_cc: 0, min_duty: 0 }
+
+    # 5–7 ЛЕТ — €/см³ по объёму (как у >7)
+    "5-7":
+      gasoline:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      diesel:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      hybrid:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      electric:
+        flat: { rate_per_cc: 0, min_duty: 0 }
+
+    # СТАРШЕ 7 ЛЕТ — €/см³ по объёму
+    over_7:
+      gasoline:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      diesel:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      hybrid:
+        cc_brackets:
+          - { cc_max: 1000,  rate_per_cc: 3.0 }
+          - { cc_max: 1500,  rate_per_cc: 3.2 }
+          - { cc_max: 1800,  rate_per_cc: 3.5 }
+          - { cc_max: 2300,  rate_per_cc: 4.8 }
+          - { cc_max: 3000,  rate_per_cc: 5.0 }
+          - { cc_max: null,  rate_per_cc: 5.7 }
+      electric:
+        flat: { rate_per_cc: 0, min_duty: 0 }
