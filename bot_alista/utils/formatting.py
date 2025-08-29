@@ -7,17 +7,16 @@ Number = Union[float, Decimal]
 
 
 def _fmt_money_rub(v: Number) -> str:
-    """Format RUB with thin spaces and 2 decimals."""
-    s = f"{float(v):,.2f}"
-    return s.replace(",", " ").replace(".00", "") + " ₽"
-
-
-def _fmt_money_generic(v: Number, suffix: str) -> str:
+    """Format number with space separators and append RUB sign."""
     s = f"{float(v):,.2f}"
     s = s.replace(",", " ")
-    if suffix:
-        return f"{s} {suffix}"
-    return s
+    return f"{s} \u20bd"  # ₽
+
+
+def _fmt_money_with_code(v: Number, code: str) -> str:
+    s = f"{float(v):,.2f}"
+    s = s.replace(",", " ")
+    return f"{s} {code}"
 
 
 def format_result_message(
@@ -32,20 +31,7 @@ def format_result_message(
     avg_vehicle_cost_rub: Number | None = None,
     actual_costs_rub: Number | None = None,
 ) -> str:
-    """
-    Build a user-friendly Telegram message with emojis and clear sections.
-
-    Args:
-        currency_code: "EUR"|"USD"|"JPY"|"CNY"
-        price_amount: original price amount in the selected currency
-        rates: mapping like {"EUR": 92.86, "USD": 79.87, ...} (RUB per 1 unit)
-        meta: extra info (e.g., person/usage, engine, age bucket info, notes)
-        core: result from calc_breakdown_with_mode(...)
-        util_fee_rub: utilization fee in RUB (ignored if ``core`` contains it)
-
-    Returns:
-        A formatted Telegram message string.
-    """
+    """Build a concise, friendly Russian message with emojis."""
     br = core["breakdown"]
     total_no_util = br["total_rub"]
     util_fee_rub = br.get("util_rub", util_fee_rub)
@@ -54,52 +40,32 @@ def format_result_message(
     usd_rate = rates.get("USD")
     eur_rate = rates.get("EUR")
 
-    duty_rate_info = meta.get("duty_rate_info", "")
-    age_info = meta.get("age_info", "")
-    person_usage = meta.get("person_usage", "")
-    extra_notes = meta.get("extra_notes", [])
-
     lines: list[str] = []
-    lines.append("📦 Расчёт таможенных платежей:\n")
+    lines.append("\ud83d\udcca \u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u044b \u0440\u0430\u0441\u0447\u0451\u0442\u0430:\n")
 
-    lines.append(f"💵 Стоимость авто: {_fmt_money_generic(price_amount, currency_code)}")
+    lines.append(
+        f"\ud83d\udcb0 \u0426\u0435\u043d\u0430 \u0430\u0432\u0442\u043e: {_fmt_money_with_code(price_amount, currency_code)}"
+    )
     if usd_rate is not None:
-        lines.append(f"💱 Курс USD: {_fmt_money_generic(usd_rate, '₽')}")
+        lines.append(f"\ud83d\udcc8 \u041a\u0443\u0440\u0441 USD: {_fmt_money_rub(usd_rate)}")
     if eur_rate is not None:
-        lines.append(f"💱 Курс EUR: {_fmt_money_generic(eur_rate, '₽')}")
+        lines.append(f"\ud83d\udcc8 \u041a\u0443\u0440\u0441 EUR: {_fmt_money_rub(eur_rate)}")
     if country_origin:
-        lines.append(f"🌍 Страна происхождения: {country_origin}")
-    lines.append(f"💰 Таможенная стоимость: {_fmt_money_rub(br['customs_value_rub'])}\n")
+        lines.append(f"\ud83c\udf10 \u0421\u0442\u0440\u0430\u043d\u0430 \u043f\u0440\u043e\u0438\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f: {country_origin}")
 
-    lines.append(f"🛃 Пошлина: {_fmt_money_rub(br['duty_rub'])}")
+    lines.append(
+        f"\ud83d\udcb3 \u0422\u0430\u043c\u043e\u0436\u0435\u043d\u043d\u0430\u044f \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c: {_fmt_money_rub(br['customs_value_rub'])}\n"
+    )
+
+    lines.append(f"\ud83d\udcc4 \u041f\u043e\u0448\u043b\u0438\u043d\u0430: {_fmt_money_rub(br.get('duty_rub', 0.0))}")
     if "clearance_fee_rub" in br:
-        lines.append(
-            f"📄 Сбор за таможенное оформление: {_fmt_money_rub(br['clearance_fee_rub'])}"
-        )
-    lines.append(f"🚫 НДС: {_fmt_money_rub(br.get('vat_rub', 0.0))}")
-    lines.append(f"🚫 Акциз: {_fmt_money_rub(br.get('excise_rub', 0.0))}\n")
+        lines.append(f"\ud83d\uddc3\ufe0f \u041e\u0444\u043e\u0440\u043c\u043b\u0435\u043d\u0438\u0435: {_fmt_money_rub(br.get('clearance_fee_rub', 0.0))}")
+    lines.append(f"\ud83d\udcc3 \u041d\u0414\u0421: {_fmt_money_rub(br.get('vat_rub', 0.0))}")
+    lines.append(f"\ud83d\udcc3 \u0410\u043a\u0446\u0438\u0437: {_fmt_money_rub(br.get('excise_rub', 0.0))}\n")
 
-    lines.append(f"📌 ИТОГ без утильсбора: {_fmt_money_rub(total_no_util)}\n")
-    lines.append(f"♻️ Утилизационный сбор: {_fmt_money_rub(util_fee_rub)}")
-    lines.append(f"✅ ИТОГ с утильсбором: **{_fmt_money_rub(total_with_util)}**\n")
-
-    lines.append("──────────────")
-    lines.append("ℹ️ Примечания:")
-    if person_usage:
-        lines.append(f"• {person_usage}")
-    if age_info:
-        lines.append(f"• {age_info}")
-    if duty_rate_info:
-        lines.append(f"• Ставка пошлины: {duty_rate_info}")
-    if avg_vehicle_cost_rub is not None:
-        lines.append(
-            f"• Средняя стоимость (РС): {_fmt_money_rub(avg_vehicle_cost_rub)}"
-        )
-    if actual_costs_rub is not None:
-        lines.append(
-            f"• Фактические затраты (СЗ): {_fmt_money_rub(actual_costs_rub)}"
-        )
-    for n in extra_notes:
-        lines.append(f"• {n}")
+    lines.append(f"\u2796 \u0418\u0442\u043e\u0433\u043e (\u0431\u0435\u0437 \u0443\u0442\u0438\u043b\u044c\u0441\u0431\u043e\u0440\u0430): {_fmt_money_rub(total_no_util)}")
+    lines.append(f"\u267b\ufe0f \u0423\u0442\u0438\u043b\u044c\u0441\u0431\u043e\u0440: {_fmt_money_rub(util_fee_rub)}")
+    lines.append(f"\u2705 \u0418\u0442\u043e\u0433\u043e \u043a \u043e\u043f\u043b\u0430\u0442\u0435: {_fmt_money_rub(total_with_util)}\n")
 
     return "\n".join(lines)
+
