@@ -30,7 +30,8 @@ class NavigationManager:
     def _strip_step_prefix(self, text: str) -> str:
         """Remove leading "Шаг X/Y:" or "Step X/Y:" from prompts to avoid duplication."""
         try:
-            return re.sub(r"^\s*(Шаг|Step)\s+\d+/\d+:\s*", "", text).strip()
+            # Match either Russian "Шаг" or English "Step"
+            return re.sub(r"^\s*(?:\u0428\u0430\u0433|Step)\s+\d+/\d+:\s*", "", text).strip()
         except Exception:
             return text
 
@@ -45,7 +46,7 @@ class NavigationManager:
         cur = min(len(self.stack), self.total_steps)
         prompt = self._strip_step_prefix(step.prompt)
         await message.answer(
-            f"Шаг {cur}/{self.total_steps}: {prompt}",
+            f"\u0428\u0430\u0433 {cur}/{self.total_steps}: {prompt}",
             reply_markup=step.kb,
         )
 
@@ -61,7 +62,7 @@ class NavigationManager:
             cur = min(len(self.stack), self.total_steps)
             prompt = self._strip_step_prefix(prev.prompt)
             await message.answer(
-                f"Шаг {cur}/{self.total_steps}: {prompt}",
+                f"\u0428\u0430\u0433 {cur}/{self.total_steps}: {prompt}",
                 reply_markup=prev.kb,
             )
             return True
@@ -78,4 +79,3 @@ def with_nav(handler):
         return await handler(message, state, nav=nav, *args, **kwargs)
 
     return wrapped
-
