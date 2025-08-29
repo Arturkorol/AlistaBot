@@ -143,8 +143,23 @@ async def get_age(message: types.Message, state: FSMContext, nav: NavigationMana
 @router.message(CalcStates.engine_type)
 @with_nav
 async def get_engine(message: types.Message, state: FSMContext, nav: NavigationManager | None):
-    choice = message.text.strip()
-    if choice not in {"gasoline", "diesel", "electric", "hybrid"}:
+    raw = (message.text or "").strip().lower()
+    mapping = {
+        "gasoline": "gasoline",
+        "\u26fd \u0431\u0435\u043d\u0437\u0438\u043d": "gasoline",  # ⛽ бензин
+        "\u0431\u0435\u043d\u0437\u0438\u043d": "gasoline",
+        "diesel": "diesel",
+        "\ud83d\udee2\ufe0f \u0434\u0438\u0437\u0435\u043b\u044c": "diesel",  # 🛢️ дизель
+        "\u0434\u0438\u0437\u0435\u043b\u044c": "diesel",
+        "electric": "electric",
+        "\ud83d\udd0c \u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",  # 🔌 электро
+        "\u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",
+        "hybrid": "hybrid",
+        "\u267b\ufe0f \u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",  # ♻️ гибрид
+        "\u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",
+    }
+    choice = mapping.get(raw)
+    if not choice:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=engine_keyboard())
         return
     await state.update_data(engine=choice)
@@ -166,8 +181,12 @@ async def get_capacity(message: types.Message, state: FSMContext, nav: Navigatio
 @router.message(CalcStates.power_unit)
 @with_nav
 async def get_power_unit(message: types.Message, state: FSMContext, nav: NavigationManager | None):
-    choice = message.text.strip().lower()
-    if choice not in {"hp", "kw"}:
+    raw = (message.text or "").strip().lower()
+    if "\u043b.\u0441" in raw or raw == "hp":  # л.с. or HP
+        choice = "hp"
+    elif "\u043a\u0432\u0442" in raw or raw == "kw":  # кВт or kW
+        choice = "kw"
+    else:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=power_unit_keyboard())
         return
     await state.update_data(power_unit=choice)
@@ -205,8 +224,17 @@ async def get_price(message: types.Message, state: FSMContext, nav: NavigationMa
 @router.message(CalcStates.owner)
 @with_nav
 async def get_owner(message: types.Message, state: FSMContext, nav: NavigationManager | None):
-    choice = message.text.strip()
-    if choice not in {"individual", "company"}:
+    raw = (message.text or "").strip().lower()
+    mapping = {
+        "individual": "individual",
+        "\ud83d\udc64 \u0444\u0438\u0437\u043b\u0438\u0446\u043e": "individual",
+        "\u0444\u0438\u0437\u043b\u0438\u0446\u043e": "individual",
+        "company": "company",
+        "\ud83c\udfe2 \u044e\u0440\u043b\u0438\u0446\u043e": "company",
+        "\u044e\u0440\u043b\u0438\u0446\u043e": "company",
+    }
+    choice = mapping.get(raw)
+    if not choice:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=owner_keyboard())
         return
     await state.update_data(owner=choice)
@@ -217,8 +245,12 @@ async def get_owner(message: types.Message, state: FSMContext, nav: NavigationMa
 @with_nav
 async def finish_calc(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     data = await state.get_data()
-    currency = message.text.strip().upper()
-    if currency not in {"USD", "EUR"}:
+    raw = (message.text or "").strip().upper()
+    if "USD" in raw:
+        currency = "USD"
+    elif "EUR" in raw:
+        currency = "EUR"
+    else:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=currency_keyboard())
         return
     data.update(currency=currency)
@@ -241,7 +273,7 @@ async def finish_calc(message: types.Message, state: FSMContext, nav: Navigation
     try:
         results = calc.calculate()
     except Exception as e:
-        await message.answer(f"Calculation error: {e}")
+        await message.answer(f"\u26a0\ufe0f \u041e\u0448\u0438\u0431\u043a\u0430 \u0440\u0430\u0441\u0447\u0451\u0442\u0430: {e}")
         await reset_to_menu(message, state)
         return
     customs_value = calc.convert_to_local_currency(data["price"], currency)
@@ -290,8 +322,12 @@ async def finish_calc(message: types.Message, state: FSMContext, nav: Navigation
 @with_nav
 async def confirm_older3(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     ans = message.text.strip().lower()
-    valid_yes = {"yes", "да", "da"}
-    valid_no = {"no", "нет", "net"}
+    if ans == "\u0434\u0430":
+        ans = "yes"
+    elif ans == "\u043d\u0435\u0442":
+        ans = "no"
+    valid_yes = {"yes", "da", "да"}
+    valid_no = {"no", "net", "нет"}
     if ans not in (valid_yes | valid_no):
         await message.answer(ERROR_SELECT_YES_NO, reply_markup=yes_no_keyboard())
         return
@@ -304,8 +340,12 @@ async def confirm_older3(message: types.Message, state: FSMContext, nav: Navigat
 @with_nav
 async def confirm_older5(message: types.Message, state: FSMContext, nav: NavigationManager | None):
     ans = message.text.strip().lower()
-    valid_yes = {"yes", "да", "da"}
-    valid_no = {"no", "нет", "net"}
+    if ans == "\u0434\u0430":
+        ans = "yes"
+    elif ans == "\u043d\u0435\u0442":
+        ans = "no"
+    valid_yes = {"yes", "da", "да"}
+    valid_no = {"no", "net", "нет"}
     if ans not in (valid_yes | valid_no):
         await message.answer(ERROR_SELECT_YES_NO, reply_markup=yes_no_keyboard())
         return
