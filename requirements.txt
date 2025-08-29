@@ -1,0 +1,9 @@
+aiogram>=3.0.0
+python-dotenv
+requests
+fpdf2
+tabulate
+currency_converter_free
+pyyaml
+pydantic
+aiohttp

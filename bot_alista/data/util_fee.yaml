@@ -1,0 +1,28 @@
+base_rates_rub:
+  passenger: 20000
+  commercial: 150000
+coefficients_personal:
+  "<=3y":
+    ev: 0.17
+    hybrid: 0.17
+    cc<=1000: 0.17
+    cc1000_2000: 0.17
+    cc2000_3000: 0.17
+    cc3000_3500: 107.67
+    cc>3500: 137.11
+  ">3y":
+    ev: 0.26
+    hybrid: 0.26
+    cc<=1000: 0.26
+    cc1000_2000: 0.26
+    cc2000_3000: 0.26
+    cc3000_3500: 164.84
+    cc>3500: 180.24
+coefficients_commercial:
+  ev_or_hybrid: 33.37
+  default: 10.0
+date_rules:
+  "2025-05-01":
+    formula: ed_plus_half_diff
+    half_diff_factor: 0.5
+    not_list_multiplier: 3.0
