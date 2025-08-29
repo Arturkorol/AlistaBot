@@ -21,10 +21,15 @@ async def main():
     dp.include_router(request.router)
     dp.include_router(faq.router)
 
+    # Ensure polling works even if a webhook was previously configured
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except Exception:
+        # Ignore if no webhook configured or network hiccup; polling should still proceed
+        pass
+
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
