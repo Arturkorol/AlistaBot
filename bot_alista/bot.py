@@ -2,6 +2,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from bot_alista.settings import settings
 from bot_alista.handlers import menu, calculate, cancel, request, faq
+from bot_alista.handlers import misc
 from bot_alista.services.rates import close_rates_session
 
 
@@ -20,6 +21,8 @@ async def main():
     dp.include_router(cancel.router)
     dp.include_router(request.router)
     dp.include_router(faq.router)
+    # Catch-all fallback last
+    dp.include_router(misc.router)
 
     # Ensure polling works even if a webhook was previously configured
     try:
@@ -33,5 +36,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
