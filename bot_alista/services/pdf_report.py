@@ -1,7 +1,15 @@
-"""PDF report generation utilities (constants-driven)."""
+"""PDF report generation utilities (constants-driven).
+
+Fix: add cross-platform font resolution to avoid crashes on Windows/macOS
+when Linux font paths are unavailable. Falls back to core fonts if no
+Unicode TTF is found (content may lose Cyrillic in that case, but avoids
+crashing the request flow).
+"""
 
 from fpdf import FPDF
 import unicodedata
+import os
+from typing import Tuple, Optional
 from bot_alista.constants import (
     PDF_REQUEST_TITLE,
     PDF_FIELD_NAME,
@@ -29,9 +37,45 @@ from bot_alista.constants import (
 )
 
 
-# Paths to system fonts that support Cyrillic characters.
-FONT_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+def _first_existing(paths: list[str]) -> Optional[str]:
+    for p in paths:
+        if not p:
+            continue
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _resolve_font_paths() -> Tuple[Optional[str], Optional[str]]:
+    """Return (regular, bold) font paths if found, else (None, None).
+
+    Order of preference:
+    - Environment overrides: PDF_FONT_REGULAR, PDF_FONT_BOLD
+    - Linux DejaVu
+    - Windows Arial
+    - macOS Arial
+    """
+    env_reg = os.getenv("PDF_FONT_REGULAR")
+    env_bold = os.getenv("PDF_FONT_BOLD")
+
+    linux_reg = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    linux_bold = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+    win_reg = r"C:\\Windows\\Fonts\\arial.ttf"
+    win_bold = r"C:\\Windows\\Fonts\\arialbd.ttf"
+
+    mac_reg_candidates = [
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+    ]
+    mac_bold_candidates = [
+        "/Library/Fonts/Arial Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    ]
+
+    reg = _first_existing([env_reg, linux_reg, win_reg, *mac_reg_candidates])
+    bold = _first_existing([env_bold, linux_bold, win_bold, *mac_bold_candidates])
+    return reg, bold
 
 
 class PDFReport(FPDF):
@@ -39,17 +83,30 @@ class PDFReport(FPDF):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.add_font("DejaVu", "", FONT_REGULAR, uni=True)
-        self.add_font("DejaVu", "B", FONT_BOLD, uni=True)
+        reg, bold = _resolve_font_paths()
+        self._has_unicode_fonts = bool(reg and bold)
+        if self._has_unicode_fonts:
+            # Register found TTF fonts with Unicode support
+            self.add_font("DejaVu", "", reg, uni=True)
+            self.add_font("DejaVu", "B", bold, uni=True)
+        else:
+            # Fall back to core fonts; no Unicode, but do not crash
+            pass
 
     def header(self):
-        self.set_font("DejaVu", "B", 14)
+        if getattr(self, "_has_unicode_fonts", False):
+            self.set_font("DejaVu", "B", 14)
+        else:
+            self.set_font("Helvetica", "B", 14)
         self.cell(0, 10, _sanitize(getattr(self, "title", ""), strip_currency=False), ln=True, align="C")
         self.ln(5)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("DejaVu", "", 8)
+        if getattr(self, "_has_unicode_fonts", False):
+            self.set_font("DejaVu", "", 8)
+        else:
+            self.set_font("Helvetica", "", 8)
         self.cell(0, 10, _sanitize(PDF_PAGE_LABEL.format(page=self.page_no()), strip_currency=False), align="C")
 
     # --- Sanitized text helpers -------------------------------------------------
@@ -92,7 +149,8 @@ def _sanitize(text: str, *, strip_currency: bool = True) -> str:
 def generate_request_pdf(data: dict, filename: str):
     """Generate PDF for a custom request form using constants templates."""
     pdf = PDFReport()
-    pdf.title = PDF_REQUEST_TITLE
+    # Ensure document info title does not contain non-latin1 to avoid encoding errors
+    pdf.title = _sanitize(PDF_REQUEST_TITLE, strip_currency=False)
     pdf.add_page()
 
     pdf.set_font("DejaVu", "", 12)
@@ -109,7 +167,8 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     """Generate PDF for calculation results using constants templates."""
     pdf = PDFReport()
     pdf.set_compression(False)
-    pdf.title = PDF_CALC_TITLE
+    # Ensure document info title does not contain non-latin1 to avoid encoding errors
+    pdf.title = _sanitize(PDF_CALC_TITLE, strip_currency=False)
     pdf.add_page()
 
     pdf.set_font("DejaVu", "B", 12)
@@ -162,4 +221,3 @@ def generate_calculation_pdf(result: dict, user_info: dict, filename: str):
     add_row(PDF_LABEL_TOTAL_RUB, f"{total_rub}")
 
     pdf.output(filename)
-
