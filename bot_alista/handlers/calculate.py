@@ -162,6 +162,11 @@ async def get_engine(message: types.Message, state: FSMContext, nav: NavigationM
         "\u267b\ufe0f \u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",  # ?? гибрид
         "\u0433\u0438\u0431\u0440\u0438\u0434": "hybrid",
     }
+     mapping.update({
+        "\U0001F6E2\ufe0f \u0434\u0438\u0437\u0435\u043b\u044c": "diesel",
+        "\U0001F50C \u044d\u043b\u0435\u043a\u0442\u0440\u043e": "electric",
+    })
+
     choice = mapping.get(raw)
     if not choice:
         await message.answer(ERROR_SELECT_FROM_KEYBOARD, reply_markup=engine_keyboard())
@@ -402,3 +407,4 @@ async def confirm_older5(message: types.Message, state: FSMContext, nav: Navigat
     age_bucket = "5-7" if ans in valid_yes else "3-5"
     await state.update_data(age=age_bucket)
     await nav.push(message, state, NavStep(CalcStates.engine_type, PROMPT_ENGINE_TYPE, engine_keyboard()))
+
